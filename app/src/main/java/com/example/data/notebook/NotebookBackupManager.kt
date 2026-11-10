@@ -55,10 +55,21 @@ class NotebookBackupManager(
         private const val PREFS_NAME = "notebook_backup_folders_prefs"
         private const val KEY_FOLDERS_JSON = "registered_backup_folders_json"
 
-        fun formatBackupTimestamp(timestamp: Long): String {
-            if (timestamp <= 0L) return "Noch nicht gesichert"
+        fun formatBackupTimestamp(timestamp: Long, appLanguage: String = "de"): String {
+            if (timestamp <= 0L) {
+                return when (appLanguage.lowercase().trim()) {
+                    "en" -> "Not backed up yet"
+                    "ar" -> "لم يتم النسخ الاحتياطي بعد"
+                    else -> "Noch nicht gesichert"
+                }
+            }
             val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN)
-            return "Zuletzt gesichert: ${sdf.format(Date(timestamp))}"
+            val dateStr = sdf.format(Date(timestamp))
+            return when (appLanguage.lowercase().trim()) {
+                "en" -> "Last backed up: $dateStr"
+                "ar" -> "آخر نسخ احتياطي: $dateStr"
+                else -> "Zuletzt gesichert: $dateStr"
+            }
         }
 
         fun shortenPathMiddle(path: String, maxLength: Int = 30): String {

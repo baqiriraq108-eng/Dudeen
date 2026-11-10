@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.AiModelInfo
 import com.example.data.ModelProvider
+import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.AppStrings
 import com.example.ui.theme.AppThemePackage
 import com.example.ui.theme.GeoBorder
@@ -203,7 +204,7 @@ fun ApiKeyDialog(
                     }
                     Column {
                         Text(
-                            text = "AI-Einstellungen",
+                            text = strings.settingsTitle,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = GeoOnSurface,
@@ -211,7 +212,7 @@ fun ApiKeyDialog(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "KI-Modelle & API-Schlüssel konfigurieren",
+                            text = strings.aiSettingsSubtitle,
                             fontSize = 10.sp,
                             color = GeoOnSurfaceVariant
                         )
@@ -511,7 +512,7 @@ fun ApiKeyDialog(
                                             label = {
                                                 Text(
                                                     when (selectedProvider) {
-                                                        ModelProvider.GEMINI -> "Nur Flash"
+                                                        ModelProvider.GEMINI -> strings.filterFlashOnly
                                                         ModelProvider.OPENROUTER -> strings.filterFreeOnly
                                                     },
                                                     fontSize = 10.sp
@@ -855,7 +856,7 @@ fun ApiKeyDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Verbleibende Nutzung / Usage:",
+                                text = strings.remainingUsageLabel,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = GeoOnSurface
@@ -866,6 +867,114 @@ fun ApiKeyDialog(
                                 fontWeight = FontWeight.SemiBold,
                                 color = GeoPrimary
                             )
+                        }
+                    }
+
+                    // ==============================================================
+                    // 6. Application Language & Translation Language Selection
+                    // ==============================================================
+                    if (onAppLanguageSelected != null || onLanguageChange != null || onTranslationLanguageSelected != null) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = GeoSurfaceVariant),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, GeoBorder)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = strings.languageSectionTitle,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GeoOnSurface
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    AppLanguage.entries.forEach { lang ->
+                                        val isLangSelected = appLanguage.equals(lang.code, ignoreCase = true)
+                                        OutlinedButton(
+                                            onClick = {
+                                                onAppLanguageSelected?.invoke(lang.code)
+                                                onLanguageChange?.invoke(lang.code)
+                                            },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(34.dp)
+                                                .testTag("app_lang_${lang.code}_button"),
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = BorderStroke(
+                                                width = if (isLangSelected) 1.5.dp else 1.dp,
+                                                color = if (isLangSelected) GeoPrimary else GeoBorder
+                                            ),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                containerColor = if (isLangSelected) GeoPrimaryContainer.copy(alpha = 0.5f) else GeoSurface,
+                                                contentColor = if (isLangSelected) GeoPrimary else GeoOnSurface
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = lang.nativeLabel,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isLangSelected) FontWeight.Bold else FontWeight.Normal,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (onTranslationLanguageSelected != null) {
+                                    Text(
+                                        text = strings.translationLanguageSectionTitle,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GeoOnSurfaceVariant
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        listOf(
+                                            "en" to strings.translationEnglishLabel,
+                                            "ar" to strings.translationArabicLabel
+                                        ).forEach { (code, label) ->
+                                            val isTransSelected = translationLanguage.equals(code, ignoreCase = true)
+                                            OutlinedButton(
+                                                onClick = { onTranslationLanguageSelected(code) },
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(32.dp)
+                                                    .testTag("trans_lang_${code}_button"),
+                                                shape = RoundedCornerShape(8.dp),
+                                                border = BorderStroke(
+                                                    width = if (isTransSelected) 1.5.dp else 1.dp,
+                                                    color = if (isTransSelected) GeoPrimary else GeoBorder
+                                                ),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    containerColor = if (isTransSelected) GeoPrimaryContainer.copy(alpha = 0.5f) else GeoSurface,
+                                                    contentColor = if (isTransSelected) GeoPrimary else GeoOnSurface
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = label,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (isTransSelected) FontWeight.Bold else FontWeight.Normal,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

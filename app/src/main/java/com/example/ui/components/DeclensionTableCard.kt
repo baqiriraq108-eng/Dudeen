@@ -128,19 +128,25 @@ fun SentenceResultView(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = result.word,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GeoOnSurface,
-                        lineHeight = 26.sp
-                    ),
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .testTag("sentence_text"),
-                    softWrap = true
-                )
+                        .horizontalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = result.word,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GeoOnSurface,
+                            lineHeight = 26.sp
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.testTag("sentence_text")
+                    )
+                }
 
                 Spacer(modifier = Modifier.width(8.dp))
 
@@ -365,18 +371,24 @@ fun AdjektivResultView(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = result.word,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GeoOnSurface
-                    ),
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .testTag("adjektiv_base_text"),
-                    softWrap = true
-                )
+                        .horizontalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = result.word,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GeoOnSurface
+                        ),
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.testTag("adjektiv_base_text")
+                    )
+                }
 
                 Spacer(modifier = Modifier.width(8.dp))
 
@@ -413,8 +425,8 @@ fun AdjektivResultView(
             // 2. Below Adjective: Komp.: ... · Sup.: ... (Inflection: horizontally scrollable, no wrapping)
             Spacer(modifier = Modifier.height(8.dp))
             val valueColor = GeoOnSurface
-            val compSupAnnotated = remember(result.komparativ, result.superlativ, isDark, valueColor) {
-                val labelColor = if (isDark) Color(0xFF80CBC4) else Color(0xFF00695C)
+            val labelColor = if (isDark) Color(0xFF80CBC4) else Color(0xFF00695C)
+            val compSupAnnotated = remember(result.komparativ, result.superlativ, isDark, valueColor, labelColor) {
                 buildAnnotatedString {
                     withStyle(SpanStyle(color = labelColor, fontWeight = FontWeight.Bold, fontSize = 13.5.sp)) {
                         append("Komp.: ")
@@ -431,18 +443,92 @@ fun AdjektivResultView(
                     }
                 }
             }
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                contentAlignment = Alignment.CenterStart
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = compSupAnnotated,
+                    text = "Komp.: ",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                    color = labelColor,
                     maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.testTag("adjektiv_komp_sup_text")
+                    softWrap = false
                 )
+                Text(
+                    text = result.komparativ.ifBlank { "–" },
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = valueColor,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                if (result.komparativ.isNotBlank() && result.komparativ != "–") {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    val kompSpeakerId = "adjektiv_komp_${result.word.hashCode()}"
+                    val isPlayingKomp = currentlySpokenId != null && currentlySpokenId == kompSpeakerId
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(if (isPlayingKomp) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                            .clickable { onSpeak(result.komparativ, kompSpeakerId) }
+                            .testTag("pronounce_adjektiv_komp"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isPlayingKomp) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Komparativ anhören",
+                            tint = if (isPlayingKomp) Color(0xFFD32F2F) else Color(0xFF757575),
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = "   ·   ",
+                    color = GeoOnSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Text(
+                    text = "Sup.: ",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                    color = labelColor,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                Text(
+                    text = result.superlativ.ifBlank { "–" },
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = valueColor,
+                    maxLines = 1,
+                    softWrap = false
+                )
+                if (result.superlativ.isNotBlank() && result.superlativ != "–") {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    val supSpeakerId = "adjektiv_sup_${result.word.hashCode()}"
+                    val isPlayingSup = currentlySpokenId != null && currentlySpokenId == supSpeakerId
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(if (isPlayingSup) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                            .clickable { onSpeak(result.superlativ, supSpeakerId) }
+                            .testTag("pronounce_adjektiv_sup"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isPlayingSup) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Superlativ anhören",
+                            tint = if (isPlayingSup) Color(0xFFD32F2F) else Color(0xFF757575),
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
             }
 
             // 3. Below Komp./Sup.: Pronunciation (IPA) - horizontally scrolling, no wrapping, speaker icon
@@ -1023,20 +1109,47 @@ fun NomenListResultView(
                     color = if (isDark) Color(0xFF383838) else Color(0xFFE8E8E8)
                 )
 
-                // Upper examples: wrap naturally onto multiple lines
+                // Upper examples: horizontally scrollable without text wrapping, with audio pronunciation button
                 layoutData.upperExamples.forEachIndexed { index, annotated ->
                     if (index > 0) {
                         Spacer(modifier = Modifier.height(4.dp))
                     }
-                    Text(
-                        text = annotated,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                        softWrap = true
-                    )
+                    val exSentence = examples.getOrNull(index)?.sentence ?: annotated.text
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = annotated,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            ),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        val exSpeakerId = "nomen_list_ex_${result.word.hashCode()}_$index"
+                        val isPlayingEx = currentlySpokenId != null && currentlySpokenId == exSpeakerId
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(if (isPlayingEx) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                .clickable { onSpeak(exSentence, exSpeakerId) }
+                                .testTag("pronounce_nomen_ex_$index"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isPlayingEx) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                contentDescription = null,
+                                tint = if (isPlayingEx) Color(0xFFD32F2F) else Color(0xFF757575),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(6.dp))
             } else {
@@ -1245,15 +1358,21 @@ fun DeclensionResultView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState()),
                         contentAlignment = Alignment.CenterStart
                     ) {
-                        AutoSizingWordText(
+                        Text(
                             text = fullWordAnnotated,
-                            rawLength = fullPhraseString.length,
-                            modifier = Modifier.fillMaxWidth(),
-                            minTextSize = 14f,
-                            maxTextSize = 24f
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GeoOnSurface
+                            ),
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.testTag("noun_main_text")
                         )
                     }
 
@@ -1450,16 +1569,40 @@ fun DeclensionResultView(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     if (firstExample.isNotBlank()) {
-                        Box(modifier = Modifier.weight(1f, fill = false)) {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .horizontalScroll(rememberScrollState()),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
                                 text = "• $firstExample",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = 12.5.sp,
                                     color = GeoOnSurfaceVariant
                                 ),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                maxLines = 1,
+                                softWrap = false
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            val exSpeakerId = "noun_first_example_${result.word.hashCode()}"
+                            val isPlayingEx = currentlySpokenId != null && currentlySpokenId == exSpeakerId
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPlayingEx) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                    .clickable { onSpeak(firstExample, exSpeakerId) }
+                                    .testTag("pronounce_noun_example"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingEx) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = null,
+                                    tint = if (isPlayingEx) Color(0xFFD32F2F) else Color(0xFF757575),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                     } else {

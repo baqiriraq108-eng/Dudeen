@@ -85,6 +85,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -123,6 +124,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import com.example.data.model.WordDeclensionResult
 import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.GeoBorder
 import com.example.ui.theme.GeoOnSurface
 import com.example.ui.theme.GeoOnSurfaceVariant
@@ -168,6 +170,8 @@ fun PrintExportDialog(
     onDismiss: () -> Unit
 ) {
     val effectiveNotebookName = notebookName.ifBlank { registerName }
+    val effectiveLang = appLanguage.ifBlank { LocalAppLanguage.current }
+    val strings = remember(effectiveLang) { AppStrings.get(effectiveLang) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -290,6 +294,7 @@ fun PrintExportDialog(
         }
     }
 
+    CompositionLocalProvider(LocalAppLanguage provides effectiveLang) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -333,13 +338,13 @@ fun PrintExportDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Zurück",
+                                contentDescription = strings.back,
                                 tint = GeoOnSurface,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         Text(
-                            text = "Exportieren",
+                            text = strings.exportDialogTitle,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = GeoOnSurface,
@@ -355,7 +360,7 @@ fun PrintExportDialog(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Schließen",
+                            contentDescription = strings.close,
                             tint = GeoOnSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
@@ -365,7 +370,7 @@ fun PrintExportDialog(
                 // Scope Selector: [ Nomen ] [ Verb ] [ Alle ]
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        text = "Verlauf:",
+                        text = strings.exportScopeLabel,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium,
                         color = GeoOnSurfaceVariant,
@@ -381,10 +386,10 @@ fun PrintExportDialog(
                         horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         listOf(
-                            DeclensionHistoryExportHelper.ExportScope.NOMEN to "Ausdrücke",
-                            DeclensionHistoryExportHelper.ExportScope.VERB to "Verb",
-                            DeclensionHistoryExportHelper.ExportScope.ADJEKTIV to "Adjektive",
-                            DeclensionHistoryExportHelper.ExportScope.ALLE to "Alle"
+                            DeclensionHistoryExportHelper.ExportScope.NOMEN to strings.tabExpressions,
+                            DeclensionHistoryExportHelper.ExportScope.VERB to strings.tabVerb,
+                            DeclensionHistoryExportHelper.ExportScope.ADJEKTIV to strings.tabAdjectives,
+                            DeclensionHistoryExportHelper.ExportScope.ALLE to strings.all
                         ).forEach { (scopeItem, label) ->
                             val isSelected = selectedScope == scopeItem
                             Box(
@@ -413,7 +418,7 @@ fun PrintExportDialog(
                 // Format Selector (Excel vs PDF)
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        text = "Format:",
+                        text = strings.exportFormatSectionLabel,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium,
                         color = GeoOnSurfaceVariant,
@@ -504,7 +509,7 @@ fun PrintExportDialog(
                 if (selectedFormat == ExportSharingManager.ExportFormat.PDF) {
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
-                            text = "Papiergröße & Ausrichtung:",
+                            text = strings.paperSizeOrientationLabel,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Medium,
                             color = GeoOnSurfaceVariant,
@@ -571,7 +576,7 @@ fun PrintExportDialog(
                                     .padding(2.dp),
                                 horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                listOf(false to "Hochformat", true to "Querformat").forEach { (landscape, label) ->
+                                listOf(false to strings.portraitOrientation, true to strings.landscapeOrientation).forEach { (landscape, label) ->
                                     val isSelected = isLandscape == landscape
                                     Box(
                                         modifier = Modifier
@@ -600,7 +605,7 @@ fun PrintExportDialog(
 
                 // Customization: Body Text
                 TypographyConfigCard(
-                    title = "📝 Schriftart & -größe (Text)",
+                    title = strings.typographyBodyTitle,
                     currentFont = bodyFontFamily,
                     onFontSelected = { bodyFontFamily = it },
                     currentSize = bodyFontSize,
@@ -612,7 +617,7 @@ fun PrintExportDialog(
 
                 // Customization: Headers
                 TypographyConfigCard(
-                    title = "📝 Schriftart & -größe (Überschriften)",
+                    title = strings.typographyHeaderTitle,
                     currentFont = headerFontFamily,
                     onFontSelected = { headerFontFamily = it },
                     currentSize = headerFontSize,
@@ -625,7 +630,7 @@ fun PrintExportDialog(
                 // File Name Input Section
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        text = "Dateiname:",
+                        text = strings.fileNameLabel,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium,
                         color = GeoOnSurfaceVariant,
@@ -719,7 +724,7 @@ fun PrintExportDialog(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Speichern",
+                                text = strings.save,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White,
@@ -770,7 +775,7 @@ fun PrintExportDialog(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Teilen",
+                                text = strings.share,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White,
@@ -816,6 +821,7 @@ fun PrintExportDialog(
             },
             onDismiss = { activeFontSizeTarget = null }
         )
+    }
     }
 }
 
@@ -1011,6 +1017,8 @@ private fun FontSizePickerDialog(
     onSizeSelected: (Float) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val appLanguage = LocalAppLanguage.current
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     var selectedSize by remember { mutableFloatStateOf(initialSize) }
     var customInputText by remember {
         mutableStateOf(if (initialSize % 1f == 0f) initialSize.toInt().toString() else initialSize.toString())
@@ -1096,7 +1104,7 @@ private fun FontSizePickerDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Schriftgröße wählen",
+                            text = strings.fontSizeDialogTitle,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -1109,7 +1117,7 @@ private fun FontSizePickerDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Schließen",
+                                contentDescription = strings.close,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -1123,7 +1131,7 @@ private fun FontSizePickerDialog(
 
                     // Section 1: Standardgrößen
                     Text(
-                        text = "Standardgrößen:",
+                        text = strings.standardSizesLabel,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -1182,7 +1190,7 @@ private fun FontSizePickerDialog(
 
                     // Section 2: Eigene Größe
                     Text(
-                        text = "Eigene Größe:",
+                        text = strings.customSizeLabel,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -1212,7 +1220,7 @@ private fun FontSizePickerDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Remove,
-                                contentDescription = "Verkleinern",
+                                contentDescription = strings.decreaseFontSizeDesc,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -1312,7 +1320,7 @@ private fun FontSizePickerDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "Vergrößern",
+                                contentDescription = strings.increaseFontSizeDesc,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -1339,7 +1347,7 @@ private fun FontSizePickerDialog(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Text(
-                                text = "Abbrechen",
+                                text = strings.cancel,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1369,7 +1377,7 @@ private fun FontSizePickerDialog(
                             )
                         ) {
                             Text(
-                                text = "Übernehmen",
+                                text = strings.confirmApplyButton,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,

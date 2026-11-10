@@ -57,9 +57,9 @@ fun CopyResultButton(
     var resetJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     val targetBgColor = if (isCopied) {
-        if (isDark) Color(0xFF1B5E20) else Color(0xFFC8E6C9)
+        if (isDark) Color(0xFF1B5E20).copy(alpha = 0.55f) else Color(0xFFC8E6C9)
     } else {
-        if (isDark) Color(0xFF333333) else Color(0xFFEEEEEE)
+        Color.Transparent
     }
     val animatedBgColor by animateColorAsState(
         targetValue = targetBgColor,

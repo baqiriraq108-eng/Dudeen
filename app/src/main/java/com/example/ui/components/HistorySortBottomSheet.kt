@@ -65,6 +65,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.GeoBackground
 import com.example.ui.theme.GeoBorder
 import com.example.ui.theme.GeoGlowColor
@@ -91,11 +93,13 @@ fun HistorySortBottomSheet(
     currentSortOption: HistorySortOption,
     selectedCategoryIndex: Int,
     onSortOptionChanged: (HistorySortOption) -> Unit,
-    onDismissRequest: () -> Unit
+    onDismissRequest: () -> Unit,
+    appLanguage: String = LocalAppLanguage.current
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val categoryNames = listOf("Alle", "Nomen", "Verben", "Sätze", "Wörter", "Adjektive")
-    val currentCategoryName = categoryNames.getOrElse(selectedCategoryIndex) { "Verlauf" }
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
+    val categoryNames = remember(strings) { strings.historyCategories() }
+    val currentCategoryName = categoryNames.getOrElse(selectedCategoryIndex) { strings.historyTitle }
 
     // DatePicker dialog state
     var showDatePickerDialog by remember { mutableStateOf(false) }
@@ -162,7 +166,7 @@ fun HistorySortBottomSheet(
                     }
 
                     Text(
-                        text = "Sortieren",
+                        text = strings.sortSheetTitle,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = GeoOnSurface,
@@ -195,7 +199,7 @@ fun HistorySortBottomSheet(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Schließen",
+                        contentDescription = strings.close,
                         tint = GeoOnSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
@@ -204,7 +208,7 @@ fun HistorySortBottomSheet(
 
             // Direction Section (Richtung)
             Text(
-                text = "Richtung",
+                text = strings.sortDirectionLabel,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = GeoOnSurfaceVariant,
@@ -218,7 +222,7 @@ fun HistorySortBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SortDirectionChip(
-                    label = "Absteigend",
+                    label = SortDirection.DESCENDING.label(appLanguage),
                     icon = Icons.Default.ArrowDownward,
                     isSelected = currentSortOption.direction == SortDirection.DESCENDING,
                     onClick = {
@@ -229,7 +233,7 @@ fun HistorySortBottomSheet(
                 )
 
                 SortDirectionChip(
-                    label = "Aufsteigend",
+                    label = SortDirection.ASCENDING.label(appLanguage),
                     icon = Icons.Default.ArrowUpward,
                     isSelected = currentSortOption.direction == SortDirection.ASCENDING,
                     onClick = {
@@ -244,7 +248,7 @@ fun HistorySortBottomSheet(
 
             // Criteria Section (Kriterium)
             Text(
-                text = "Kriterium",
+                text = strings.sortCriterionLabel,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = GeoOnSurfaceVariant,
@@ -268,7 +272,7 @@ fun HistorySortBottomSheet(
                     }
 
                     SortCriterionChip(
-                        label = field.labelDe,
+                        label = field.label(appLanguage),
                         icon = icon,
                         isSelected = isSelected,
                         onClick = {
@@ -301,7 +305,7 @@ fun HistorySortBottomSheet(
                         .padding(top = 10.dp)
                 ) {
                     Text(
-                        text = "Datumsmodus",
+                        text = strings.sortDateModeLabel,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = GeoOnSurfaceVariant,
@@ -317,7 +321,7 @@ fun HistorySortBottomSheet(
                     ) {
                         // Automatic Mode Chip
                         SubOptionChip(
-                            label = "Automatisch",
+                            label = strings.sortDateAutomatic,
                             isSelected = currentSortOption.dateSortMode == DateSortMode.AUTOMATIC,
                             onClick = {
                                 onSortOptionChanged(
@@ -332,7 +336,7 @@ fun HistorySortBottomSheet(
 
                         // Manual Date Mode Chip
                         SubOptionChip(
-                            label = "Manuell",
+                            label = strings.sortDateManual,
                             isSelected = currentSortOption.dateSortMode == DateSortMode.MANUAL,
                             onClick = {
                                 val targetTime = currentSortOption.manualDateMillis ?: System.currentTimeMillis()
@@ -395,7 +399,7 @@ fun HistorySortBottomSheet(
                         .padding(top = 10.dp)
                 ) {
                     Text(
-                        text = "Genus-Auswahl",
+                        text = strings.sortGenderSelectionLabel,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = GeoOnSurfaceVariant,
@@ -430,7 +434,7 @@ fun HistorySortBottomSheet(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
-                                    text = currentSortOption.genderTarget.labelDe,
+                                    text = currentSortOption.genderTarget.label(appLanguage),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = GeoOnSurface,
@@ -464,7 +468,7 @@ fun HistorySortBottomSheet(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
-                                                text = target.labelDe,
+                                                text = target.label(appLanguage),
                                                 fontSize = 13.sp,
                                                 fontWeight = if (currentSortOption.genderTarget == target) FontWeight.Bold else FontWeight.Normal,
                                                 color = if (currentSortOption.genderTarget == target) GeoPrimary else GeoOnSurface
@@ -523,7 +527,7 @@ fun HistorySortBottomSheet(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Standard",
+                        text = strings.defaultResetButton,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = GeoOnSurfaceVariant,
@@ -549,7 +553,7 @@ fun HistorySortBottomSheet(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Fertig",
+                        text = strings.doneButton,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -586,14 +590,14 @@ fun HistorySortBottomSheet(
                     },
                     modifier = Modifier.testTag("date_picker_confirm")
                 ) {
-                    Text("Übernehmen", fontWeight = FontWeight.Bold, color = GeoPrimary)
+                    Text(strings.confirmApplyButton, fontWeight = FontWeight.Bold, color = GeoPrimary)
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = { showDatePickerDialog = false }
                 ) {
-                    Text("Abbrechen", color = GeoOnSurfaceVariant)
+                    Text(strings.cancel, color = GeoOnSurfaceVariant)
                 }
             }
         ) {

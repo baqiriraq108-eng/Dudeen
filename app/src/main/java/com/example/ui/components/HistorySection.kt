@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
@@ -86,6 +87,8 @@ import com.example.data.local.WordHistoryEntity
 import com.example.data.model.extractNounQuickDetails
 import com.example.data.model.extractVerbQuickDetails
 import com.example.data.model.optSafeString
+import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.LocalTranslationLanguage
 import org.json.JSONObject
 import androidx.compose.ui.graphics.Brush
@@ -178,8 +181,10 @@ fun HistoryHeaderRow(
     filteredCount: Int,
     hasItems: Boolean,
     onRequestClear: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -198,7 +203,7 @@ fun HistoryHeaderRow(
                 modifier = Modifier.size(20.dp)
             )
             Text(
-                text = "Suchverlauf",
+                text = strings.historyTitle,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = GeoOnSurface,
@@ -229,13 +234,13 @@ fun HistoryHeaderRow(
             ) {
                 Icon(
                     imageVector = Icons.Default.DeleteOutline,
-                    contentDescription = "Verlauf leeren",
+                    contentDescription = strings.clearHistoryDesc,
                     modifier = Modifier.size(16.dp),
                     tint = GeoOnSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Leeren",
+                    text = strings.clearButton,
                     style = MaterialTheme.typography.labelMedium,
                     color = GeoOnSurfaceVariant,
                     maxLines = 1,
@@ -253,10 +258,13 @@ fun HistorySearchBar(
     onSearchTrigger: () -> Unit = {},
     onOpenSortSheet: () -> Unit = {},
     isSortActive: Boolean = false,
-    modifier: Modifier = Modifier
+    onVoiceSearchClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
 
     Row(
         modifier = modifier
@@ -295,7 +303,7 @@ fun HistorySearchBar(
             ) {
                 if (searchQuery.isEmpty()) {
                     Text(
-                        text = "Verlauf durchsuchen...",
+                        text = strings.searchHistoryPlaceholder,
                         fontSize = 12.sp,
                         color = GeoOnSurfaceVariant,
                         maxLines = 1,
@@ -329,6 +337,21 @@ fun HistorySearchBar(
                 )
             }
 
+            // Voice Search Microphone Icon inside search container
+            IconButton(
+                onClick = onVoiceSearchClick,
+                modifier = Modifier
+                    .size(24.dp)
+                    .testTag("history_voice_search_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = strings.voiceSearchDesc,
+                    tint = GeoPrimary,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+
             if (searchQuery.isNotEmpty()) {
                 IconButton(
                     onClick = { onQueryChange("") },
@@ -338,7 +361,7 @@ fun HistorySearchBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Clear,
-                        contentDescription = "Sucheingabe löschen",
+                        contentDescription = strings.clearSearchInputDesc,
                         tint = GeoOutline,
                         modifier = Modifier.size(13.dp)
                     )
@@ -362,7 +385,7 @@ fun HistorySearchBar(
         ) {
             Icon(
                 imageVector = Icons.Default.Search,
-                contentDescription = "Suchen",
+                contentDescription = strings.searchActionDesc,
                 tint = Color.White,
                 modifier = Modifier.size(17.dp)
             )
@@ -385,7 +408,7 @@ fun HistorySearchBar(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Sort,
-                contentDescription = "Sortieren",
+                contentDescription = strings.sortActionDesc,
                 tint = if (isSortActive) GeoPrimary else GeoOnSurfaceVariant,
                 modifier = Modifier.size(18.dp)
             )
@@ -397,8 +420,11 @@ fun HistorySearchBar(
 fun HistoryFilterPills(
     selectedFilterIndex: Int,
     onFilterChanged: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
+    val categories = remember(strings) { strings.historyCategories() }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -406,7 +432,7 @@ fun HistoryFilterPills(
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        listOf("Alle", "Nomen", "Verben", "Sätze", "Wörter", "Adjektive").forEachIndexed { index, title ->
+        categories.forEachIndexed { index, title ->
             val isSelected = selectedFilterIndex == index
             Box(
                 modifier = Modifier
@@ -434,8 +460,10 @@ fun HistoryFilterPills(
 fun HistoryEmptyCard(
     searchQuery: String,
     onResetSearch: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -459,7 +487,7 @@ fun HistoryEmptyCard(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = if (searchQuery.isNotBlank()) "Keine Treffer" else "Kein Suchverlauf",
+                text = if (searchQuery.isNotBlank()) strings.noMatchesTitle else strings.noHistoryTitle,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = GeoOnSurface,
@@ -470,9 +498,9 @@ fun HistoryEmptyCard(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = if (searchQuery.isNotBlank()) {
-                    "Kein Eintrag im Verlauf entspricht \"$searchQuery\"."
+                    strings.noMatchesSubtitle(searchQuery)
                 } else {
-                    "Gesuchte Nomen und Verben erscheinen hier zur schnellen Wiederverwendung."
+                    strings.noHistorySubtitle
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = GeoOnSurfaceVariant,
@@ -498,7 +526,7 @@ fun HistoryEmptyCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Suche zurücksetzen",
+                        text = strings.resetSearchButton,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = GeoPrimary,
@@ -514,8 +542,10 @@ fun HistoryEmptyCard(
 @Composable
 fun ClearHistoryConfirmDialog(
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    appLanguage: String = LocalAppLanguage.current
 ) {
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = GeoSurface,
@@ -528,14 +558,14 @@ fun ClearHistoryConfirmDialog(
         },
         title = {
             Text(
-                "Suchverlauf leeren",
+                strings.clearHistoryConfirmTitle,
                 fontWeight = FontWeight.Bold,
                 color = GeoOnSurface
             )
         },
         text = {
             Text(
-                "Möchten Sie wirklich alle Einträge aus dem Verlauf entfernen?",
+                strings.clearHistoryConfirmText,
                 color = GeoOnSurfaceVariant
             )
         },
@@ -544,12 +574,12 @@ fun ClearHistoryConfirmDialog(
                 onClick = onConfirm,
                 modifier = Modifier.testTag("confirm_clear_history")
             ) {
-                Text("Löschen", color = MaterialTheme.colorScheme.error)
+                Text(strings.delete, color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Abbrechen", color = GeoPrimary)
+                Text(strings.cancel, color = GeoPrimary)
             }
         }
     )
@@ -558,8 +588,10 @@ fun ClearHistoryConfirmDialog(
 @Composable
 fun DeleteHistoryItemConfirmDialog(
     onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    appLanguage: String = LocalAppLanguage.current
 ) {
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = GeoSurface,
@@ -572,14 +604,14 @@ fun DeleteHistoryItemConfirmDialog(
         },
         title = {
             Text(
-                "Eintrag löschen?",
+                strings.deleteEntryDialogTitle,
                 fontWeight = FontWeight.Bold,
                 color = GeoOnSurface
             )
         },
         text = {
             Text(
-                "Möchten Sie diesen Eintrag aus dem Verlauf entfernen?",
+                strings.deleteEntryDialogMessage,
                 color = GeoOnSurfaceVariant
             )
         },
@@ -588,12 +620,12 @@ fun DeleteHistoryItemConfirmDialog(
                 onClick = onConfirm,
                 modifier = Modifier.testTag("confirm_delete_history_item")
             ) {
-                Text("Löschen", color = MaterialTheme.colorScheme.error)
+                Text(strings.delete, color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Abbrechen", color = GeoPrimary)
+                Text(strings.cancel, color = GeoPrimary)
             }
         }
     )
@@ -613,7 +645,8 @@ fun LazyListScope.historySectionItems(
     isSortActive: Boolean = false,
     onSpeak: (String, String) -> Unit,
     currentlySpokenText: String? = null,
-    currentlySpokenId: String? = null
+    currentlySpokenId: String? = null,
+    onVoiceSearchClick: () -> Unit = {}
 ) {
     item(key = "history_header_row") {
         HistoryHeaderRow(
@@ -629,7 +662,8 @@ fun LazyListScope.historySectionItems(
             onQueryChange = onSearchQueryChange,
             onSearchTrigger = {},
             onOpenSortSheet = onOpenSortSheet,
-            isSortActive = isSortActive
+            isSortActive = isSortActive,
+            onVoiceSearchClick = onVoiceSearchClick
         )
     }
 

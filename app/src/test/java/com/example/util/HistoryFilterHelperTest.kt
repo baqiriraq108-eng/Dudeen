@@ -298,4 +298,93 @@ class HistoryFilterHelperTest {
         val formatted = formatManualTranslations(parsed)
         assertEquals("منزل\nبيت\nدار", formatted)
     }
+
+    @Test
+    fun testSearchClosenessRanking_exactMatchesBeforeLongPhrases() {
+        val longPhrase = createEntity(
+            id = 1,
+            word = "Das Haus ist sehr groß und schön",
+            type = "Satz",
+            meaning = "The house is very big and nice"
+        ).copy(timestamp = 3000L) // newer timestamp
+
+        val prefixWord = createEntity(
+            id = 2,
+            word = "Haustür",
+            type = "Nomen",
+            genderArticle = "die",
+            meaning = "front door"
+        ).copy(timestamp = 2000L)
+
+        val exactWord = createEntity(
+            id = 3,
+            word = "Haus",
+            type = "Nomen",
+            genderArticle = "das",
+            meaning = "house"
+        ).copy(timestamp = 1000L) // oldest timestamp
+
+        val items = listOf(longPhrase, prefixWord, exactWord)
+
+        // Searching "Haus" must place exact match "Haus" first, then prefix "Haustür", then long phrase
+        val results = HistoryFilterHelper.filterAndSortHistory(
+            items = items,
+            filterIndex = 0,
+            query = "Haus",
+            sortOption = HistorySortOption()
+        )
+        assertEquals(3, results.size)
+        assertEquals("Haus", results[0].word)
+        assertEquals("Haustür", results[1].word)
+        assertEquals("Das Haus ist sehr groß und schön", results[2].word)
+
+        // Also via filterHistory directly
+        val filteredOnly = HistoryFilterHelper.filterHistory(items, 0, "Haus")
+        assertEquals(3, filteredOnly.size)
+        assertEquals("Haus", filteredOnly[0].word)
+        assertEquals("Haustür", filteredOnly[1].word)
+        assertEquals("Das Haus ist sehr groß und schön", filteredOnly[2].word)
+    }
+
+    @Test
+    fun testSearchClosenessRanking_translationClosenessAndExistenceFilter() {
+        val blankEntry = createEntity(id = 1, word = "   ", type = "Nomen", meaning = "ghost")
+        val longSentenceTranslation = createEntity(
+            id = 2,
+            word = "Ich trinke jeden Tag kaltes Wasser",
+            type = "Satz",
+            meaning = "I drink cold water every day"
+        ).copy(timestamp = 5000L)
+        val exactTranslationWord = createEntity(
+            id = 3,
+            word = "Wasser",
+            type = "Nomen",
+            genderArticle = "das",
+            meaning = "water"
+        ).copy(timestamp = 1000L)
+
+        val items = listOf(blankEntry, longSentenceTranslation, exactTranslationWord)
+
+        // Searching by English translation "water":
+        // 1. Blank log entry is excluded
+        // 2. "Wasser" (exact translation "water" and shorter entry) appears before long sentence
+        val results = HistoryFilterHelper.filterAndSortHistory(
+            items = items,
+            filterIndex = 0,
+            query = "water",
+            sortOption = HistorySortOption()
+        )
+        assertEquals(2, results.size)
+        assertEquals("Wasser", results[0].word)
+        assertEquals("Ich trinke jeden Tag kaltes Wasser", results[1].word)
+
+        // Searching for a term that does not exist in the log returns empty
+        val nonExistent = HistoryFilterHelper.filterAndSortHistory(
+            items = items,
+            filterIndex = 0,
+            query = "Flugzeug",
+            sortOption = HistorySortOption()
+        )
+        assertTrue(nonExistent.isEmpty())
+    }
 }

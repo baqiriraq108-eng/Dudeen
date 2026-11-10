@@ -10,7 +10,23 @@ enum class HistorySortField(val labelDe: String, val shortLabel: String) {
     DATE("Datum", "Datum"),
     NAME("Name", "Name"),
     GENDER("Genus", "Genus"),
-    TYPE("Typ", "Typ")
+    TYPE("Typ", "Typ");
+
+    fun label(appLanguage: String): String = when (appLanguage.lowercase(Locale.ROOT).trim()) {
+        "en", "english" -> when (this) {
+            DATE -> "Date"
+            NAME -> "Name"
+            GENDER -> "Gender"
+            TYPE -> "Type"
+        }
+        "ar", "arabic" -> when (this) {
+            DATE -> "التاريخ"
+            NAME -> "الاسم"
+            GENDER -> "الجنس"
+            TYPE -> "النوع"
+        }
+        else -> labelDe
+    }
 }
 
 /**
@@ -18,7 +34,19 @@ enum class HistorySortField(val labelDe: String, val shortLabel: String) {
  */
 enum class DateSortMode(val labelDe: String) {
     AUTOMATIC("Automatisch"),
-    MANUAL("Manuelles Datum")
+    MANUAL("Manuelles Datum");
+
+    fun label(appLanguage: String): String = when (appLanguage.lowercase(Locale.ROOT).trim()) {
+        "en", "english" -> when (this) {
+            AUTOMATIC -> "Automatic"
+            MANUAL -> "Manual Date"
+        }
+        "ar", "arabic" -> when (this) {
+            AUTOMATIC -> "تلقائي"
+            MANUAL -> "تاريخ يدوي"
+        }
+        else -> labelDe
+    }
 }
 
 /**
@@ -28,7 +56,23 @@ enum class GenderSortTarget(val labelDe: String, val article: String) {
     ALL("Alle Genus", "Alle"),
     MASKULIN("Maskulin (der)", "der"),
     FEMININ("Feminin (die)", "die"),
-    NEUTRUM("Neutrum (das)", "das")
+    NEUTRUM("Neutrum (das)", "das");
+
+    fun label(appLanguage: String): String = when (appLanguage.lowercase(Locale.ROOT).trim()) {
+        "en", "english" -> when (this) {
+            ALL -> "All Genders"
+            MASKULIN -> "Masculine (der)"
+            FEMININ -> "Feminine (die)"
+            NEUTRUM -> "Neuter (das)"
+        }
+        "ar", "arabic" -> when (this) {
+            ALL -> "كل الأجناس"
+            MASKULIN -> "مذكر (der)"
+            FEMININ -> "مؤنث (die)"
+            NEUTRUM -> "محايد (das)"
+        }
+        else -> labelDe
+    }
 }
 
 /**
@@ -36,7 +80,19 @@ enum class GenderSortTarget(val labelDe: String, val article: String) {
  */
 enum class SortDirection(val labelDe: String, val shortLabel: String) {
     ASCENDING("Aufsteigend", "Auf"),
-    DESCENDING("Absteigend", "Ab")
+    DESCENDING("Absteigend", "Ab");
+
+    fun label(appLanguage: String): String = when (appLanguage.lowercase(Locale.ROOT).trim()) {
+        "en", "english" -> when (this) {
+            ASCENDING -> "Ascending"
+            DESCENDING -> "Descending"
+        }
+        "ar", "arabic" -> when (this) {
+            ASCENDING -> "تصاعدي"
+            DESCENDING -> "تنازلي"
+        }
+        else -> labelDe
+    }
 }
 
 /**
@@ -58,10 +114,46 @@ data class HistorySortOption(
 }
 
 /**
- * Helper object providing robust classification, prefix-matching search logic,
+ * Represents how closely a history log item matches a search query.
+ * Lower values indicate a closer match:
+ * - [tier]: 0 = exact base word, 1 = exact article+word, 2 = exact token/translation,
+ *           3 = base word prefix, 4 = article+word prefix, 5 = phrase/translation token prefix,
+ *           6 = substring match
+ * - [effectiveWordLength]: length of the item's primary word/phrase (prioritizes short words over long phrases)
+ * - [matchedTargetLength]: length of the specific matched token or field
+ * - [matchIndex]: character offset where the match starts
+ */
+data class SearchMatchRank(
+    val tier: Int,
+    val effectiveWordLength: Int,
+    val matchedTargetLength: Int,
+    val matchIndex: Int
+) : Comparable<SearchMatchRank> {
+    override fun compareTo(other: SearchMatchRank): Int {
+        if (this.tier != other.tier) return this.tier.compareTo(other.tier)
+        if (this.effectiveWordLength != other.effectiveWordLength) {
+            return this.effectiveWordLength.compareTo(other.effectiveWordLength)
+        }
+        if (this.matchedTargetLength != other.matchedTargetLength) {
+            return this.matchedTargetLength.compareTo(other.matchedTargetLength)
+        }
+        return this.matchIndex.compareTo(other.matchIndex)
+    }
+}
+
+/**
+ * Helper object providing robust classification, closeness-ranked search logic,
  * and independent multi-criteria sorting for history items.
  */
 object HistoryFilterHelper {
+
+    /**
+     * Ensures a history log entry actually contains a valid, non-empty term.
+     */
+    fun isValidLogEntry(item: WordHistoryEntity): Boolean {
+        val raw = item.word.trim()
+        return raw.isNotBlank() && !raw.equals("null", ignoreCase = true)
+    }
 
     fun isAdjektivItem(item: WordHistoryEntity): Boolean {
         val t = item.type.lowercase(Locale.ROOT)
@@ -139,98 +231,219 @@ object HistoryFilterHelper {
     }
 
     /**
-     * Determines whether [item] matches [query] based on prefix or substring match.
+     * Computes how closely [item] matches [query] across German words, phrases, and translations.
+     * Returns null if [item] is invalid/empty or does not match [query] at all.
+     * Prioritizes exact matches and shorter terms over long phrases or sentences.
      */
-    fun matchesSearchPrefix(item: WordHistoryEntity, query: String): Boolean {
-        val q = query.trim().lowercase(Locale.GERMAN)
-        if (q.isBlank()) return true
+    fun computeSearchCloseness(item: WordHistoryEntity, query: String): SearchMatchRank? {
+        if (!isValidLogEntry(item)) return null
+
+        val q = query.trim()
+            .trimStart('"', '„', '“', '\'', '«', '»', '-', '–', '(', '[', '{', ' ')
+            .trimEnd('"', '„', '“', '\'', '«', '»', '!', '?', '.', ',', ';', ')', ']', '}', ' ')
+            .lowercase(Locale.GERMAN)
+        if (q.isBlank()) return SearchMatchRank(0, 0, 0, 0)
 
         val qNormGerman = normalizeGerman(q)
         val qNormArabic = normalizeArabic(q).lowercase(Locale.ROOT)
         val isArabicQuery = isArabicText(q)
-        val isSingleLetter = q.length == 1
-
-        fun checkMatch(text: String): Boolean {
-            if (text.isBlank()) return false
-            val clean = text.trim().trimStart('"', '„', '“', '\'', '«', '»', '-', '–', '(', '[', '{', ' ')
-            val lower = clean.lowercase(Locale.GERMAN)
-            if (lower.contains(q)) return true
-
-            if (qNormGerman.isNotBlank()) {
-                val norm = normalizeGerman(clean)
-                if (norm.contains(qNormGerman)) return true
-            }
-
-            if (isArabicQuery || isArabicText(clean)) {
-                val normAr = normalizeArabic(clean).lowercase(Locale.ROOT)
-                if (normAr.contains(qNormArabic)) return true
-            }
-
-            return false
-        }
 
         val rawWord = item.word.trim()
-        val article = item.genderArticle.trim()
-
-        // 1. Direct word match
-        if (checkMatch(rawWord)) return true
-
-        // 2. Word without leading articles or reflexive pronoun
         val wordWithoutArticle = getEffectiveWordForLetterSort(item)
-        if (checkMatch(wordWithoutArticle)) return true
+        val effectiveLen = wordWithoutArticle.length.coerceAtLeast(1)
+        val article = item.genderArticle.trim().takeUnless { it.equals("null", ignoreCase = true) }.orEmpty()
 
-        // 3. Full phrase with article
+        var bestRank: SearchMatchRank? = null
+
+        fun considerRank(candidate: SearchMatchRank?) {
+            if (candidate == null) return
+            if (bestRank == null || candidate < bestRank!!) {
+                bestRank = candidate
+            }
+        }
+
+        fun cleanTarget(text: String): String {
+            return text.trim()
+                .trimStart('"', '„', '“', '\'', '«', '»', '-', '–', '(', '[', '{', ' ')
+                .trimEnd('"', '„', '“', '\'', '«', '»', '!', '?', '.', ',', ';', ')', ']', '}', ' ')
+        }
+
+        fun evaluateTarget(
+            text: String,
+            exactTier: Int,
+            prefixTier: Int,
+            substringTier: Int
+        ): SearchMatchRank? {
+            val clean = cleanTarget(text)
+            if (clean.isBlank()) return null
+
+            val lower = clean.lowercase(Locale.GERMAN)
+            val targetLen = clean.length
+
+            // 1. Direct case-insensitive check
+            if (lower == q) {
+                return SearchMatchRank(exactTier, effectiveLen, targetLen, 0)
+            }
+            if (lower.startsWith(q)) {
+                return SearchMatchRank(prefixTier, effectiveLen, targetLen, 0)
+            }
+
+            // 2. Normalized German check (ä->a, ö->o, ü->u, ß->ss)
+            if (qNormGerman.isNotBlank()) {
+                val norm = normalizeGerman(clean)
+                if (norm == qNormGerman) {
+                    return SearchMatchRank(exactTier, effectiveLen, targetLen, 0)
+                }
+                if (norm.startsWith(qNormGerman)) {
+                    return SearchMatchRank(prefixTier, effectiveLen, targetLen, 0)
+                }
+            }
+
+            // 3. Normalized Arabic check (strips Tashkeel/diacritics)
+            if (isArabicQuery || isArabicText(clean)) {
+                val normAr = normalizeArabic(clean).lowercase(Locale.ROOT)
+                if (qNormArabic.isNotBlank()) {
+                    if (normAr == qNormArabic) {
+                        return SearchMatchRank(exactTier, effectiveLen, targetLen, 0)
+                    }
+                    if (normAr.startsWith(qNormArabic)) {
+                        return SearchMatchRank(prefixTier, effectiveLen, targetLen, 0)
+                    }
+                    val arIdx = normAr.indexOf(qNormArabic)
+                    if (arIdx >= 0) {
+                        return SearchMatchRank(substringTier, effectiveLen, targetLen, arIdx)
+                    }
+                }
+            }
+
+            // 4. Substring check (direct or normalized German)
+            val directIdx = lower.indexOf(q)
+            if (directIdx >= 0) {
+                return SearchMatchRank(substringTier, effectiveLen, targetLen, directIdx)
+            }
+            if (qNormGerman.isNotBlank()) {
+                val norm = normalizeGerman(clean)
+                val normIdx = norm.indexOf(qNormGerman)
+                if (normIdx >= 0) {
+                    return SearchMatchRank(substringTier, effectiveLen, targetLen, normIdx)
+                }
+            }
+
+            return null
+        }
+
+        val isSingleWordEntry = !wordWithoutArticle.contains(' ') && !isSentenceItem(item)
+        val basePrefixTier = if (isSingleWordEntry) 2 else 4
+
+        // A. Base German word (without leading article) and raw word
+        considerRank(evaluateTarget(wordWithoutArticle, exactTier = 0, prefixTier = basePrefixTier, substringTier = 6))
+        considerRank(evaluateTarget(rawWord, exactTier = 0, prefixTier = basePrefixTier, substringTier = 6))
+
+        // B. Full German phrase with article
         if (article.isNotBlank()) {
-            val fullWithArticle = if (!rawWord.startsWith(article, ignoreCase = true)) {
+            val fullWithArticle = if (!rawWord.startsWith("$article ", ignoreCase = true)) {
                 "$article $rawWord"
             } else {
                 rawWord
             }
-            if (checkMatch(fullWithArticle)) return true
+            val articlePrefixTier = if (isSingleWordEntry) 3 else 4
+            considerRank(evaluateTarget(fullWithArticle, exactTier = 1, prefixTier = articlePrefixTier, substringTier = 6))
         }
 
-        // 4. For list items (comma/semicolon/arabic comma separated), check if any individual token matches
+        // C. Explicit article query match ("der", "die", "das")
+        if ((q == "der" || q == "die" || q == "das") && article.equals(q, ignoreCase = true)) {
+            considerRank(SearchMatchRank(tier = 4, effectiveWordLength = effectiveLen, matchedTargetLength = effectiveLen, matchIndex = 0))
+        }
+
+        // D. Individual items in comma/semicolon-separated word lists
         if (rawWord.contains(",") || rawWord.contains(";") || rawWord.contains("،")) {
             val tokens = rawWord.split(Regex("[,;،]+")).map { it.trim() }.filter { it.isNotBlank() }
-            if (tokens.any { token ->
+            tokens.forEach { token ->
                 val cleanToken = when {
-                    token.startsWith("der ", ignoreCase = true) || token.startsWith("die ", ignoreCase = true) || token.startsWith("das ", ignoreCase = true) -> token.substring(4).trim()
+                    token.startsWith("der ", ignoreCase = true) ||
+                    token.startsWith("die ", ignoreCase = true) ||
+                    token.startsWith("das ", ignoreCase = true) -> token.substring(4).trim()
                     token.startsWith("ein ", ignoreCase = true) -> token.substring(4).trim()
                     token.startsWith("eine ", ignoreCase = true) -> token.substring(5).trim()
                     else -> token
                 }
-                checkMatch(token) || checkMatch(cleanToken)
-            }) {
-                return true
+                considerRank(evaluateTarget(cleanToken, exactTier = 2, prefixTier = 4, substringTier = 6))
+                considerRank(evaluateTarget(token, exactTier = 2, prefixTier = 4, substringTier = 6))
             }
         }
 
-        // 5. Translation match (Arabic or English)
-        val translation = item.meaningEnglish.trim()
-        if (checkMatch(translation)) return true
-        if (translation.contains(",") || translation.contains(";") || translation.contains("/") || translation.contains("،") || translation.contains("\n")) {
-            val transTokens = translation.split(Regex("[,;/،\n]+")).map { it.trim() }.filter { it.isNotBlank() }
-            if (transTokens.any { checkMatch(it) }) return true
+        // E. Word-boundary tokens inside multi-word German phrases/sentences
+        val phraseWords = wordWithoutArticle.split(Regex("[\\s/,;،.!?()\\[\\]\"„“'«»–-]+"))
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        if (phraseWords.size > 1) {
+            phraseWords.forEachIndexed { idx, token ->
+                val rank = evaluateTarget(token, exactTier = 4, prefixTier = 5, substringTier = 6)
+                if (rank != null) {
+                    // Add word position offset so matches on the first word of a phrase outrank later words
+                    considerRank(rank.copy(matchIndex = rank.matchIndex + idx))
+                }
+            }
         }
 
-        // 6. Manual translation match (whether partial or complete for any manual translation)
+        // F. AI Translation match (cleaned of "Eng.:" / Arabic label prefixes)
+        val rawTranslation = item.meaningEnglish.trim()
+        if (rawTranslation.isNotBlank()) {
+            val cleanedTranslation = cleanTranslationText(rawTranslation, isArabicText(rawTranslation))
+            val transExactTier = if (isSingleWordEntry) 1 else 3
+            val transPrefixTier = if (isSingleWordEntry) 3 else 5
+            considerRank(evaluateTarget(cleanedTranslation, exactTier = transExactTier, prefixTier = transPrefixTier, substringTier = 6))
+
+            val transTokens = cleanedTranslation.split(Regex("[,;/،\n()]+"))
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+            transTokens.forEachIndexed { idx, token ->
+                val cleanToken = if (token.startsWith("to ", ignoreCase = true) && q != "to" && !q.startsWith("to ")) {
+                    token.substring(3).trim()
+                } else {
+                    token
+                }
+                val r1 = evaluateTarget(cleanToken, exactTier = transExactTier, prefixTier = transPrefixTier, substringTier = 6)
+                if (r1 != null) considerRank(r1.copy(matchIndex = r1.matchIndex + idx))
+                val r2 = evaluateTarget(token, exactTier = transExactTier, prefixTier = transPrefixTier, substringTier = 6)
+                if (r2 != null) considerRank(r2.copy(matchIndex = r2.matchIndex + idx))
+            }
+        }
+
+        // G. Manual translation match (cleaned via parseManualTranslations so "Alt.:" is never falsely matched)
         val manual = item.manualTranslation.trim()
         if (manual.isNotBlank()) {
-            if (checkMatch(manual)) return true
+            val manualExactTier = if (isSingleWordEntry) 1 else 3
+            val manualPrefixTier = if (isSingleWordEntry) 3 else 5
             val manualItems = parseManualTranslations(manual)
-            if (manualItems.any { checkMatch(it) }) return true
+            manualItems.forEachIndexed { idx, manualEntry ->
+                val r = evaluateTarget(manualEntry, exactTier = manualExactTier, prefixTier = manualPrefixTier, substringTier = 6)
+                if (r != null) considerRank(r.copy(matchIndex = r.matchIndex + idx))
+                val subTokens = manualEntry.split(Regex("[,;/،]+")).map { it.trim() }.filter { it.isNotBlank() }
+                subTokens.forEach { subToken ->
+                    val sr = evaluateTarget(subToken, exactTier = manualExactTier, prefixTier = manualPrefixTier, substringTier = 6)
+                    if (sr != null) considerRank(sr.copy(matchIndex = sr.matchIndex + idx))
+                }
+            }
         }
 
-        // 7. Explicit article query match ("der", "die", "das")
-        if (q == "der" || q == "die" || q == "das") {
-            if (article.equals(q, ignoreCase = true)) return true
-        }
-
-        return false
+        return bestRank
     }
 
     /**
-     * Filters [items] by category tab and prefix query.
+     * Determines whether [item] matches [query] and actually exists in the log.
+     */
+    fun matchesSearchPrefix(item: WordHistoryEntity, query: String): Boolean {
+        if (!isValidLogEntry(item)) return false
+        if (query.isBlank()) return true
+        return computeSearchCloseness(item, query) != null
+    }
+
+    /**
+     * Filters [items] by category tab and search query.
+     * When [query] is non-blank, only items that actually exist and match [query] are returned,
+     * ordered with the closest matches first (exact matches prioritized over long phrases).
+     *
      * filterIndex:
      * 0 -> Alle (All)
      * 1 -> Nomen (Nouns)
@@ -244,30 +457,34 @@ object HistoryFilterHelper {
         filterIndex: Int,
         query: String
     ): List<WordHistoryEntity> {
+        val validItems = items.filter { isValidLogEntry(it) }
         val categoryFiltered = when (filterIndex) {
-            1 -> items.filter { isNounItem(it) }
-            2 -> items.filter { isVerbItem(it) }
-            3 -> items.filter { isSentenceItem(it) }
-            4 -> items.filter { isNomenListItem(it) }
-            5 -> items.filter { isAdjektivItem(it) }
-            else -> items
+            1 -> validItems.filter { isNounItem(it) }
+            2 -> validItems.filter { isVerbItem(it) }
+            3 -> validItems.filter { isSentenceItem(it) }
+            4 -> validItems.filter { isNomenListItem(it) }
+            5 -> validItems.filter { isAdjektivItem(it) }
+            else -> validItems
         }
 
         if (query.isBlank()) {
             return categoryFiltered
         }
 
-        return categoryFiltered.filter { matchesSearchPrefix(it, query) }
+        return categoryFiltered
+            .mapNotNull { item ->
+                val rank = computeSearchCloseness(item, query)
+                if (rank != null) item to rank else null
+            }
+            .sortedBy { it.second }
+            .map { it.first }
     }
 
     /**
-     * Sorts [items] according to the selected [HistorySortOption].
+     * Builds the comparator for [HistorySortOption].
      */
-    fun sortHistory(
-        items: List<WordHistoryEntity>,
-        sortOption: HistorySortOption
-    ): List<WordHistoryEntity> {
-        val comparator: Comparator<WordHistoryEntity> = when (sortOption.field) {
+    private fun buildSortComparator(sortOption: HistorySortOption): Comparator<WordHistoryEntity> {
+        val baseComparator: Comparator<WordHistoryEntity> = when (sortOption.field) {
             HistorySortField.DATE -> {
                 if (sortOption.dateSortMode == DateSortMode.MANUAL && sortOption.manualDateMillis != null) {
                     val target = sortOption.manualDateMillis
@@ -342,14 +559,26 @@ object HistoryFilterHelper {
         }
 
         return if (sortOption.direction == SortDirection.ASCENDING) {
-            items.sortedWith(comparator)
+            baseComparator
         } else {
-            items.sortedWith(comparator.reversed())
+            baseComparator.reversed()
         }
     }
 
     /**
+     * Sorts [items] according to the selected [HistorySortOption].
+     */
+    fun sortHistory(
+        items: List<WordHistoryEntity>,
+        sortOption: HistorySortOption
+    ): List<WordHistoryEntity> {
+        return items.sortedWith(buildSortComparator(sortOption))
+    }
+
+    /**
      * Filters and sorts history items atomically.
+     * When [query] is non-blank, closeness to the search query is the primary sort key
+     * (so exact matches appear first before long phrases), and [sortOption] is used as the tie-breaker.
      */
     fun filterAndSortHistory(
         items: List<WordHistoryEntity>,
@@ -357,8 +586,30 @@ object HistoryFilterHelper {
         query: String,
         sortOption: HistorySortOption = HistorySortOption()
     ): List<WordHistoryEntity> {
-        val filtered = filterHistory(items, filterIndex, query)
-        return sortHistory(filtered, sortOption)
+        val validItems = items.filter { isValidLogEntry(it) }
+        val categoryFiltered = when (filterIndex) {
+            1 -> validItems.filter { isNounItem(it) }
+            2 -> validItems.filter { isVerbItem(it) }
+            3 -> validItems.filter { isSentenceItem(it) }
+            4 -> validItems.filter { isNomenListItem(it) }
+            5 -> validItems.filter { isAdjektivItem(it) }
+            else -> validItems
+        }
+
+        if (query.isBlank()) {
+            return sortHistory(categoryFiltered, sortOption)
+        }
+
+        val tieBreaker = buildSortComparator(sortOption)
+        return categoryFiltered
+            .mapNotNull { item ->
+                val rank = computeSearchCloseness(item, query)
+                if (rank != null) item to rank else null
+            }
+            .sortedWith { a, b ->
+                val rankCmp = a.second.compareTo(b.second)
+                if (rankCmp != 0) rankCmp else tieBreaker.compare(a.first, b.first)
+            }
+            .map { it.first }
     }
 }
-

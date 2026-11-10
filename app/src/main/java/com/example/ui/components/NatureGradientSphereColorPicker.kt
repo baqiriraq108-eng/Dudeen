@@ -97,6 +97,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.util.CustomColorManager
 import java.util.Locale
 import kotlin.math.atan2
@@ -629,11 +631,13 @@ fun NatureGradientSphereColorPicker(
     initialColorHex: String,
     onColorChosen: (String) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val configuration = LocalConfiguration.current
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
 
     // Initialize with vibrant, bright default if not provided
     val initialHsl = remember(initialColorHex) {
@@ -746,7 +750,7 @@ fun NatureGradientSphereColorPicker(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Nature-Inspired Gradient Sphere System",
+                                text = strings.naturePickerTitle,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = natureTextDark,
@@ -755,7 +759,7 @@ fun NatureGradientSphereColorPicker(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Organic • Calm • Beautiful",
+                                text = strings.naturePickerSubtitle,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = natureTextMuted,
@@ -770,7 +774,7 @@ fun NatureGradientSphereColorPicker(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
+                                contentDescription = strings.close,
                                 tint = natureTextMuted,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -985,7 +989,7 @@ fun NatureGradientSphereColorPicker(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "Harmony Suggestions",
+                                    text = strings.harmonySuggestionsTitle,
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = natureTextDark
@@ -1078,7 +1082,7 @@ fun NatureGradientSphereColorPicker(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "Saved Colors",
+                                    text = strings.savedColorsTitle,
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = natureTextDark
@@ -1146,7 +1150,7 @@ fun NatureGradientSphereColorPicker(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Add Custom Color",
+                                text = strings.colorPickerAddCustomColor,
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = natureTextDark
@@ -1239,7 +1243,7 @@ fun NatureGradientSphereColorPicker(
                                         currentSaturation = hsl.saturation
                                         currentLightness = hsl.lightness
                                         hexInputError = false
-                                        Toast.makeText(context, "$formatted gespeichert", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "$formatted", Toast.LENGTH_SHORT).show()
                                     } else {
                                         hexInputError = true
                                     }
@@ -1255,7 +1259,7 @@ fun NatureGradientSphereColorPicker(
                                     .testTag("add_custom_color_button")
                             ) {
                                 Text(
-                                    text = "Add",
+                                    text = strings.colorPickerAddButton,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -1289,7 +1293,7 @@ fun NatureGradientSphereColorPicker(
                                 .testTag("color_picker_cancel_button")
                         ) {
                             Text(
-                                text = "Cancel",
+                                text = strings.colorPickerCancel,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = natureTextDark
@@ -1312,7 +1316,7 @@ fun NatureGradientSphereColorPicker(
                                 .testTag("color_picker_apply_button")
                         ) {
                             Text(
-                                text = "Apply",
+                                text = strings.colorPickerApply,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -1364,7 +1368,7 @@ fun NatureGradientSphereColorPicker(
             onDismissRequest = { colorToDelete = null },
             title = {
                 Text(
-                    text = "Farbe löschen",
+                    text = strings.colorPickerDeleteTitle,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = natureTextDark
@@ -1383,7 +1387,7 @@ fun NatureGradientSphereColorPicker(
                             .border(1.dp, natureBorder, CircleShape)
                     )
                     Text(
-                        text = "Möchten Sie die Farbe $targetHex wirklich aus den gespeicherten Farben entfernen?",
+                        text = strings.deleteColorPrompt(targetHex),
                         fontSize = 13.sp,
                         color = natureTextMuted
                     )
@@ -1399,12 +1403,12 @@ fun NatureGradientSphereColorPicker(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("Löschen")
+                    Text(strings.delete)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { colorToDelete = null }) {
-                    Text("Abbrechen")
+                    Text(strings.cancel)
                 }
             }
         )
@@ -1815,12 +1819,14 @@ private fun HexControlPanel(
     natureTextMuted: Color,
     naturePrimaryGreen: Color
 ) {
+    val appLanguage = LocalAppLanguage.current
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "HEX-Farbcode eingeben:",
+            text = strings.enterHexCodeLabel,
             fontSize = 12.5.sp,
             fontWeight = FontWeight.SemiBold,
             color = natureTextDark
@@ -1877,7 +1883,7 @@ private fun HexControlPanel(
         }
 
         Text(
-            text = "Geben Sie einen 6-stelligen Hex-Code ein (z. B. FF5733). Die Farbwerte und das Farbrad aktualisieren sich sofort.",
+            text = strings.hexInputHelperText,
             fontSize = 11.5.sp,
             color = natureTextMuted
         )
@@ -2050,6 +2056,8 @@ private fun ColorPreviewAndModesPanel(
     natureSurfaceActive: Color,
     modifier: Modifier = Modifier
 ) {
+    val appLanguage = LocalAppLanguage.current
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -2068,7 +2076,7 @@ private fun ColorPreviewAndModesPanel(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "Color Preview",
+                    text = strings.colorPreviewLabel,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = natureTextDark
@@ -2144,7 +2152,7 @@ private fun ColorPreviewAndModesPanel(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = "Color Modes",
+                text = strings.colorModesLabel,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = natureTextDark
@@ -2199,6 +2207,8 @@ private fun SavedColorsManagementDialog(
     natureTextMuted: Color,
     naturePrimaryGreen: Color
 ) {
+    val appLanguage = LocalAppLanguage.current
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     var newHexInput by remember { mutableStateOf("#") }
     var inputError by remember { mutableStateOf(false) }
 
@@ -2240,7 +2250,7 @@ private fun SavedColorsManagementDialog(
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
-                            text = "Gespeicherte Farben",
+                            text = strings.savedColorsTitle,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = natureTextDark
@@ -2253,7 +2263,7 @@ private fun SavedColorsManagementDialog(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Schließen",
+                            contentDescription = strings.close,
                             tint = natureTextMuted,
                             modifier = Modifier.size(18.dp)
                         )
@@ -2261,7 +2271,7 @@ private fun SavedColorsManagementDialog(
                 }
 
                 Text(
-                    text = "Tippen Sie auf eine Farbe, um sie auszuwählen, oder löschen Sie nicht mehr benötigte Farben.",
+                    text = strings.savedColorsSubtitle,
                     fontSize = 12.sp,
                     color = natureTextMuted
                 )
@@ -2275,7 +2285,7 @@ private fun SavedColorsManagementDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Keine gespeicherten Farben vorhanden.",
+                            text = strings.noSavedColorsText,
                             fontSize = 13.sp,
                             color = natureTextMuted
                         )
@@ -2327,7 +2337,7 @@ private fun SavedColorsManagementDialog(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Delete,
-                                            contentDescription = "Löschen",
+                                            contentDescription = strings.delete,
                                             tint = Color(0xFFE53935),
                                             modifier = Modifier.size(15.dp)
                                         )
@@ -2343,7 +2353,7 @@ private fun SavedColorsManagementDialog(
                 // Add new color row inside modal
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = "Neue Farbe hinzufügen:",
+                        text = strings.addNewColorLabel,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = natureTextDark
@@ -2399,7 +2409,7 @@ private fun SavedColorsManagementDialog(
                             colors = ButtonDefaults.buttonColors(containerColor = naturePrimaryGreen),
                             modifier = Modifier.height(40.dp)
                         ) {
-                            Text("Hinzufügen", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(strings.colorPickerAddButton, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -2411,7 +2421,7 @@ private fun SavedColorsManagementDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEDF4E8)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Fertig", color = natureTextDark, fontWeight = FontWeight.Bold)
+                    Text(strings.doneButton, color = natureTextDark, fontWeight = FontWeight.Bold)
                 }
             }
         }

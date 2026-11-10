@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.GeoBackground
 import com.example.ui.theme.GeoBorder
 import com.example.ui.theme.GeoOnSurface
@@ -66,8 +70,10 @@ val PRESET_SPEECH_RATES = listOf(0.3f, 0.5f, 0.7f, 1.0f, 1.3f, 1.5f, 1.7f, 2.0f)
 fun SprechTempoControl(
     speed: Float,
     onSpeedChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     var sliderValue by remember(speed) { mutableFloatStateOf(speed) }
     var showPresetMenu by remember { mutableStateOf(false) }
 
@@ -78,39 +84,44 @@ fun SprechTempoControl(
             containerColor = GeoSurfaceVariant
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = modifier.testTag("sprech_tempo_container")
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("sprech_tempo_container")
     ) {
         Row(
             modifier = Modifier
-                .wrapContentWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Speedometer Icon
-            Icon(
-                painter = painterResource(id = R.drawable.ic_playback_speed),
-                contentDescription = null,
-                tint = GeoPrimary,
-                modifier = Modifier
-                    .size(18.dp)
-                    .testTag("sprech_tempo_icon")
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Speedometer Icon
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_playback_speed),
+                    contentDescription = null,
+                    tint = GeoPrimary,
+                    modifier = Modifier
+                        .size(17.dp)
+                        .testTag("sprech_tempo_icon")
+                )
+
+                // Localized label: Sprech-Tempo / Speech Speed
+                Text(
+                    text = strings.speechTempoTitle,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GeoOnSurface,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.testTag("sprech_tempo_title")
+                )
+            }
 
             Spacer(modifier = Modifier.width(4.dp))
-
-            // Name in German: Sprech-Tempo
-            Text(
-                text = stringResource(id = R.string.speech_tempo_title),
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = GeoOnSurface,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.testTag("sprech_tempo_title")
-            )
-
-            Spacer(modifier = Modifier.width(6.dp))
 
             // Quick Minus Button (0.1 step decrement down to 0.3)
             IconButton(
@@ -119,17 +130,17 @@ fun SprechTempoControl(
                     sliderValue = prevSpeed
                     onSpeedChange(prevSpeed)
                 },
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(24.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Remove,
-                    contentDescription = "Langsamer",
+                    contentDescription = strings.slowerDesc,
                     tint = GeoPrimary,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(13.dp)
                 )
             }
 
-            // Stepped Slider: 0.3x to 2.0x, increments of 0.1
+            // Stepped Slider: 0.3x to 2.0x, smooth dragging, flexible width
             Slider(
                 value = sliderValue,
                 onValueChange = { raw ->
@@ -138,17 +149,14 @@ fun SprechTempoControl(
                     onSpeedChange(snapped)
                 },
                 valueRange = 0.3f..2.0f,
-                steps = 16,
                 colors = SliderDefaults.colors(
                     thumbColor = GeoPrimary,
                     activeTrackColor = GeoPrimary,
-                    inactiveTrackColor = GeoBorder.copy(alpha = 0.5f),
-                    activeTickColor = Color.Transparent,
-                    inactiveTickColor = GeoOnSurfaceVariant.copy(alpha = 0.35f)
+                    inactiveTrackColor = GeoBorder.copy(alpha = 0.5f)
                 ),
                 modifier = Modifier
-                    .widthIn(min = 75.dp, max = 110.dp)
-                    .wrapContentHeight()
+                    .weight(1f)
+                    .height(36.dp)
                     .testTag("sprech_tempo_slider")
             )
 
@@ -159,37 +167,31 @@ fun SprechTempoControl(
                     sliderValue = nextSpeed
                     onSpeedChange(nextSpeed)
                 },
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(24.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Schneller",
+                    contentDescription = strings.fasterDesc,
                     tint = GeoPrimary,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(13.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(2.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
-            // Clickable Value Pill (Tapping opens instant 1-tap preset selector)
+            // Speech Speed Value Text - displayed directly beside slider without any container, always visible
             Box {
-                Box(
+                Text(
+                    text = String.format(Locale.US, "%.1fx", sliderValue),
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = GeoPrimary,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(GeoPrimary.copy(alpha = 0.12f))
+                        .testTag("sprech_tempo_value")
                         .clickable { showPresetMenu = true }
-                        .padding(horizontal = 6.dp, vertical = 3.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = String.format(Locale.US, "%.1fx", sliderValue),
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GeoPrimary,
-                        maxLines = 1,
-                        modifier = Modifier.testTag("sprech_tempo_value")
-                    )
-                }
+                )
 
                 DropdownMenu(
                     expanded = showPresetMenu,
@@ -257,13 +259,10 @@ fun TtsSpeedSlider(
                 onSpeedChange(snapped)
             },
             valueRange = 0.3f..2.0f,
-            steps = 16,
             colors = SliderDefaults.colors(
                 thumbColor = GeoPrimary,
                 activeTrackColor = GeoPrimary,
-                inactiveTrackColor = GeoBorder.copy(alpha = 0.5f),
-                activeTickColor = Color.Transparent,
-                inactiveTickColor = GeoOnSurfaceVariant.copy(alpha = 0.35f)
+                inactiveTrackColor = GeoBorder.copy(alpha = 0.5f)
             ),
             modifier = Modifier
                 .width(sliderWidth)
@@ -278,6 +277,8 @@ fun TtsSpeedSlider(
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = GeoOnSurface,
+            maxLines = 1,
+            softWrap = false,
             modifier = Modifier.testTag("tts_speed_value_label")
         )
     }

@@ -144,14 +144,21 @@ fun VerbConjugationResultView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState()),
                         contentAlignment = Alignment.CenterStart
                     ) {
-                        AutoSizingWordText(
+                        Text(
                             text = result.infinitiv,
-                            modifier = Modifier.fillMaxWidth(),
-                            minTextSize = 14f,
-                            maxTextSize = 24f
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GeoOnSurface
+                            ),
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
 
@@ -188,7 +195,7 @@ fun VerbConjugationResultView(
                     }
                 }
 
-                // Row 2: Auxiliary Verb (own row, blue badge + normal verb text)
+                // Row 2: Auxiliary Verb (own row, blue badge + normal verb text + audio button)
                 val auxVerb = result.hilfsverb.trim().ifBlank { "haben" }
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
@@ -227,9 +234,27 @@ fun VerbConjugationResultView(
                         softWrap = false,
                         modifier = Modifier.testTag("verb_auxiliary_text")
                     )
+                    val auxSpeakerId = "verb_aux_${result.infinitiv.hashCode()}"
+                    val isPlayingAux = currentlySpokenId != null && currentlySpokenId == auxSpeakerId
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(if (isPlayingAux) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                            .clickable { onSpeak(auxVerb, auxSpeakerId) }
+                            .testTag("pronounce_verb_auxiliary"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isPlayingAux) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Hilfsverb anhören",
+                            tint = if (isPlayingAux) Color(0xFFD32F2F) else Color(0xFF757575),
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
                 }
 
-                // Row 3: Partizip I · Partizip II (own row, no audio icon, horizontally scrollable, no wrapping)
+                // Row 3: Partizip I · Partizip II (own row, with audio icons, horizontally scrollable, no wrapping)
                 val p1 = result.partizip1.trim().ifBlank {
                     if (result.infinitiv.isNotBlank()) {
                         if (result.infinitiv.endsWith("d", ignoreCase = true)) result.infinitiv else "${result.infinitiv}d"
@@ -247,37 +272,89 @@ fun VerbConjugationResultView(
                             .testTag("verb_partizip_row"),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = buildAnnotatedString {
-                                var hasPrev = false
-                                if (p1.isNotBlank()) {
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = GeoOnSurface)) {
-                                        append("Partizip I: ")
-                                    }
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Normal, color = GeoOnSurfaceVariant)) {
-                                        append(p1)
-                                    }
-                                    hasPrev = true
-                                }
-                                if (p2.isNotBlank()) {
-                                    if (hasPrev) {
-                                        withStyle(SpanStyle(fontWeight = FontWeight.Normal, color = GeoOnSurfaceVariant)) {
-                                            append(" · ")
-                                        }
-                                    }
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = GeoOnSurface)) {
-                                        append("Partizip II: ")
-                                    }
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Normal, color = GeoOnSurfaceVariant)) {
-                                        append(p2)
-                                    }
-                                }
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        if (p1.isNotBlank()) {
+                            Text(
+                                text = "Partizip I: ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = GeoOnSurface,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Text(
+                                text = p1,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Normal,
+                                color = GeoOnSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            val p1SpeakerId = "verb_p1_${result.infinitiv.hashCode()}"
+                            val isPlayingP1 = currentlySpokenId != null && currentlySpokenId == p1SpeakerId
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPlayingP1) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                    .clickable { onSpeak(p1, p1SpeakerId) }
+                                    .testTag("pronounce_verb_p1"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingP1) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = "Partizip I anhören",
+                                    tint = if (isPlayingP1) Color(0xFFD32F2F) else Color(0xFF757575),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                        if (p1.isNotBlank() && p2.isNotBlank()) {
+                            Text(
+                                text = "   ·   ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = GeoOnSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        if (p2.isNotBlank()) {
+                            Text(
+                                text = "Partizip II: ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = GeoOnSurface,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Text(
+                                text = p2,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Normal,
+                                color = GeoOnSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            val p2SpeakerId = "verb_p2_${result.infinitiv.hashCode()}"
+                            val isPlayingP2 = currentlySpokenId != null && currentlySpokenId == p2SpeakerId
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPlayingP2) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                    .clickable { onSpeak(p2, p2SpeakerId) }
+                                    .testTag("pronounce_verb_p2"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingP2) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = "Partizip II anhören",
+                                    tint = if (isPlayingP2) Color(0xFFD32F2F) else Color(0xFF757575),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -399,16 +476,39 @@ fun VerbConjugationResultView(
                             .horizontalScroll(rememberScrollState()),
                         contentAlignment = Alignment.CenterStart
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             for (ex in verbExamples.take(3)) {
-                                Text(
-                                    text = "• ${ex.sentence}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontSize = 13.sp,
-                                    color = GeoOnSurfaceVariant,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "• ${ex.sentence}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontSize = 13.sp,
+                                        color = GeoOnSurfaceVariant,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    val verbExSpeakerId = "verb_ex_${result.infinitiv.hashCode()}_${ex.sentence.hashCode()}"
+                                    val isPlayingVerbEx = currentlySpokenId != null && currentlySpokenId == verbExSpeakerId
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isPlayingVerbEx) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                            .clickable { onSpeak(ex.sentence, verbExSpeakerId) }
+                                            .testTag("pronounce_verb_example"),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isPlayingVerbEx) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                            contentDescription = null,
+                                            tint = if (isPlayingVerbEx) Color(0xFFD32F2F) else Color(0xFF757575),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

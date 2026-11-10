@@ -1,9 +1,16 @@
 package com.example.ui.i18n
 
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.LayoutDirection
 
 /**
- * Supported app languages for Settings and Notebooks management.
+ * CompositionLocal providing the active application language code ("de", "en", or "ar")
+ * across the entire UI tree. Defaults to "de".
+ */
+val LocalAppLanguage = staticCompositionLocalOf { "de" }
+
+/**
+ * Supported app languages for the application interface, settings, and notebooks management.
  */
 enum class AppLanguage(
     val code: String,
@@ -18,6 +25,9 @@ enum class AppLanguage(
     val layoutDirection: LayoutDirection
         get() = if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
 
+    val nativeLabel: String
+        get() = nativeName
+
     companion object {
         fun fromCode(code: String?): AppLanguage = when (code?.lowercase()?.trim()) {
             "en", "english", "engl" -> EN
@@ -28,7 +38,7 @@ enum class AppLanguage(
 }
 
 /**
- * Comprehensive strings dictionary for application settings and notebook settings/dialogs.
+ * Comprehensive strings dictionary for the entire application interface, settings, and dialogs.
  */
 data class SettingsStrings(
     val language: AppLanguage,
@@ -61,6 +71,7 @@ data class SettingsStrings(
 
     // Application Settings (ApiKeyDialog)
     val settingsTitle: String,
+    val aiSettingsSubtitle: String,
     val settingsBackDesc: String,
     val notebookLabelPrefix: String,
     val manageAllNotebooks: String,
@@ -85,6 +96,7 @@ data class SettingsStrings(
     val refreshModelsButton: String,
     val loadingModelsStatus: String,
     val filterFreeOnly: String,
+    val filterFlashOnly: String,
     val filterAllModels: String,
     val noModelsFound: String,
     val colorSchemeTitle: String,
@@ -111,6 +123,7 @@ data class SettingsStrings(
     val testingKeyStatus: String,
     val testKeySuccess: String,
     val testKeyFailure: String,
+    val remainingUsageLabel: String,
     val remainingDailyRequests: (remaining: Int, total: Int) -> String,
 
     // Notizbücher Settings & Components
@@ -187,13 +200,122 @@ data class SettingsStrings(
     val colorPickerDeleteMessage: String,
     val colorPickerDeleteConfirm: String,
 
-    // Storage Role (Primary vs Backup) Strings
+    // Storage Role (Primary vs Backup) & Backup Folders Strings
     val primaryStorageBadge: String,
     val backupStorageBadge: String,
     val setAsPrimaryAction: String,
     val setPrimaryConfirmTitle: String,
     val setPrimaryConfirmMessage: (name: String) -> String,
-    val setPrimaryConfirmButton: String
+    val setPrimaryConfirmButton: String,
+    val backupFoldersTitle: String,
+    val backingUpStatus: String,
+    val backupEmptyNotice: String,
+    val backupStatusActive: String,
+    val backupStatusUnreachable: String,
+    val addFolderButton: String,
+    val backupNowButton: String,
+    val removeFolderDesc: String,
+    val collapseDesc: String,
+    val expandDesc: String,
+    val generalNotebookDefault: String,
+
+    // Color Bottom Sheet (100 Themes)
+    val colorSheetTitle: String,
+    val colorSheetSubtitle: String,
+    val colorModeLabel: String,
+    val chooseColorGroupsLabel: String,
+    val livePreviewLabel: String,
+    val designRecommendationsTitle: String,
+    val designRecommendationsBody: String,
+    val applyButton: String,
+    val confirmApplyButton: String,
+    val doneButton: String,
+    val defaultResetButton: String,
+
+    // Print & Export Dialog + Font Size Picker + Nature Color Picker
+    val exportDialogTitle: String,
+    val exportScopeLabel: String,
+    val exportFormatSectionLabel: String,
+    val paperSizeOrientationLabel: String,
+    val portraitOrientation: String,
+    val landscapeOrientation: String,
+    val typographyBodyTitle: String,
+    val typographyHeaderTitle: String,
+    val fileNameLabel: String,
+    val fontSizeDialogTitle: String,
+    val standardSizesLabel: String,
+    val customSizeLabel: String,
+    val fileSavedToast: String,
+    val naturePickerTitle: String,
+    val naturePickerSubtitle: String,
+    val colorPreviewLabel: String,
+    val colorModesLabel: String,
+    val harmonySuggestionsTitle: String,
+    val savedColorsTitle: String,
+    val savedColorsSubtitle: String,
+    val noSavedColorsText: String,
+    val addNewColorLabel: String,
+    val enterHexCodeLabel: String,
+    val hexInputHelperText: String,
+    val deleteColorPrompt: (hex: String) -> String,
+
+    // History Sort Sheet
+    val sortSheetTitle: String,
+    val sortDirectionLabel: String,
+    val sortCriterionLabel: String,
+    val sortDateModeLabel: String,
+    val sortDateAutomatic: String,
+    val sortDateManual: String,
+    val sortGenderSelectionLabel: String,
+
+    // Main Screen, Search, History Section & Overlays
+    val tabExpressions: String,
+    val tabVerb: String,
+    val tabVerbs: String,
+    val tabNouns: String,
+    val tabSentences: String,
+    val tabWords: String,
+    val tabAdjectives: String,
+    val searchPlaceholderExpressions: String,
+    val searchPlaceholderVerbs: String,
+    val searchPlaceholderWords: String,
+    val searchPlaceholderAdjectives: String,
+    val searchButton: String,
+    val stopButton: String,
+    val speechSpeedTitle: String,
+    val searchingWordsStatus: String,
+    val searchingAdjectivesStatus: String,
+    val searchingSentenceStatus: String,
+    val searchingVerbStatus: String,
+    val searchingNounStatus: String,
+    val historyHeaderTitle: String,
+    val historyClearButton: String,
+    val historySearchPlaceholder: String,
+    val historyEmptyNoMatchesTitle: String,
+    val historyEmptyTitle: String,
+    val historyEmptyNoMatchesSubtitle: (query: String) -> String,
+    val historyEmptySubtitle: String,
+    val resetSearchButton: String,
+    val clearHistoryConfirmTitle: String,
+    val clearHistoryConfirmText: String,
+    val deleteHistoryItemConfirmTitle: String,
+    val deleteHistoryItemConfirmText: String,
+    val apiKeyBannerTitle: String,
+    val apiKeyBannerSubtitle: String,
+    val apiKeyBannerButton: String,
+    val folderOverlayBody: String,
+    val folderOverlayButton: String,
+    val manualTranslationEditPlaceholder: String,
+    val manualTranslationNewPlaceholder: String,
+    val manualTranslationAddMorePlaceholder: String,
+    val voiceSearchDesc: String,
+    val voiceLanguageDialogTitle: String,
+    val voiceLanguageDialogSubtitle: String,
+    val voiceLanguageGerman: String,
+    val voiceLanguageEnglish: String,
+    val voiceSearchPromptGerman: String,
+    val voiceSearchPromptEnglish: String,
+    val voiceSearchNotAvailable: String
 ) {
     fun wordsCount(count: Int): String = when (language) {
         AppLanguage.DE -> "$count Wörter"
@@ -204,6 +326,49 @@ data class SettingsStrings(
             count in 3..10 -> "$count كلمات"
             else -> "$count كلمة"
         }
+    }
+
+    fun historyCategories(): List<String> = listOf(
+        all,
+        tabNouns,
+        tabVerbs,
+        tabSentences,
+        tabWords,
+        tabAdjectives
+    )
+
+    fun colorCategoryName(categoryId: String, defaultName: String): String = when (language) {
+        AppLanguage.EN -> when (categoryId) {
+            "m3_classic" -> "Classic Themes"
+            "bold_expressive" -> "Bold & Expressive Themes"
+            "calm_soft" -> "Calm & Soft Colors"
+            "warm_cozy" -> "Warm & Cozy Colors"
+            "fresh_nature" -> "Fresh & Natural Colors"
+            "modern_clean" -> "Modern & Clean Colors"
+            "pastel_light" -> "Pastel & Light Colors"
+            "deep_elegant" -> "Deep & Elegant Colors"
+            "vibrant_energetic" -> "Vibrant & Energetic Colors"
+            "minimal_neutral" -> "Minimal & Neutral Colors"
+            "night_friendly" -> "Night-Friendly Colors"
+            "creative_unique" -> "Creative & Unique Colors"
+            else -> defaultName
+        }
+        AppLanguage.AR -> when (categoryId) {
+            "m3_classic" -> "السمات الكلاسيكية"
+            "bold_expressive" -> "ألوان قوية ومعبرة"
+            "calm_soft" -> "ألوان هادئة وناعمة"
+            "warm_cozy" -> "ألوان دافئة ومريحة"
+            "fresh_nature" -> "ألوان طبيعية ومنعشة"
+            "modern_clean" -> "ألوان عصرية ونظيفة"
+            "pastel_light" -> "ألوان باستيل فاتحة"
+            "deep_elegant" -> "ألوان عميقة وأنيقة"
+            "vibrant_energetic" -> "ألوان حيوية ونشطة"
+            "minimal_neutral" -> "ألوان محايدة وبسيطة"
+            "night_friendly" -> "ألوان مريحة للعين ليلاً"
+            "creative_unique" -> "ألوان إبداعية وفريدة"
+            else -> defaultName
+        }
+        AppLanguage.DE -> defaultName
     }
 
     val exportActionDialogMessage: String get() = jsonExportPrompt
@@ -225,6 +390,62 @@ data class SettingsStrings(
     val nameIfSingleCombinedLabel: String get() = importMultiCombinedNameLabel
     fun importAllSeparateButton(count: Int): String = importMultiSeparateButton(count)
     val importAsOneCombinedButton: String get() = importMultiCombinedButton
+
+    // Aliases for MainScreen, ApiKeyDialog, HistorySection, Overlays, and Controls
+    val translationEnglishLabel: String get() = translationLanguageEnglish
+    val translationArabicLabel: String get() = translationLanguageArabic
+    val colorSchemeButtonDesc: String get() = colorSheetTitle
+    val exportButtonDesc: String get() = exportDialogTitle
+    val apiKeyRequiredTitle: String get() = apiKeyBannerTitle
+    val apiKeyRequiredSubtitle: String get() = apiKeyBannerSubtitle
+    val settingsButtonLabel: String get() = apiKeyBannerButton
+    val clearSearchInputDesc: String get() = clearKeyButton
+    val cancelSearchDesc: String get() = stopButton
+    val translatingWordsStatus: String get() = searchingWordsStatus
+    val analyzingAdjectivesStatus: String get() = searchingAdjectivesStatus
+    val translatingSentenceStatus: String get() = searchingSentenceStatus
+    val analyzingConjugationStatus: String get() = searchingVerbStatus
+    val analyzingDeclensionStatus: String get() = searchingNounStatus
+    val folderSelectionTitle: String get() = historyStorageTitle
+    val folderSelectionMessage: String get() = folderOverlayBody
+    val selectFolderButton: String get() = folderOverlayButton
+    val historyTitle: String get() = historyHeaderTitle
+    val clearHistoryDesc: String get() = clearHistoryButton
+    val clearButton: String get() = historyClearButton
+    val searchHistoryPlaceholder: String get() = historySearchPlaceholder
+    val searchActionDesc: String get() = searchButton
+    val sortActionDesc: String get() = sortSheetTitle
+    val noMatchesTitle: String get() = historyEmptyNoMatchesTitle
+    val noHistoryTitle: String get() = historyEmptyTitle
+    fun noMatchesSubtitle(query: String): String = historyEmptyNoMatchesSubtitle(query)
+    val noHistorySubtitle: String get() = historyEmptySubtitle
+    val deleteEntryDialogTitle: String get() = deleteHistoryItemConfirmTitle
+    val deleteEntryDialogMessage: String get() = deleteHistoryItemConfirmText
+    val removeTranslationDesc: String get() = delete
+    val editTranslationPlaceholder: String get() = manualTranslationEditPlaceholder
+    val customTranslationPlaceholder: String get() = manualTranslationNewPlaceholder
+    val addMoreTranslationPlaceholder: String get() = manualTranslationAddMorePlaceholder
+    val decreaseFontSizeDesc: String get() = when (language) {
+        AppLanguage.EN -> "Decrease"
+        AppLanguage.AR -> "تصغير"
+        AppLanguage.DE -> "Verkleinern"
+    }
+    val increaseFontSizeDesc: String get() = when (language) {
+        AppLanguage.EN -> "Increase"
+        AppLanguage.AR -> "تكبير"
+        AppLanguage.DE -> "Vergrößern"
+    }
+    val speechTempoTitle: String get() = speechSpeedTitle
+    val slowerDesc: String get() = when (language) {
+        AppLanguage.EN -> "Slower"
+        AppLanguage.AR -> "أبطأ"
+        AppLanguage.DE -> "Langsamer"
+    }
+    val fasterDesc: String get() = when (language) {
+        AppLanguage.EN -> "Faster"
+        AppLanguage.AR -> "أسرع"
+        AppLanguage.DE -> "Schneller"
+    }
 }
 
 /**
@@ -246,8 +467,8 @@ object AppStrings {
         saveToFile = "In Datei speichern",
         freeBadge = "Free",
 
-        languageSectionTitle = "Sprache / Language / اللغة",
-        languageSectionSubtitle = "Wählen Sie die Sprache für Einstellungen & Notizbücher",
+        languageSectionTitle = "App-Sprache",
+        languageSectionSubtitle = "Sprache für die gesamte Anwendung und alle Einstellungen",
         langGermanName = "Deutsch",
         langEnglishName = "English",
         langArabicName = "العربية",
@@ -257,6 +478,7 @@ object AppStrings {
         translationLanguageArabic = "Arabisch",
 
         settingsTitle = "Einstellungen & KI-Modelle",
+        aiSettingsSubtitle = "KI-Modelle, Sprache & API-Schlüssel konfigurieren",
         settingsBackDesc = "Zurück zum Hauptbildschirm",
         notebookLabelPrefix = "Notizbuch:",
         manageAllNotebooks = "Alle verwalten",
@@ -267,8 +489,8 @@ object AppStrings {
         aiProviderTitle = "KI-Anbieter",
         geminiKeyLabel = "Gemini-Key",
         openRouterKeyLabel = "OpenRouter-Key",
-        geminiKeyHint = "(from ai.google.dev)",
-        openRouterKeyHint = "(from openrouter.ai/keys)",
+        geminiKeyHint = "(von ai.google.dev)",
+        openRouterKeyHint = "(von openrouter.ai/keys)",
         apiKeyPlaceholder = "Hier API-Schlüssel einfügen...",
         secureStorageNotice = "Sicher gespeichert auf dem Gerät",
         statusConfigured = "Konfiguriert",
@@ -281,6 +503,7 @@ object AppStrings {
         refreshModelsButton = "Modelle aktualisieren",
         loadingModelsStatus = "Modelle laden...",
         filterFreeOnly = "Nur kostenlose (Free)",
+        filterFlashOnly = "Nur Flash",
         filterAllModels = "Alle Modelle",
         noModelsFound = "Keine Modelle gefunden",
         colorSchemeTitle = "Farbschema (Material 3)",
@@ -307,6 +530,7 @@ object AppStrings {
         testingKeyStatus = "Schlüssel testen...",
         testKeySuccess = "Schlüssel ist gültig!",
         testKeyFailure = "Fehler beim Testen",
+        remainingUsageLabel = "Verbleibende Nutzung:",
         remainingDailyRequests = { remaining, total -> "Verbleibende tägliche Anfragen: $remaining von $total" },
 
         myNotebooksTitle = "Meine Notizbücher",
@@ -386,7 +610,112 @@ object AppStrings {
         setAsPrimaryAction = "Als Primär festlegen",
         setPrimaryConfirmTitle = "Primären Speicherort ändern?",
         setPrimaryConfirmMessage = { name -> "Möchten Sie '$name' als primären Speicherort festlegen? Dieser Ort wird die Hauptquelle für die Historie des Notizbuchs." },
-        setPrimaryConfirmButton = "Als Primär festlegen"
+        setPrimaryConfirmButton = "Als Primär festlegen",
+        backupFoldersTitle = "Backup-Ordner",
+        backingUpStatus = "Sichern...",
+        backupEmptyNotice = "Keine Backup-Ordner eingerichtet. Fügen Sie Ordner hinzu, um Notizbücher automatisch als JSON zu spiegeln.",
+        backupStatusActive = "✅ Aktiv",
+        backupStatusUnreachable = "⚠️ Nicht erreichbar",
+        addFolderButton = "Ordner hinzufügen",
+        backupNowButton = "Jetzt sichern",
+        removeFolderDesc = "Ordner entfernen",
+        collapseDesc = "Einklappen",
+        expandDesc = "Ausklappen",
+        generalNotebookDefault = "Allgemein",
+
+        colorSheetTitle = "Farbschema auswählen",
+        colorSheetSubtitle = "100 Farbgruppen in 10 Kategorien",
+        colorModeLabel = "Modus:",
+        chooseColorGroupsLabel = "Farbgruppen wählen:",
+        livePreviewLabel = "Live-Vorschau:",
+        designRecommendationsTitle = "Design-Empfehlungen:",
+        designRecommendationsBody = "• Maximal 3 Farben pro Ansicht für optimale Lesbarkeit.\n• Feste grammatikalische Farbkennzeichnung (Maskulin/Feminin/Neutrum) bleibt unverändert.\n• Kontrastverhältnis von mind. 4.5:1 für entspanntes Lesen garantiert.",
+        applyButton = "Anwenden",
+        confirmApplyButton = "Übernehmen",
+        doneButton = "Fertig",
+        defaultResetButton = "Standard",
+
+        exportDialogTitle = "Exportieren",
+        exportScopeLabel = "Verlauf:",
+        exportFormatSectionLabel = "Format:",
+        paperSizeOrientationLabel = "Papiergröße & Ausrichtung:",
+        portraitOrientation = "Hochformat",
+        landscapeOrientation = "Querformat",
+        typographyBodyTitle = "📝 Schriftart & -größe (Text)",
+        typographyHeaderTitle = "📝 Schriftart & -größe (Überschriften)",
+        fileNameLabel = "Dateiname:",
+        fontSizeDialogTitle = "Schriftgröße wählen",
+        standardSizesLabel = "Standardgrößen:",
+        customSizeLabel = "Eigene Größe:",
+        fileSavedToast = "Datei erfolgreich gespeichert!",
+        naturePickerTitle = "Nature-Inspired Gradient Sphere System",
+        naturePickerSubtitle = "Organisch • Ruhig • Harmonisch",
+        colorPreviewLabel = "Farbvorschau",
+        colorModesLabel = "Farbmodi",
+        harmonySuggestionsTitle = "Harmonie-Vorschläge",
+        savedColorsTitle = "Gespeicherte Farben",
+        savedColorsSubtitle = "Tippen Sie auf eine Farbe, um sie auszuwählen, oder löschen Sie nicht mehr benötigte Farben.",
+        noSavedColorsText = "Keine gespeicherten Farben vorhanden.",
+        addNewColorLabel = "Neue Farbe hinzufügen:",
+        enterHexCodeLabel = "HEX-Farbcode eingeben:",
+        hexInputHelperText = "Geben Sie einen 6-stelligen Hex-Code ein (z. B. FF5733). Die Farbwerte und das Farbrad aktualisieren sich sofort.",
+        deleteColorPrompt = { hex -> "Möchten Sie die Farbe $hex wirklich aus den gespeicherten Farben entfernen?" },
+
+        sortSheetTitle = "Sortieren",
+        sortDirectionLabel = "Richtung",
+        sortCriterionLabel = "Kriterium",
+        sortDateModeLabel = "Datumsmodus",
+        sortDateAutomatic = "Automatisch",
+        sortDateManual = "Manuell",
+        sortGenderSelectionLabel = "Genus-Auswahl",
+
+        tabExpressions = "Ausdrücke",
+        tabVerb = "Verb",
+        tabVerbs = "Verben",
+        tabNouns = "Nomen",
+        tabSentences = "Sätze",
+        tabWords = "Wörter",
+        tabAdjectives = "Adjektive",
+        searchPlaceholderExpressions = "Suche nach Ausdrücken",
+        searchPlaceholderVerbs = "Suche nach Verben",
+        searchPlaceholderWords = "Suche nach Wörter",
+        searchPlaceholderAdjectives = "Suche nach Adjektiven",
+        searchButton = "Suchen",
+        stopButton = "Stoppen",
+        speechSpeedTitle = "Sprech-Tempo",
+        searchingWordsStatus = "Wörter werden übersetzt...",
+        searchingAdjectivesStatus = "Adjektiv-Formen werden analysiert...",
+        searchingSentenceStatus = "Satz wird übersetzt...",
+        searchingVerbStatus = "Konjugationstabelle wird analysiert...",
+        searchingNounStatus = "Deklinationstabelle wird analysiert...",
+        historyHeaderTitle = "Suchverlauf",
+        historyClearButton = "Leeren",
+        historySearchPlaceholder = "Verlauf durchsuchen...",
+        historyEmptyNoMatchesTitle = "Keine Treffer",
+        historyEmptyTitle = "Kein Suchverlauf",
+        historyEmptyNoMatchesSubtitle = { q -> "Kein Eintrag im Verlauf entspricht \"$q\"." },
+        historyEmptySubtitle = "Gesuchte Nomen und Verben erscheinen hier zur schnellen Wiederverwendung.",
+        resetSearchButton = "Suche zurücksetzen",
+        clearHistoryConfirmTitle = "Suchverlauf leeren",
+        clearHistoryConfirmText = "Möchten Sie wirklich alle Einträge aus dem Verlauf entfernen?",
+        deleteHistoryItemConfirmTitle = "Eintrag löschen?",
+        deleteHistoryItemConfirmText = "Möchten Sie diesen Eintrag aus dem Verlauf entfernen?",
+        apiKeyBannerTitle = "Gemini API-Schlüssel erforderlich",
+        apiKeyBannerSubtitle = "Konfigurieren Sie Ihren API-Schlüssel in den Einstellungen, um deutsche Wörter zu analysieren.",
+        apiKeyBannerButton = "Einstellungen",
+        folderOverlayBody = "Bitte wählen Sie einen Speicherort für Ihren Suchverlauf aus. Dieser Ordner bleibt auch nach dem Löschen der App-Daten erhalten.",
+        folderOverlayButton = "📂 Ordner auswählen",
+        manualTranslationEditPlaceholder = "Übersetzung bearbeiten...",
+        manualTranslationNewPlaceholder = "Eigene Übersetzung...",
+        manualTranslationAddMorePlaceholder = "Weitere Übersetzung hinzufügen...",
+        voiceSearchDesc = "Sprachsuche (Deutsch / Englisch)",
+        voiceLanguageDialogTitle = "Sprache für Spracheingabe",
+        voiceLanguageDialogSubtitle = "Wählen Sie die Sprache für die Spracherkennung aus:",
+        voiceLanguageGerman = "Deutsch (de-DE)",
+        voiceLanguageEnglish = "English (en-US)",
+        voiceSearchPromptGerman = "Sprechen Sie jetzt auf Deutsch...",
+        voiceSearchPromptEnglish = "Speak now in English...",
+        voiceSearchNotAvailable = "Spracherkennung ist auf diesem Gerät nicht verfügbar."
     )
 
     private val EN_STRINGS = SettingsStrings(
@@ -404,8 +733,8 @@ object AppStrings {
         saveToFile = "Save to file",
         freeBadge = "Free",
 
-        languageSectionTitle = "Language / Sprache / اللغة",
-        languageSectionSubtitle = "Choose the language for settings & notebooks",
+        languageSectionTitle = "App Language",
+        languageSectionSubtitle = "Language for the entire application and all settings",
         langGermanName = "Deutsch",
         langEnglishName = "English",
         langArabicName = "العربية",
@@ -415,6 +744,7 @@ object AppStrings {
         translationLanguageArabic = "Arabic",
 
         settingsTitle = "Settings & AI Models",
+        aiSettingsSubtitle = "Configure AI models, language & API keys",
         settingsBackDesc = "Back to main screen",
         notebookLabelPrefix = "Notebook:",
         manageAllNotebooks = "Manage all",
@@ -439,6 +769,7 @@ object AppStrings {
         refreshModelsButton = "Refresh models",
         loadingModelsStatus = "Loading models...",
         filterFreeOnly = "Free only",
+        filterFlashOnly = "Flash only",
         filterAllModels = "All models",
         noModelsFound = "No models found",
         colorSchemeTitle = "Color Theme (Material 3)",
@@ -465,6 +796,7 @@ object AppStrings {
         testingKeyStatus = "Testing key...",
         testKeySuccess = "Key is valid!",
         testKeyFailure = "Test failed",
+        remainingUsageLabel = "Remaining Usage:",
         remainingDailyRequests = { remaining, total -> "Remaining daily requests: $remaining of $total" },
 
         myNotebooksTitle = "My Notebooks",
@@ -544,7 +876,112 @@ object AppStrings {
         setAsPrimaryAction = "Set as Primary",
         setPrimaryConfirmTitle = "Change Primary Storage?",
         setPrimaryConfirmMessage = { name -> "Do you want to designate '$name' as the primary storage location? It will serve as the source of truth for history." },
-        setPrimaryConfirmButton = "Set as Primary"
+        setPrimaryConfirmButton = "Set as Primary",
+        backupFoldersTitle = "Backup Folders",
+        backingUpStatus = "Backing up...",
+        backupEmptyNotice = "No backup folders configured. Add folders to automatically mirror notebooks as JSON.",
+        backupStatusActive = "✅ Active",
+        backupStatusUnreachable = "⚠️ Unreachable",
+        addFolderButton = "Add folder",
+        backupNowButton = "Back up now",
+        removeFolderDesc = "Remove folder",
+        collapseDesc = "Collapse",
+        expandDesc = "Expand",
+        generalNotebookDefault = "General",
+
+        colorSheetTitle = "Select Color Theme",
+        colorSheetSubtitle = "100 color groups in 10 categories",
+        colorModeLabel = "Mode:",
+        chooseColorGroupsLabel = "Choose color groups:",
+        livePreviewLabel = "Live Preview:",
+        designRecommendationsTitle = "Design Recommendations:",
+        designRecommendationsBody = "• Maximum 3 colors per view for optimal readability.\n• Fixed grammatical gender color coding (Masculine/Feminine/Neuter) remains unchanged.\n• Contrast ratio of at least 4.5:1 guaranteed for comfortable reading.",
+        applyButton = "Apply",
+        confirmApplyButton = "Apply",
+        doneButton = "Done",
+        defaultResetButton = "Default",
+
+        exportDialogTitle = "Export",
+        exportScopeLabel = "History:",
+        exportFormatSectionLabel = "Format:",
+        paperSizeOrientationLabel = "Paper Size & Orientation:",
+        portraitOrientation = "Portrait",
+        landscapeOrientation = "Landscape",
+        typographyBodyTitle = "📝 Font & Size (Body Text)",
+        typographyHeaderTitle = "📝 Font & Size (Headers)",
+        fileNameLabel = "File name:",
+        fontSizeDialogTitle = "Select Font Size",
+        standardSizesLabel = "Standard sizes:",
+        customSizeLabel = "Custom size:",
+        fileSavedToast = "File saved successfully!",
+        naturePickerTitle = "Nature-Inspired Gradient Sphere System",
+        naturePickerSubtitle = "Organic • Calm • Beautiful",
+        colorPreviewLabel = "Color Preview",
+        colorModesLabel = "Color Modes",
+        harmonySuggestionsTitle = "Harmony Suggestions",
+        savedColorsTitle = "Saved Colors",
+        savedColorsSubtitle = "Tap a color to select it, or delete colors you no longer need.",
+        noSavedColorsText = "No saved colors yet.",
+        addNewColorLabel = "Add new color:",
+        enterHexCodeLabel = "Enter HEX color code:",
+        hexInputHelperText = "Enter a 6-digit hex code (e.g., FF5733). Color values and the wheel update immediately.",
+        deleteColorPrompt = { hex -> "Do you really want to remove $hex from your saved colors?" },
+
+        sortSheetTitle = "Sort",
+        sortDirectionLabel = "Direction",
+        sortCriterionLabel = "Criterion",
+        sortDateModeLabel = "Date Mode",
+        sortDateAutomatic = "Automatic",
+        sortDateManual = "Manual",
+        sortGenderSelectionLabel = "Gender Selection",
+
+        tabExpressions = "Expressions",
+        tabVerb = "Verb",
+        tabVerbs = "Verbs",
+        tabNouns = "Nouns",
+        tabSentences = "Sentences",
+        tabWords = "Words",
+        tabAdjectives = "Adjectives",
+        searchPlaceholderExpressions = "Search expressions",
+        searchPlaceholderVerbs = "Search verbs",
+        searchPlaceholderWords = "Search words",
+        searchPlaceholderAdjectives = "Search adjectives",
+        searchButton = "Search",
+        stopButton = "Stop",
+        speechSpeedTitle = "Speech Speed",
+        searchingWordsStatus = "Translating words...",
+        searchingAdjectivesStatus = "Analyzing adjective forms...",
+        searchingSentenceStatus = "Translating sentence...",
+        searchingVerbStatus = "Analyzing conjugation table...",
+        searchingNounStatus = "Analyzing declension table...",
+        historyHeaderTitle = "Search History",
+        historyClearButton = "Clear",
+        historySearchPlaceholder = "Search history...",
+        historyEmptyNoMatchesTitle = "No matches",
+        historyEmptyTitle = "No search history",
+        historyEmptyNoMatchesSubtitle = { q -> "No entry in history matches \"$q\"." },
+        historyEmptySubtitle = "Searched nouns and verbs appear here for quick reuse.",
+        resetSearchButton = "Reset search",
+        clearHistoryConfirmTitle = "Clear Search History",
+        clearHistoryConfirmText = "Do you really want to remove all entries from the history?",
+        deleteHistoryItemConfirmTitle = "Delete entry?",
+        deleteHistoryItemConfirmText = "Do you want to remove this entry from the history?",
+        apiKeyBannerTitle = "Gemini API Key Required",
+        apiKeyBannerSubtitle = "Configure your API key in Settings to analyze German noun declensions.",
+        apiKeyBannerButton = "Settings",
+        folderOverlayBody = "Please select a storage location for your search history. This folder is preserved even if app data is cleared.",
+        folderOverlayButton = "📂 Select Folder",
+        manualTranslationEditPlaceholder = "Edit translation...",
+        manualTranslationNewPlaceholder = "Custom translation...",
+        manualTranslationAddMorePlaceholder = "Add another translation...",
+        voiceSearchDesc = "Voice search (German / English)",
+        voiceLanguageDialogTitle = "Voice Input Language",
+        voiceLanguageDialogSubtitle = "Select the language for voice recognition:",
+        voiceLanguageGerman = "Deutsch (de-DE)",
+        voiceLanguageEnglish = "English (en-US)",
+        voiceSearchPromptGerman = "Sprechen Sie jetzt auf Deutsch...",
+        voiceSearchPromptEnglish = "Speak now in English...",
+        voiceSearchNotAvailable = "Speech recognition is not available on this device."
     )
 
     private val AR_STRINGS = SettingsStrings(
@@ -562,8 +999,8 @@ object AppStrings {
         saveToFile = "حفظ في ملف",
         freeBadge = "مجاني",
 
-        languageSectionTitle = "اللغة / Language / Sprache",
-        languageSectionSubtitle = "اختر لغة الإعدادات وإدارة دفاتر الملاحظات",
+        languageSectionTitle = "لغة التطبيق",
+        languageSectionSubtitle = "اختر لغة التطبيق والإعدادات وإدارة الدفاتر",
         langGermanName = "Deutsch",
         langEnglishName = "English",
         langArabicName = "العربية",
@@ -573,6 +1010,7 @@ object AppStrings {
         translationLanguageArabic = "العربية",
 
         settingsTitle = "الإعدادات ونماذج الذكاء الاصطناعي",
+        aiSettingsSubtitle = "تكوين نماذج الذكاء الاصطناعي واللغة ومفاتيح API",
         settingsBackDesc = "الرجوع إلى الشاشة الرئيسية",
         notebookLabelPrefix = "الدفتر:",
         manageAllNotebooks = "إدارة الكل",
@@ -597,6 +1035,7 @@ object AppStrings {
         refreshModelsButton = "تحديث النماذج",
         loadingModelsStatus = "جارٍ تحميل النماذج...",
         filterFreeOnly = "المجانية فقط (Free)",
+        filterFlashOnly = "Flash فقط",
         filterAllModels = "جميع النماذج",
         noModelsFound = "لم يتم العثور على نماذج",
         colorSchemeTitle = "سمة الألوان (درجات Material 3)",
@@ -623,6 +1062,7 @@ object AppStrings {
         testingKeyStatus = "جارٍ اختبار المفتاح...",
         testKeySuccess = "المفتاح صالح وفعال!",
         testKeyFailure = "فشل أثناء الاختبار",
+        remainingUsageLabel = "الاستخدام المتبقي:",
         remainingDailyRequests = { remaining, total -> "الطلبات اليومية المتبقية: $remaining من $total" },
 
         myNotebooksTitle = "دفاتر الملاحظات الخاصة بي",
@@ -709,7 +1149,112 @@ object AppStrings {
         setAsPrimaryAction = "تعيين كموقع أساسي",
         setPrimaryConfirmTitle = "تغيير موقع التخزين الأساسي؟",
         setPrimaryConfirmMessage = { name -> "هل تريد تعيين '$name' كموقع تخزين أساسي؟ سيكون هذا الموقع هو المصدر الرئيسي لسجل الدفتر." },
-        setPrimaryConfirmButton = "تعيين كأساسي"
+        setPrimaryConfirmButton = "تعيين كأساسي",
+        backupFoldersTitle = "مجلدات النسخ الاحتياطي",
+        backingUpStatus = "جارٍ النسخ...",
+        backupEmptyNotice = "لم يتم إعداد مجلدات نسخ احتياطي. أضف مجلدات لنسخ الدفاتر تلقائياً بصيغة JSON.",
+        backupStatusActive = "✅ نشط",
+        backupStatusUnreachable = "⚠️ غير قابل للوصول",
+        addFolderButton = "إضافة مجلد",
+        backupNowButton = "نسخ احتياطي الآن",
+        removeFolderDesc = "إزالة المجلد",
+        collapseDesc = "طي",
+        expandDesc = "توسيع",
+        generalNotebookDefault = "عام",
+
+        colorSheetTitle = "اختيار سمة الألوان",
+        colorSheetSubtitle = "100 مجموعة لونية في 10 فئات",
+        colorModeLabel = "الوضع:",
+        chooseColorGroupsLabel = "اختر مجموعات الألوان:",
+        livePreviewLabel = "معاينة مباشرة:",
+        designRecommendationsTitle = "توصيات التصميم:",
+        designRecommendationsBody = "• حد أقصى 3 ألوان لكل عرض لقراءة مثالية.\n• تبقى ألوان الجنس النحوي (مذكر/مؤنث/محايد) ثابتة.\n• نسبة تباين لا تقل عن 4.5:1 لقراءة مريحة.",
+        applyButton = "تطبيق",
+        confirmApplyButton = "تطبيق",
+        doneButton = "تم",
+        defaultResetButton = "افتراضي",
+
+        exportDialogTitle = "تصدير",
+        exportScopeLabel = "السجل:",
+        exportFormatSectionLabel = "الصيغة:",
+        paperSizeOrientationLabel = "حجم الورق والاتجاه:",
+        portraitOrientation = "عمودي",
+        landscapeOrientation = "أفقي",
+        typographyBodyTitle = "📝 الخط والحجم (النص)",
+        typographyHeaderTitle = "📝 الخط والحجم (العناوين)",
+        fileNameLabel = "اسم الملف:",
+        fontSizeDialogTitle = "اختيار حجم الخط",
+        standardSizesLabel = "الأحجام القياسية:",
+        customSizeLabel = "حجم مخصص:",
+        fileSavedToast = "تم حفظ الملف بنجاح!",
+        naturePickerTitle = "نظام كرة التدرج اللوني الطبيعي",
+        naturePickerSubtitle = "عضوي • هادئ • جميل",
+        colorPreviewLabel = "معاينة اللون",
+        colorModesLabel = "أوضاع الألوان",
+        harmonySuggestionsTitle = "اقتراحات التناغم اللوني",
+        savedColorsTitle = "الألوان المحفوظة",
+        savedColorsSubtitle = "اضغط على لون لاختياره، أو احذف الألوان غير المطلوبة.",
+        noSavedColorsText = "لا توجد ألوان محفوظة بعد.",
+        addNewColorLabel = "إضافة لون جديد:",
+        enterHexCodeLabel = "أدخل رمز اللون السداسي HEX:",
+        hexInputHelperText = "أدخل رمزاً سداسياً من 6 خانات (مثل FF5733). تتحدث القيم وعجلة الألوان فوراً.",
+        deleteColorPrompt = { hex -> "هل تريد حقاً إزالة اللون $hex من الألوان المحفوظة؟" },
+
+        sortSheetTitle = "فرز",
+        sortDirectionLabel = "الاتجاه",
+        sortCriterionLabel = "المعيار",
+        sortDateModeLabel = "وضع التاريخ",
+        sortDateAutomatic = "تلقائي",
+        sortDateManual = "يدوي",
+        sortGenderSelectionLabel = "اختيار الجنس",
+
+        tabExpressions = "تعبيرات",
+        tabVerb = "فعل",
+        tabVerbs = "أفعال",
+        tabNouns = "أسماء",
+        tabSentences = "جمل",
+        tabWords = "كلمات",
+        tabAdjectives = "صفات",
+        searchPlaceholderExpressions = "ابحث عن تعبيرات",
+        searchPlaceholderVerbs = "ابحث عن أفعال",
+        searchPlaceholderWords = "ابحث عن كلمات",
+        searchPlaceholderAdjectives = "ابحث عن صفات",
+        searchButton = "بحث",
+        stopButton = "إيقاف",
+        speechSpeedTitle = "سرعة النطق",
+        searchingWordsStatus = "جارٍ ترجمة الكلمات...",
+        searchingAdjectivesStatus = "جارٍ تحليل صيغ الصفات...",
+        searchingSentenceStatus = "جارٍ ترجمة الجملة...",
+        searchingVerbStatus = "جارٍ تحليل جدول التصريف...",
+        searchingNounStatus = "جارٍ تحليل جدول الإعراب...",
+        historyHeaderTitle = "سجل البحث",
+        historyClearButton = "مسح",
+        historySearchPlaceholder = "البحث في السجل...",
+        historyEmptyNoMatchesTitle = "لا توجد نتائج",
+        historyEmptyTitle = "لا يوجد سجل بحث",
+        historyEmptyNoMatchesSubtitle = { q -> "لا يوجد إدخال في السجل يطابق \"$q\"." },
+        historyEmptySubtitle = "تظهر الأسماء والأفعال التي بحثت عنها هنا لإعادة استخدامها بسرعة.",
+        resetSearchButton = "إعادة ضبط البحث",
+        clearHistoryConfirmTitle = "مسح سجل البحث",
+        clearHistoryConfirmText = "هل تريد حقاً إزالة جميع الإدخالات من السجل؟",
+        deleteHistoryItemConfirmTitle = "حذف الإدخال؟",
+        deleteHistoryItemConfirmText = "هل تريد إزالة هذا الإدخال من السجل؟",
+        apiKeyBannerTitle = "مفتاح Gemini API مطلوب",
+        apiKeyBannerSubtitle = "قم بإعداد مفتاح API في الإعدادات لتحليل الكلمات الألمانية.",
+        apiKeyBannerButton = "الإعدادات",
+        folderOverlayBody = "يرجى اختيار موقع تخزين لسجل البحث الخاص بك. سيبقى هذا المجلد محفوظاً حتى بعد مسح بيانات التطبيق.",
+        folderOverlayButton = "📂 اختر مجلداً",
+        manualTranslationEditPlaceholder = "تعديل الترجمة...",
+        manualTranslationNewPlaceholder = "ترجمة خاصة...",
+        manualTranslationAddMorePlaceholder = "إضافة ترجمة أخرى...",
+        voiceSearchDesc = "البحث الصوتي (ألماني / إنجليزي)",
+        voiceLanguageDialogTitle = "لغة الإدخال الصوتي",
+        voiceLanguageDialogSubtitle = "اختر لغة التعرف على الصوت:",
+        voiceLanguageGerman = "Deutsch (الألمانية)",
+        voiceLanguageEnglish = "English (الإنجليزية)",
+        voiceSearchPromptGerman = "تحدث الآن بالألمانية...",
+        voiceSearchPromptEnglish = "تحدث الآن بالإنجليزية...",
+        voiceSearchNotAvailable = "التعرف على الصوت غير متوفر على هذا الجهاز."
     )
 
     fun get(language: AppLanguage): SettingsStrings = when (language) {

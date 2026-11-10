@@ -43,6 +43,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.GeoBorder
 import com.example.ui.theme.GeoOnSurface
 import com.example.ui.theme.GeoOnSurfaceVariant
@@ -56,8 +58,10 @@ import com.example.util.parseManualTranslations
 fun ManualTranslationInputRow(
     currentManualTranslation: String,
     onSave: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     val translations = remember(currentManualTranslation) {
         parseManualTranslations(currentManualTranslation)
     }
@@ -121,7 +125,7 @@ fun ManualTranslationInputRow(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Übersetzung entfernen",
+                                    contentDescription = strings.removeTranslationDesc,
                                     tint = GeoOnSurfaceVariant.copy(alpha = 0.7f),
                                     modifier = Modifier.size(13.dp)
                                 )
@@ -144,11 +148,11 @@ fun ManualTranslationInputRow(
                 placeholder = {
                     Text(
                         text = if (editingIndex != null) {
-                            "Übersetzung bearbeiten..."
+                            strings.editTranslationPlaceholder
                         } else if (translations.isEmpty()) {
-                            "Eigene Übersetzung..."
+                            strings.customTranslationPlaceholder
                         } else {
-                            "Weitere Übersetzung hinzufügen..."
+                            strings.addMoreTranslationPlaceholder
                         },
                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                         color = GeoOnSurfaceVariant.copy(alpha = 0.6f)
@@ -226,7 +230,7 @@ fun ManualTranslationInputRow(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Hinzufügen",
+                            contentDescription = strings.colorPickerAddButton,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(

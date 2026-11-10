@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,8 +16,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -1012,26 +1016,19 @@ fun NotebookManagerDialog(
                                                 modifier = Modifier.size(17.dp)
                                             )
                                             Text(
-                                                text = "Backup-Ordner",
+                                                text = strings.backupFoldersTitle,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
-                                            if (backupFolders.isNotEmpty()) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(MaterialTheme.colorScheme.primaryContainer)
-                                                        .padding(horizontal = 6.dp, vertical = 1.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "${backupFolders.size}",
-                                                        fontSize = 10.5.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                    )
-                                                }
-                                            }
+                                            Text(
+                                                text = "${backupFolders.size}",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
                                         }
 
                                         Row(
@@ -1045,7 +1042,7 @@ fun NotebookManagerDialog(
                                                     color = MaterialTheme.colorScheme.primary
                                                 )
                                                 Text(
-                                                    text = "Sichern...",
+                                                    text = strings.backingUpStatus,
                                                     fontSize = 11.sp,
                                                     color = MaterialTheme.colorScheme.primary,
                                                     fontWeight = FontWeight.Medium
@@ -1053,7 +1050,7 @@ fun NotebookManagerDialog(
                                             }
                                             Icon(
                                                 imageVector = Icons.Default.ArrowDropDown,
-                                                contentDescription = if (isBackupSectionExpanded) "Einklappen" else "Ausklappen",
+                                                contentDescription = if (isBackupSectionExpanded) strings.collapseDesc else strings.expandDesc,
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 modifier = Modifier
                                                     .size(20.dp)
@@ -1095,7 +1092,7 @@ fun NotebookManagerDialog(
                                                         modifier = Modifier.size(20.dp)
                                                     )
                                                     Text(
-                                                        text = "Keine Backup-Ordner eingerichtet. Fügen Sie Ordner hinzu, um Notizbücher automatisch als JSON zu spiegeln.",
+                                                        text = strings.backupEmptyNotice,
                                                         fontSize = 11.5.sp,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         lineHeight = 15.sp,
@@ -1110,13 +1107,12 @@ fun NotebookManagerDialog(
                                             ) {
                                                 backupFolders.forEach { folder ->
                                                     Card(
-                                                        shape = RoundedCornerShape(10.dp),
+                                                        shape = RoundedCornerShape(12.dp),
                                                         colors = CardDefaults.cardColors(
-                                                            containerColor = if (folder.isPrimary) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-                                                                             else MaterialTheme.colorScheme.surfaceContainerLow
+                                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                                                         ),
                                                         border = BorderStroke(
-                                                            if (folder.isPrimary) 1.2.dp else 0.8.dp,
+                                                            if (folder.isPrimary) 1.5.dp else 0.8.dp,
                                                             if (folder.isPrimary) MaterialTheme.colorScheme.primary
                                                             else if (folder.isReachable) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                                                             else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
@@ -1127,10 +1123,10 @@ fun NotebookManagerDialog(
                                                         Column(
                                                             modifier = Modifier
                                                                 .fillMaxWidth()
-                                                                .padding(horizontal = 10.dp, vertical = 7.dp),
-                                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                                                            verticalArrangement = Arrangement.spacedBy(5.dp)
                                                         ) {
-                                                            // Row 1: Role Badge (Primary/Backup) + Path
+                                                            // Row 1: Prominent Primary Badge (ONLY for primary storage) + Path + Actions
                                                             Row(
                                                                 modifier = Modifier.fillMaxWidth(),
                                                                 verticalAlignment = Alignment.CenterVertically,
@@ -1138,31 +1134,45 @@ fun NotebookManagerDialog(
                                                             ) {
                                                                 Row(
                                                                     verticalAlignment = Alignment.CenterVertically,
-                                                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                                    horizontalArrangement = Arrangement.spacedBy(7.dp),
                                                                     modifier = Modifier.weight(1f)
                                                                 ) {
-                                                                    // Primary / Backup Badge
-                                                                    Surface(
-                                                                        shape = RoundedCornerShape(5.dp),
-                                                                        color = if (folder.isPrimary) MaterialTheme.colorScheme.primary
-                                                                                else MaterialTheme.colorScheme.secondaryContainer,
-                                                                        contentColor = if (folder.isPrimary) MaterialTheme.colorScheme.onPrimary
-                                                                                       else MaterialTheme.colorScheme.onSecondaryContainer
-                                                                    ) {
-                                                                        Text(
-                                                                            text = if (folder.isPrimary) "★ ${strings.primaryStorageBadge}"
-                                                                                   else strings.backupStorageBadge,
-                                                                            fontSize = 10.sp,
-                                                                            fontWeight = FontWeight.Bold,
-                                                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                                                        )
+                                                                    // Primary Badge ONLY (Removed label for non-backup/non-primary storage)
+                                                                    if (folder.isPrimary) {
+                                                                        Surface(
+                                                                            shape = RoundedCornerShape(8.dp),
+                                                                            color = MaterialTheme.colorScheme.primary,
+                                                                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                                                                            shadowElevation = 1.dp,
+                                                                            modifier = Modifier.testTag("primary_storage_badge_${folder.uriString.hashCode()}")
+                                                                        ) {
+                                                                            Row(
+                                                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                                                                verticalAlignment = Alignment.CenterVertically,
+                                                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                                            ) {
+                                                                                Icon(
+                                                                                    imageVector = Icons.Default.Star,
+                                                                                    contentDescription = null,
+                                                                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                                                                    modifier = Modifier.size(12.dp)
+                                                                                )
+                                                                                Text(
+                                                                                    text = strings.primaryStorageBadge,
+                                                                                    fontSize = 11.sp,
+                                                                                    fontWeight = FontWeight.Bold,
+                                                                                    maxLines = 1,
+                                                                                    softWrap = false
+                                                                                )
+                                                                            }
+                                                                        }
                                                                     }
 
                                                                     Icon(
                                                                         imageVector = Icons.Default.Folder,
                                                                         contentDescription = null,
                                                                         tint = if (folder.isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                                        modifier = Modifier.size(15.dp)
+                                                                        modifier = Modifier.size(16.dp)
                                                                     )
                                                                     AutoSizingText(
                                                                         text = NotebookBackupManager.shortenPathMiddle(folder.displayName, 28),
@@ -1174,44 +1184,59 @@ fun NotebookManagerDialog(
                                                                     )
                                                                 }
 
-                                                                // Action icons: Set as Primary (shaped button with icon, no text) + Remove
+                                                                // Action icons: Set as Primary Storage and Delete buttons (Exact matching 38.dp size)
                                                                 Row(
                                                                     verticalAlignment = Alignment.CenterVertically,
-                                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                                                 ) {
                                                                     if (!folder.isPrimary) {
                                                                         Surface(
                                                                             onClick = { folderToSetPrimary = folder },
-                                                                            shape = RoundedCornerShape(8.dp),
-                                                                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-                                                                            contentColor = MaterialTheme.colorScheme.primary,
-                                                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                                                                            shape = RoundedCornerShape(10.dp),
+                                                                            color = MaterialTheme.colorScheme.surface,
+                                                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                                                             modifier = Modifier
-                                                                                .size(30.dp)
+                                                                                .size(38.dp)
                                                                                 .testTag("set_primary_button_${folder.uriString.hashCode()}"),
-                                                                            shadowElevation = 0.5.dp
+                                                                            shadowElevation = 1.dp
                                                                         ) {
-                                                                            Box(contentAlignment = Alignment.Center) {
-                                                                                Icon(
-                                                                                    imageVector = Icons.Default.Star,
+                                                                            Box(
+                                                                                contentAlignment = Alignment.Center,
+                                                                                modifier = Modifier.padding(3.dp)
+                                                                            ) {
+                                                                                Image(
+                                                                                    painter = painterResource(id = R.drawable.ic_primary_storage_log),
                                                                                     contentDescription = strings.setAsPrimaryAction,
-                                                                                    tint = MaterialTheme.colorScheme.primary,
-                                                                                    modifier = Modifier.size(17.dp)
+                                                                                    modifier = Modifier.size(28.dp)
                                                                                 )
                                                                             }
                                                                         }
                                                                     }
 
-                                                                    IconButton(
+                                                                    // Delete Storage Button: 100% identical styling and opaque surface base on both primary and backup storage
+                                                                    Surface(
                                                                         onClick = { onRemoveBackupFolder(folder.uriString) },
-                                                                        modifier = Modifier.size(30.dp)
+                                                                        shape = RoundedCornerShape(10.dp),
+                                                                        color = MaterialTheme.colorScheme.surface,
+                                                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
+                                                                        modifier = Modifier
+                                                                            .size(38.dp)
+                                                                            .testTag("delete_folder_button_${folder.uriString.hashCode()}"),
+                                                                        shadowElevation = 0.5.dp
                                                                     ) {
-                                                                        Icon(
-                                                                            imageVector = Icons.Default.DeleteOutline,
-                                                                            contentDescription = "Ordner entfernen",
-                                                                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-                                                                            modifier = Modifier.size(17.dp)
-                                                                        )
+                                                                        Box(
+                                                                            contentAlignment = Alignment.Center,
+                                                                            modifier = Modifier
+                                                                                .fillMaxSize()
+                                                                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f))
+                                                                        ) {
+                                                                            Icon(
+                                                                                imageVector = Icons.Default.DeleteOutline,
+                                                                                contentDescription = strings.removeFolderDesc,
+                                                                                tint = MaterialTheme.colorScheme.error,
+                                                                                modifier = Modifier.size(20.dp)
+                                                                            )
+                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -1224,7 +1249,7 @@ fun NotebookManagerDialog(
                                                             ) {
                                                                 if (folder.isReachable) {
                                                                     Text(
-                                                                        text = "✅ Aktiv",
+                                                                        text = strings.backupStatusActive,
                                                                         fontSize = 11.sp,
                                                                         fontWeight = FontWeight.Medium,
                                                                         color = Color(0xFF2E7D32),
@@ -1233,7 +1258,7 @@ fun NotebookManagerDialog(
                                                                     )
                                                                 } else {
                                                                     Text(
-                                                                        text = "⚠️ Nicht erreichbar",
+                                                                        text = strings.backupStatusUnreachable,
                                                                         fontSize = 11.sp,
                                                                         fontWeight = FontWeight.Medium,
                                                                         color = MaterialTheme.colorScheme.error,
@@ -1247,7 +1272,7 @@ fun NotebookManagerDialog(
                                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                                 )
                                                                 AutoSizingText(
-                                                                    text = NotebookBackupManager.formatBackupTimestamp(folder.lastBackupTimestamp),
+                                                                    text = NotebookBackupManager.formatBackupTimestamp(folder.lastBackupTimestamp, appLanguage),
                                                                     maxFontSize = 11.sp,
                                                                     minFontSize = 10.sp,
                                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1288,7 +1313,7 @@ fun NotebookManagerDialog(
                                                         modifier = Modifier.size(16.dp)
                                                     )
                                                     AutoSizingText(
-                                                        text = "Ordner hinzufügen",
+                                                        text = strings.addFolderButton,
                                                         maxFontSize = 12.5.sp,
                                                         minFontSize = 11.sp,
                                                         fontWeight = FontWeight.Medium,
@@ -1320,7 +1345,7 @@ fun NotebookManagerDialog(
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
                                                     Text(
-                                                        text = "Sichern...",
+                                                        text = strings.backingUpStatus,
                                                         fontSize = 11.5.sp,
                                                         fontWeight = FontWeight.Medium,
                                                         maxLines = 1,
@@ -1337,7 +1362,7 @@ fun NotebookManagerDialog(
                                                             modifier = Modifier.size(15.dp)
                                                         )
                                                         AutoSizingText(
-                                                            text = "Jetzt sichern",
+                                                            text = strings.backupNowButton,
                                                             maxFontSize = 12.5.sp,
                                                             minFontSize = 11.sp,
                                                             fontWeight = FontWeight.Medium,

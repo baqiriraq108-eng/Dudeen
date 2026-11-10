@@ -65,6 +65,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.AppThemePackage
 import com.example.ui.theme.ColorGroupCategory
 import com.example.ui.theme.GeoFemininBg
@@ -89,9 +91,11 @@ fun ColorBottomSheet(
     currentThemeMode: String,
     onDismiss: () -> Unit,
     onApplyTheme: (AppThemePackage, String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
 
     // Local preview state that changes when user taps before applying
     var previewTheme by remember { mutableStateOf(currentTheme) }
@@ -167,13 +171,13 @@ fun ColorBottomSheet(
                     }
                     Column {
                         Text(
-                            text = "Farbschema auswählen",
+                            text = strings.colorSheetTitle,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = textPrimary
                         )
                         Text(
-                            text = "100 Farbgruppen in 10 Kategorien",
+                            text = strings.colorSheetSubtitle,
                             fontSize = 11.sp,
                             color = textSecondary
                         )
@@ -188,7 +192,7 @@ fun ColorBottomSheet(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Schließen",
+                        contentDescription = strings.close,
                         tint = textSecondary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -216,7 +220,7 @@ fun ColorBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Modus / Mode:",
+                        text = strings.colorModeLabel,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = textPrimary
@@ -231,7 +235,7 @@ fun ColorBottomSheet(
                         FilterChip(
                             selected = isSystemSelected,
                             onClick = { previewMode = "auto" },
-                            label = { Text("System", fontSize = 12.sp) },
+                            label = { Text(strings.themeModeAuto, fontSize = 12.sp) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.SettingsBrightness,
@@ -252,7 +256,7 @@ fun ColorBottomSheet(
                         FilterChip(
                             selected = isLightSelected,
                             onClick = { previewMode = "light" },
-                            label = { Text("Hell", fontSize = 12.sp) },
+                            label = { Text(strings.themeModeLight, fontSize = 12.sp) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.LightMode,
@@ -273,7 +277,7 @@ fun ColorBottomSheet(
                         FilterChip(
                             selected = isDarkSelected,
                             onClick = { previewMode = "dark" },
-                            label = { Text("Dunkel", fontSize = 12.sp) },
+                            label = { Text(strings.themeModeDark, fontSize = 12.sp) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.DarkMode,
@@ -297,7 +301,7 @@ fun ColorBottomSheet(
                 // 2. Ten Categories of the 100 Colors (Expandable)
                 // ==============================================================
                 Text(
-                    text = "Farbgruppen wählen:",
+                    text = strings.chooseColorGroupsLabel,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = textPrimary
@@ -310,6 +314,7 @@ fun ColorBottomSheet(
                     AppThemePackage.ALL_CATEGORIES.forEach { category ->
                         CategoryExpandableSection(
                             category = category,
+                            categoryTitle = strings.colorCategoryName(category.id, category.name),
                             isExpanded = expandedCategories[category.id] == true,
                             onToggle = {
                                 expandedCategories[category.id] = !(expandedCategories[category.id] ?: false)
@@ -318,7 +323,9 @@ fun ColorBottomSheet(
                             onSelectTheme = { selected ->
                                 previewTheme = selected
                             },
-                            isPreviewDark = isPreviewDark
+                            isPreviewDark = isPreviewDark,
+                            collapseDesc = strings.collapseDesc,
+                            expandDesc = strings.expandDesc
                         )
                     }
                 }
@@ -338,14 +345,14 @@ fun ColorBottomSheet(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Live-Vorschau:",
+                            text = strings.livePreviewLabel,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = textPrimary
                         )
 
                         Text(
-                            text = "${previewTheme.shortName} (${if (isPreviewDark) "Dunkel" else "Hell"})",
+                            text = "${previewTheme.shortName} (${if (isPreviewDark) strings.themeModeDark else strings.themeModeLight})",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = previewTheme.primary
@@ -383,13 +390,13 @@ fun ColorBottomSheet(
                         )
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(
-                                text = "Design-Empfehlungen:",
+                                text = strings.designRecommendationsTitle,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = textPrimary
                             )
                             Text(
-                                text = "• Maximal 3 Farben pro Ansicht für optimale Lesbarkeit.\n• Feste grammatikalische Farbkennzeichnung (Maskulin/Feminin/Neutrum) bleibt unverändert.\n• Kontrastverhältnis von mind. 4.5:1 für entspanntes Lesen garantiert.",
+                                text = strings.designRecommendationsBody,
                                 fontSize = 10.sp,
                                 color = textSecondary,
                                 lineHeight = 14.sp
@@ -422,7 +429,7 @@ fun ColorBottomSheet(
                         .testTag("cancel_color_selection")
                 ) {
                     Text(
-                        text = "Abbrechen",
+                        text = strings.cancel,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -444,7 +451,7 @@ fun ColorBottomSheet(
                         .testTag("apply_color_selection")
                 ) {
                     Text(
-                        text = "Anwenden",
+                        text = strings.applyButton,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -460,11 +467,14 @@ fun ColorBottomSheet(
 @Composable
 private fun CategoryExpandableSection(
     category: ColorGroupCategory,
+    categoryTitle: String,
     isExpanded: Boolean,
     onToggle: () -> Unit,
     selectedTheme: AppThemePackage,
     onSelectTheme: (AppThemePackage) -> Unit,
-    isPreviewDark: Boolean
+    isPreviewDark: Boolean,
+    collapseDesc: String,
+    expandDesc: String
 ) {
     val rotation by animateFloatAsState(targetValue = if (isExpanded) 180f else 0f, label = "arrow_rot")
     val textPrimary = if (isPreviewDark) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
@@ -496,7 +506,7 @@ private fun CategoryExpandableSection(
                     fontSize = 14.sp
                 )
                 Text(
-                    text = "${category.name} (${category.themes.size})",
+                    text = "$categoryTitle (${category.themes.size})",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = textPrimary
@@ -505,7 +515,7 @@ private fun CategoryExpandableSection(
 
             Icon(
                 imageVector = Icons.Default.ExpandMore,
-                contentDescription = if (isExpanded) "Einklappen" else "Ausklappen",
+                contentDescription = if (isExpanded) collapseDesc else expandDesc,
                 tint = textPrimary,
                 modifier = Modifier
                     .size(20.dp)

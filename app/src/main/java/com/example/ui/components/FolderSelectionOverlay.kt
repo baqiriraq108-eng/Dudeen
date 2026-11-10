@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.GeoBorder
 import com.example.ui.theme.GeoOnPrimary
 import com.example.ui.theme.GeoOnSurface
@@ -52,8 +55,10 @@ import com.example.ui.theme.GeoSurface
 @Composable
 fun FolderSelectionOverlay(
     onFolderSelected: (Uri) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appLanguage: String = LocalAppLanguage.current
 ) {
+    val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     // Non-dismissible: block back navigation until folder is selected
     BackHandler(enabled = true) {
         // Obligatory selection: do not dismiss
@@ -111,7 +116,7 @@ fun FolderSelectionOverlay(
 
                 // Title
                 Text(
-                    text = "Speicherort für Verlauf",
+                    text = strings.folderSelectionTitle,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = GeoOnSurface,
@@ -120,9 +125,9 @@ fun FolderSelectionOverlay(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Informational text exactly as required:
+                // Informational text:
                 Text(
-                    text = "Bitte wählen Sie einen Speicherort für Ihren Suchverlauf aus. Dieser Ordner bleibt auch nach dem Löschen der App-Daten erhalten.",
+                    text = strings.folderSelectionMessage,
                     style = MaterialTheme.typography.bodyMedium,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
@@ -148,7 +153,7 @@ fun FolderSelectionOverlay(
                     )
                 ) {
                     Text(
-                        text = "📂 Ordner auswählen",
+                        text = strings.selectFolderButton,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = GeoOnPrimary

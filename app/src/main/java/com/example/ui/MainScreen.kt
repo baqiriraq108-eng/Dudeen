@@ -47,6 +47,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import android.content.Intent
+import android.speech.RecognizerIntent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -60,6 +62,7 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
@@ -177,6 +180,8 @@ import com.example.ui.theme.GeoOnSurfaceVariant
 import com.example.ui.theme.GeoOutline
 import com.example.ui.theme.GeoPrimary
 import com.example.ui.theme.GeoPrimaryContainer
+import com.example.ui.i18n.AppStrings
+import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.GeoSecondary
 import com.example.ui.theme.GeoSurface
 import com.example.ui.theme.GeoSurfaceVariant
@@ -194,6 +199,7 @@ fun MainScreen(
     val currentlySpokenText by viewModel.currentlySpokenText.collectAsStateWithLifecycle()
     val currentlySpokenId by viewModel.currentlySpokenId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val strings = remember(uiState.appLanguage) { AppStrings.get(uiState.appLanguage) }
 
     val activeModelInfo = remember(uiState.selectedModel, uiState.availableModels) {
         uiState.availableModels.find { it.id == uiState.selectedModel }
@@ -204,9 +210,46 @@ fun MainScreen(
     var historyItemToDeleteId by remember { mutableStateOf<Long?>(null) }
     var historySearchQuery by rememberSaveable { mutableStateOf("") }
     var isSortSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var voiceSearchTarget by rememberSaveable { mutableStateOf<String?>(null) }
 
     val currentSortOption = uiState.historySortOptions[uiState.selectedHistoryFilter] ?: HistorySortOption()
     val isSortActive = !currentSortOption.isDefault
+
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                if (voiceSearchTarget == "history") {
+                    historySearchQuery = spokenText
+                } else {
+                    viewModel.onQueryChange(spokenText)
+                }
+            }
+        }
+    }
+
+    val launchVoiceSearch: (String) -> Unit = { target ->
+        voiceSearchTarget = target
+        val (langCode, prompt) = when (uiState.appLanguage.lowercase().take(2)) {
+            "de" -> "de-DE" to strings.voiceSearchPromptGerman
+            "ar" -> "ar-SA" to "تحدث الآن للبحث..."
+            else -> "en-US" to strings.voiceSearchPromptEnglish
+        }
+        try {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, langCode)
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, langCode)
+                putExtra(RecognizerIntent.EXTRA_PROMPT, prompt)
+            }
+            speechRecognizerLauncher.launch(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, strings.voiceSearchNotAvailable, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val saveJsonLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -249,6 +292,7 @@ fun MainScreen(
     // Text direction is strictly English / Latin LTR (No Arabic RTL)
     CompositionLocalProvider(
         LocalLayoutDirection provides LayoutDirection.Ltr,
+        LocalAppLanguage provides uiState.appLanguage,
         com.example.ui.theme.LocalTranslationLanguage provides uiState.translationLanguage
     ) {
         BackHandler(enabled = true) {
@@ -295,7 +339,7 @@ fun MainScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Zurück",
+                                    contentDescription = strings.back,
                                     tint = GeoOnSurface
                                 )
                             }
@@ -340,7 +384,7 @@ fun MainScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Palette,
-                                contentDescription = "Farbschema auswählen (100 Farben)",
+                                contentDescription = strings.colorSchemeButtonDesc,
                                 modifier = Modifier.size(24.dp),
                                 tint = GeoPrimary
                             )
@@ -371,7 +415,7 @@ fun MainScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FileUpload,
-                                contentDescription = "Exportieren",
+                                contentDescription = strings.exportButtonDesc,
                                 tint = GeoPrimary,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -449,13 +493,13 @@ fun MainScreen(
                                     )
                                     Column {
                                         Text(
-                                            text = "Gemini API Key Required",
+                                            text = strings.apiKeyRequiredTitle,
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onErrorContainer
                                         )
                                         Text(
-                                            text = "Configure your API key in Settings to analyze German noun declensions.",
+                                            text = strings.apiKeyRequiredSubtitle,
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
                                         )
@@ -469,7 +513,7 @@ fun MainScreen(
                                     shape = RoundedCornerShape(8.dp),
                                     modifier = Modifier.testTag("setup_api_key_banner_button")
                                 ) {
-                                    Text("Settings", fontSize = 12.sp)
+                                    Text(strings.settingsButtonLabel, fontSize = 12.sp)
                                 }
                             }
                         }
@@ -485,10 +529,10 @@ fun MainScreen(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         val searchTypes = listOf(
-                            Triple(GrammarType.NOMEN, "Ausdrücke", 1.25f),
-                            Triple(GrammarType.VERB, "Verb", 0.75f),
-                            Triple(GrammarType.NOMEN_LIST, "Wörter", 0.95f),
-                            Triple(GrammarType.ADJEKTIV, "Adjektive", 1.15f)
+                            Triple(GrammarType.NOMEN, strings.tabExpressions, 1.25f),
+                            Triple(GrammarType.VERB, strings.tabVerb, 0.75f),
+                            Triple(GrammarType.NOMEN_LIST, strings.tabWords, 0.95f),
+                            Triple(GrammarType.ADJEKTIV, strings.tabAdjectives, 1.15f)
                         )
                         searchTypes.forEach { (type, label, weightVal) ->
                             val isSelected = uiState.selectedGrammarType == type ||
@@ -588,10 +632,10 @@ fun MainScreen(
                                 if (uiState.searchQuery.isEmpty()) {
                                     Text(
                                         text = when (uiState.selectedGrammarType) {
-                                            GrammarType.VERB -> "Suche nach Verben"
-                                            GrammarType.NOMEN_LIST -> "Suche nach Wörter"
-                                            GrammarType.ADJEKTIV -> "Suche nach Adjektiven"
-                                            else -> "Suche nach Ausdrücken"
+                                            GrammarType.VERB -> strings.searchPlaceholderVerbs
+                                            GrammarType.NOMEN_LIST -> strings.searchPlaceholderWords
+                                            GrammarType.ADJEKTIV -> strings.searchPlaceholderAdjectives
+                                            else -> strings.searchPlaceholderExpressions
                                         },
                                         fontSize = 11.sp,
                                         color = GeoOnSurfaceVariant,
@@ -619,6 +663,21 @@ fun MainScreen(
                                 )
                             }
 
+                            // Voice Search Microphone Button inside search field
+                            IconButton(
+                                onClick = { launchVoiceSearch("main") },
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .testTag("main_voice_search_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = strings.voiceSearchDesc,
+                                    tint = GeoPrimary,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+
                             // Clear Button if search query is not empty
                             if (uiState.searchQuery.isNotEmpty()) {
                                 IconButton(
@@ -627,7 +686,7 @@ fun MainScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Clear,
-                                        contentDescription = "Sucheingabe löschen",
+                                        contentDescription = strings.clearSearchInputDesc,
                                         tint = GeoOutline,
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -664,19 +723,19 @@ fun MainScreen(
                                     )
                                     Icon(
                                         imageVector = Icons.Default.Stop,
-                                        contentDescription = "Suche abbrechen",
+                                        contentDescription = strings.cancelSearchDesc,
                                         tint = Color.White,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = "Stoppen",
+                                        text = strings.stopButton,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
                             } else {
                                 Text(
-                                    text = "Suchen",
+                                    text = strings.searchButton,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -728,15 +787,15 @@ fun MainScreen(
                                 Spacer(modifier = Modifier.width(14.dp))
                                 Text(
                                     text = if (uiState.selectedGrammarType == GrammarType.NOMEN_LIST) {
-                                        "Wörter werden übersetzt..."
+                                        strings.translatingWordsStatus
                                     } else if (uiState.selectedGrammarType == GrammarType.ADJEKTIV) {
-                                        "Adjektiv-Formen werden analysiert..."
+                                        strings.analyzingAdjectivesStatus
                                     } else if (uiState.searchQuery.trim().split(Regex("[\\s,;]+")).filter { it.isNotBlank() }.size >= 2) {
-                                        "Satz wird übersetzt..."
+                                        strings.translatingSentenceStatus
                                     } else if (uiState.selectedGrammarType == GrammarType.VERB) {
-                                        "Konjugationstabelle wird analysiert..."
+                                        strings.analyzingConjugationStatus
                                     } else {
-                                        "Deklinationstabelle wird analysiert..."
+                                        strings.analyzingDeclensionStatus
                                     },
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium,
@@ -886,7 +945,10 @@ fun MainScreen(
                         isSortActive = isSortActive,
                         onSpeak = { text, id -> viewModel.speakGerman(text, id) },
                         currentlySpokenText = currentlySpokenText,
-                        currentlySpokenId = currentlySpokenId
+                        currentlySpokenId = currentlySpokenId,
+                        onVoiceSearchClick = {
+                            launchVoiceSearch("history")
+                        }
                     )
                 }
 
@@ -1023,7 +1085,8 @@ fun MainScreen(
             onDismiss = { viewModel.onCloseColorWindow() },
             onApplyTheme = { theme, mode ->
                 viewModel.onApplyColorTheme(theme, mode)
-            }
+            },
+            appLanguage = uiState.appLanguage
         )
     }
 
@@ -1233,6 +1296,7 @@ fun MainScreen(
             }
         )
     }
+
     }
 }
 
