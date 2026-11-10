@@ -1,0 +1,1011 @@
+package com.example.data.notebook
+
+import android.content.Context
+import android.content.SharedPreferences
+import android.net.Uri
+import android.os.Environment
+import android.util.Log
+import com.example.data.local.WordHistoryEntity
+import com.example.data.model.extractNounQuickDetails
+import com.example.data.model.extractVerbQuickDetails
+import com.example.data.model.optSafeString
+import com.example.data.model.sanitizeHistoryWord
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+
+/**
+ * Repository managing the "Notizbücher" (Autonomous Learning Workbooks) hierarchy.
+ * Location: Documents/Deklination/Notizbücher/<NotebookName>/
+ * Contains:
+ *   - settings.json (independent settings: theme color, auto/light/dark mode, AI, TTS, export)
+ *   - history.json (independent word declension/conjugation records)
+ */
+class NotebookRepository(private val context: Context) {
+
+    companion object {
+        private const val TAG = "NotebookRepository"
+        const val ROOT_FOLDER_NAME = "Deklination/Notizbücher"
+        const val DEFAULT_NOTEBOOK_ID = "Allgemein"
+        const val SETTINGS_FILE_NAME = "settings.json"
+        const val HISTORY_FILE_NAME = "history.json"
+        private const val PREFS_NAME = "notebook_system_prefs"
+        private const val PREF_ACTIVE_NOTEBOOK = "active_notebook_id"
+    }
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    var backupManager: NotebookBackupManager? = null
+
+    init {
+        ensureInitialized()
+    }
+
+    /**
+     * Checks if a directory exists or can be created, and is writable and readable.
+     */
+    private fun isDirWritableAndReadable(dir: File): Boolean {
+        return try {
+            if (!dir.exists()) {
+                if (!dir.mkdirs()) return false
+            }
+            val testProbe = File(dir, ".probe_${System.currentTimeMillis()}")
+            testProbe.writeText("ok")
+            val readOk = testProbe.readText() == "ok"
+            testProbe.delete()
+            readOk
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * Resolves the root directory: Documents/Deklination/Notizbücher/
+     * Safely falls back to app-specific external storage or internal storage
+     * if public external storage is not readable/writable (scoped storage on Android 10+).
+     */
+    fun getRootDirectory(): File {
+        try {
+            val publicDocs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+            val primaryDir = File(publicDocs, ROOT_FOLDER_NAME)
+            if (isDirWritableAndReadable(primaryDir)) {
+                return primaryDir
+            }
+        } catch (_: Throwable) {}
+
+        try {
+            val appExtDocs = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+            if (appExtDocs != null) {
+                val fallbackDir = File(appExtDocs, ROOT_FOLDER_NAME)
+                if (isDirWritableAndReadable(fallbackDir)) {
+                    return fallbackDir
+                }
+            }
+        } catch (_: Throwable) {}
+
+        val internalDir = File(context.filesDir, ROOT_FOLDER_NAME)
+        try {
+            internalDir.mkdirs()
+        } catch (_: Throwable) {}
+        return internalDir
+    }
+
+    /**
+     * Ensures the root directory and the default "Allgemein" notebook exist.
+     * Also migrates legacy history and preferences if present.
+     */
+    @Synchronized
+    fun ensureInitialized() {
+        val root = getRootDirectory()
+        val notebookDirs = try {
+            root.listFiles { file -> file.isDirectory }
+        } catch (_: Exception) {
+            null
+        }
+
+        if (notebookDirs.isNullOrEmpty()) {
+            val defaultFolder = File(root, DEFAULT_NOTEBOOK_ID)
+            try {
+                defaultFolder.mkdirs()
+            } catch (_: Throwable) {}
+
+            // Initialize default settings.json
+            val defaultSettings = NotebookSettings(
+                notebookName = DEFAULT_NOTEBOOK_ID,
+                themeColorId = "Dunkelblau",
+                themeMode = "auto"
+            )
+            val settingsFile = File(defaultFolder, SETTINGS_FILE_NAME)
+            try {
+                settingsFile.writeText(defaultSettings.toJson())
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating initial settings.json", e)
+            }
+
+            // Check if legacy Documents/Deklination/history.json exists and migrate
+            val defaultHistoryFile = File(defaultFolder, HISTORY_FILE_NAME)
+            try {
+                val legacyFile = File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+                    "Deklination/history.json"
+                )
+                if (legacyFile.exists() && legacyFile.length() > 0) {
+                    try {
+                        legacyFile.copyTo(defaultHistoryFile, overwrite = true)
+                    } catch (e: Exception) {
+                        defaultHistoryFile.writeText("[]")
+                    }
+                } else {
+                    defaultHistoryFile.writeText("[]")
+                }
+            } catch (_: Exception) {
+                try {
+                    if (!defaultHistoryFile.exists()) {
+                        defaultHistoryFile.writeText("[]")
+                    }
+                } catch (_: Exception) {}
+            }
+
+            prefs.edit().putString(PREF_ACTIVE_NOTEBOOK, DEFAULT_NOTEBOOK_ID).apply()
+        }
+    }
+
+    fun getActiveNotebookId(): String {
+        val saved = prefs.getString(PREF_ACTIVE_NOTEBOOK, null)
+        if (!saved.isNullOrBlank()) {
+            val folder = File(getRootDirectory(), saved)
+            if (folder.exists() && folder.isDirectory) {
+                return saved
+            }
+        }
+        val firstAvailable = listAllNotebooks().firstOrNull()?.id ?: DEFAULT_NOTEBOOK_ID
+        prefs.edit().putString(PREF_ACTIVE_NOTEBOOK, firstAvailable).apply()
+        return firstAvailable
+    }
+
+    fun setActiveNotebookId(id: String) {
+        val folder = File(getRootDirectory(), id)
+        if (folder.exists() && folder.isDirectory) {
+            prefs.edit().putString(PREF_ACTIVE_NOTEBOOK, id).apply()
+        }
+    }
+
+    /**
+     * Lists all notebooks found in the root directory.
+     * Guaranteed never to throw or enter infinite recursion.
+     */
+    @Synchronized
+    fun listAllNotebooks(): List<Notebook> {
+        val root = getRootDirectory()
+        val dirs = try {
+            root.listFiles { file -> file.isDirectory } ?: emptyArray()
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+
+        var list = dirs.mapNotNull { dir ->
+            try {
+                val settingsFile = File(dir, SETTINGS_FILE_NAME)
+                val settings = if (settingsFile.exists()) {
+                    NotebookSettings.fromJson(settingsFile.readText(), fallbackName = dir.name)
+                } else {
+                    NotebookSettings(notebookName = dir.name)
+                }
+
+                val historyFile = File(dir, HISTORY_FILE_NAME)
+                val wordCount = if (historyFile.exists()) {
+                    val content = historyFile.readText().trim()
+                    if (content.isNotEmpty() && content != "[]") {
+                        try {
+                            JSONArray(content).length()
+                        } catch (e: Exception) {
+                            0
+                        }
+                    } else 0
+                } else 0
+
+                Notebook(
+                    id = dir.name,
+                    name = settings.notebookName.ifBlank { dir.name },
+                    lastModified = maxOf(dir.lastModified(), settingsFile.lastModified(), historyFile.lastModified()),
+                    wordCount = wordCount,
+                    settings = settings
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reading notebook directory: ${dir.name}", e)
+                null
+            }
+        }.sortedByDescending { it.lastModified }
+
+        if (list.isEmpty()) {
+            ensureInitialized()
+            val recheckedDirs = try {
+                root.listFiles { file -> file.isDirectory } ?: emptyArray()
+            } catch (_: Throwable) {
+                emptyArray()
+            }
+            list = recheckedDirs.mapNotNull { dir ->
+                try {
+                    val settingsFile = File(dir, SETTINGS_FILE_NAME)
+                    val settings = if (settingsFile.exists()) {
+                        NotebookSettings.fromJson(settingsFile.readText(), fallbackName = dir.name)
+                    } else {
+                        NotebookSettings(notebookName = dir.name)
+                    }
+                    Notebook(
+                        id = dir.name,
+                        name = settings.notebookName.ifBlank { dir.name },
+                        lastModified = dir.lastModified(),
+                        wordCount = 0,
+                        settings = settings
+                    )
+                } catch (_: Throwable) {
+                    null
+                }
+            }
+        }
+
+        return if (list.isEmpty()) {
+            listOf(
+                Notebook(
+                    id = DEFAULT_NOTEBOOK_ID,
+                    name = DEFAULT_NOTEBOOK_ID,
+                    lastModified = System.currentTimeMillis(),
+                    wordCount = 0,
+                    settings = NotebookSettings(notebookName = DEFAULT_NOTEBOOK_ID)
+                )
+            )
+        } else {
+            list
+        }
+    }
+
+    fun getActiveNotebook(): Notebook {
+        val activeId = getActiveNotebookId()
+        val all = listAllNotebooks()
+        return all.find { it.id == activeId }
+            ?: all.firstOrNull()
+            ?: Notebook(
+                id = DEFAULT_NOTEBOOK_ID,
+                name = DEFAULT_NOTEBOOK_ID,
+                lastModified = System.currentTimeMillis(),
+                wordCount = 0,
+                settings = NotebookSettings(notebookName = DEFAULT_NOTEBOOK_ID)
+            )
+    }
+
+    /**
+     * Creates a new notebook directory with settings.json and empty history.json.
+     */
+    @Synchronized
+    fun createNotebook(name: String, initialThemeColorId: String = "Schiefer", themeMode: String = "auto"): Notebook {
+        val cleanName = sanitizeFileName(name.trim().ifBlank { "Neues Notizbuch" })
+        var folderName = cleanName
+        var counter = 1
+        val root = getRootDirectory()
+
+        while (File(root, folderName).exists()) {
+            folderName = "${cleanName}_$counter"
+            counter++
+        }
+
+        val folder = File(root, folderName)
+        folder.mkdirs()
+
+        val settings = NotebookSettings(
+            notebookName = name.trim().ifBlank { folderName },
+            themeColorId = initialThemeColorId,
+            themeMode = themeMode
+        )
+
+        File(folder, SETTINGS_FILE_NAME).writeText(settings.toJson())
+        File(folder, HISTORY_FILE_NAME).writeText("[]")
+
+        val notebook = Notebook(
+            id = folderName,
+            name = settings.notebookName,
+            lastModified = System.currentTimeMillis(),
+            wordCount = 0,
+            settings = settings
+        )
+
+        setActiveNotebookId(folderName)
+        backupManager?.scheduleBackup(folderName)
+        return notebook
+    }
+
+    /**
+     * Renames a notebook (both directory and display name in settings.json).
+     * Protected against nulls, blank inputs, invalid file characters, and crashes.
+     */
+    @Synchronized
+    fun renameNotebook(notebookId: String, newName: String): Notebook {
+        val root = getRootDirectory()
+        val trimmedNew = newName.trim()
+        if (trimmedNew.isBlank()) {
+            return getActiveNotebook()
+        }
+
+        val oldFolder = File(root, notebookId)
+        if (!oldFolder.exists() || !oldFolder.isDirectory) {
+            Log.w(TAG, "Old notebook folder $notebookId does not exist, creating directory")
+            try { oldFolder.mkdirs() } catch (_: Throwable) {}
+        }
+
+        val cleanName = sanitizeFileName(trimmedNew).ifBlank { "Notizbuch" }
+
+        val oldSettingsFile = File(oldFolder, SETTINGS_FILE_NAME)
+        val oldDisplayName = if (oldSettingsFile.exists()) {
+            try {
+                NotebookSettings.fromJson(oldSettingsFile.readText(), fallbackName = notebookId).notebookName
+            } catch (_: Throwable) { notebookId }
+        } else notebookId
+
+        // Attempt folder rename if new clean name differs and does not collide
+        val targetFolder = if (cleanName != oldFolder.name && !File(root, cleanName).exists()) {
+            val newFile = File(root, cleanName)
+            val renamed = try {
+                oldFolder.renameTo(newFile)
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed to rename folder from ${oldFolder.name} to $cleanName", e)
+                false
+            }
+            if (renamed) {
+                if (getActiveNotebookId() == notebookId) {
+                    setActiveNotebookId(cleanName)
+                }
+                newFile
+            } else {
+                oldFolder
+            }
+        } else {
+            oldFolder
+        }
+
+        val effectiveId = targetFolder.name
+        val settingsFile = File(targetFolder, SETTINGS_FILE_NAME)
+        val currentSettings = if (settingsFile.exists()) {
+            try {
+                NotebookSettings.fromJson(settingsFile.readText(), fallbackName = trimmedNew)
+            } catch (_: Throwable) {
+                NotebookSettings(notebookName = trimmedNew)
+            }
+        } else {
+            NotebookSettings(notebookName = trimmedNew)
+        }
+
+        val updatedSettings = currentSettings.copy(notebookName = trimmedNew)
+        try {
+            settingsFile.writeText(updatedSettings.toJson())
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write updated settings.json on rename", e)
+        }
+
+        try {
+            backupManager?.onNotebookRenamed(oldDisplayName, effectiveId)
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to mirror notebook rename in backup manager", e)
+        }
+
+        return getActiveNotebook()
+    }
+
+    /**
+     * Deletes a notebook and its directory completely.
+     * Protected: Cannot delete the last remaining notebook.
+     */
+    @Synchronized
+    fun deleteNotebook(notebookId: String): Boolean {
+        val all = listAllNotebooks()
+        if (all.size <= 1) {
+            return false // Cannot delete the only existing notebook
+        }
+
+        val targetNb = all.find { it.id == notebookId }
+        val nbName = targetNb?.name ?: notebookId
+
+        val folder = File(getRootDirectory(), notebookId)
+        if (folder.exists()) {
+            folder.deleteRecursively()
+        }
+
+        if (getActiveNotebookId() == notebookId) {
+            val remaining = listAllNotebooks()
+            setActiveNotebookId(remaining.firstOrNull()?.id ?: DEFAULT_NOTEBOOK_ID)
+        }
+
+        backupManager?.onNotebookDeleted(nbName)
+
+        return true
+    }
+
+    /**
+     * Saves settings for the currently active notebook.
+     */
+    @Synchronized
+    fun saveActiveSettings(settings: NotebookSettings): Boolean {
+        return saveNotebookSettings(getActiveNotebookId(), settings)
+    }
+
+    @Synchronized
+    fun loadNotebookSettings(notebookId: String): NotebookSettings {
+        val folder = File(getRootDirectory(), notebookId)
+        val file = File(folder, SETTINGS_FILE_NAME)
+        if (!file.exists()) return NotebookSettings(notebookName = notebookId)
+        return try {
+            NotebookSettings.fromJson(file.readText(), fallbackName = notebookId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading notebook settings for $notebookId", e)
+            NotebookSettings(notebookName = notebookId)
+        }
+    }
+
+    @Synchronized
+    fun saveNotebookSettings(notebookId: String, settings: NotebookSettings): Boolean {
+        return try {
+            val folder = File(getRootDirectory(), notebookId)
+            folder.mkdirs()
+            val file = File(folder, SETTINGS_FILE_NAME)
+            file.writeText(settings.toJson())
+            backupManager?.scheduleBackup(notebookId)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving notebook settings", e)
+            false
+        }
+    }
+
+    /**
+     * Loads the search history items for the active notebook.
+     */
+    @Synchronized
+    fun loadActiveHistory(): List<WordHistoryEntity> {
+        return loadNotebookHistory(getActiveNotebookId())
+    }
+
+    @Synchronized
+    fun loadNotebookHistory(notebookId: String): List<WordHistoryEntity> {
+        // 1. If designated primary location is registered and reachable, read from it as source of truth
+        val primaryWords = backupManager?.loadHistoryFromPrimary(notebookId)
+        if (primaryWords != null) {
+            return primaryWords
+        }
+
+        // 2. Fall back to local internal storage
+        val folder = File(getRootDirectory(), notebookId)
+        val file = File(folder, HISTORY_FILE_NAME)
+        if (!file.exists()) return emptyList()
+
+        return try {
+            val content = file.readText().trim()
+            parseJsonHistory(content)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading notebook history for $notebookId", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Saves the search history items to the active notebook.
+     * When triggerBackup is true, automatically mirrors to registered backup locations.
+     * When triggerBackup is false (e.g. during "Clear All / Leeren"), only the primary
+     * storage is cleared, leaving all backup locations untouched with their historical data.
+     */
+    @Synchronized
+    fun saveActiveHistory(items: List<WordHistoryEntity>, triggerBackup: Boolean = true): Boolean {
+        val activeId = getActiveNotebookId()
+        val folder = File(getRootDirectory(), activeId)
+        folder.mkdirs()
+        val file = File(folder, HISTORY_FILE_NAME)
+        return try {
+            val jsonArray = serializeHistoryToJson(items)
+            file.writeText(jsonArray.toString(2))
+            if (triggerBackup && items.isNotEmpty()) {
+                backupManager?.scheduleBackup(activeId)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving active notebook history", e)
+            false
+        }
+    }
+
+    @Synchronized
+    fun appendOrUpdateItemInActiveHistory(item: WordHistoryEntity): Boolean {
+        val items = loadActiveHistory().toMutableList()
+        val existing = items.find {
+            it.word.equals(item.word, ignoreCase = true) &&
+            it.type.equals(item.type, ignoreCase = true)
+        }
+        val effectiveItem = if (item.manualTranslation.isBlank() && existing != null && existing.manualTranslation.isNotBlank()) {
+            item.copy(manualTranslation = existing.manualTranslation)
+        } else {
+            item
+        }
+        items.removeAll {
+            it.word.equals(item.word, ignoreCase = true) &&
+            it.type.equals(item.type, ignoreCase = true)
+        }
+        items.add(0, effectiveItem)
+        val saved = saveActiveHistory(items, triggerBackup = false)
+        try {
+            backupManager?.syncEntryAdded(getActiveNotebookId(), effectiveItem, fullUpdatedItems = items)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error syncing added entry to backups", e)
+        }
+        return saved
+    }
+
+    @Synchronized
+    fun deleteItemInActiveHistory(id: Long, word: String? = null, type: String? = null): Boolean {
+        val items = loadActiveHistory().toMutableList()
+        val removed = items.removeAll {
+            it.id == id || (word != null && type != null &&
+                it.word.equals(word, ignoreCase = true) &&
+                it.type.equals(type, ignoreCase = true))
+        }
+        if (removed) {
+            saveActiveHistory(items, triggerBackup = false)
+        }
+        try {
+            backupManager?.syncEntryDeleted(getActiveNotebookId(), id, word, type, fullUpdatedItems = items)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error syncing deleted entry to backups", e)
+        }
+        return true
+    }
+
+    /**
+     * Clears the active notebook's history from the primary storage ONLY.
+     * Backups remain untouched, preserving all previously mirrored historical data.
+     */
+    @Synchronized
+    fun clearActiveHistory(): Boolean {
+        val cleared = saveActiveHistory(emptyList(), triggerBackup = false)
+        try {
+            backupManager?.syncClearAllPrimary(getActiveNotebookId())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing primary backup storage", e)
+        }
+        return cleared
+    }
+
+    // =========================================================================
+    // Direct JSON Export and Import (Direct JSON, zero ZIP compression)
+    // =========================================================================
+
+    /**
+     * Builds a formatted JSON string for a notebook with the given words list.
+     */
+    fun buildNotebookJsonString(notebookId: String, items: List<WordHistoryEntity>): String {
+        val notebook = listAllNotebooks().find { it.id == notebookId }
+        val name = notebook?.name ?: notebookId
+        val settings = loadNotebookSettings(notebookId)
+
+        val obj = JSONObject().apply {
+            put("version", 2)
+            put("notebook_name", name)
+            put("notebookName", name)
+            put("exported_at", System.currentTimeMillis())
+            put("settings", settings.toExportSettingsJson())
+            put("words", serializeHistoryToJson(items))
+            put("history", serializeHistoryToJson(items))
+        }
+        return obj.toString(2)
+    }
+
+    /**
+     * Exports a single notebook to a formatted JSON string.
+     * Contains notebook name, full settings (excluding keys and folder URI), and word history.
+     */
+    fun exportNotebookToJsonString(notebookId: String): String {
+        return buildNotebookJsonString(notebookId, loadNotebookHistory(notebookId))
+    }
+
+    /**
+     * Exports all or selected notebooks into a single combined JSON string.
+     * Includes metadata, full settings per notebook, and history.
+     */
+    fun exportNotebooksCombinedJsonString(notebookIds: List<String> = emptyList()): String {
+        val all = listAllNotebooks()
+        val targets = if (notebookIds.isEmpty()) all else all.filter { it.id in notebookIds }
+        val rootObj = JSONObject().apply {
+            put("version", 2)
+            put("exported_at", System.currentTimeMillis())
+        }
+
+        val notebooksArray = JSONArray()
+        for (nb in targets) {
+            val items = loadNotebookHistory(nb.id)
+            val settings = loadNotebookSettings(nb.id)
+            val sectionObj = JSONObject().apply {
+                put("notebook_name", nb.name)
+                put("notebookName", nb.name)
+                put("settings", settings.toExportSettingsJson())
+                put("words", serializeHistoryToJson(items))
+                put("history", serializeHistoryToJson(items))
+            }
+            notebooksArray.put(sectionObj)
+            rootObj.put(nb.name, sectionObj)
+        }
+        rootObj.put("notebooks", notebooksArray)
+        return rootObj.toString(2)
+    }
+
+    /**
+     * Exports all or selected notebooks as individual JSON files into a SAF folder (treeUri).
+     * Returns the count of successfully created JSON files.
+     */
+    fun exportNotebooksToTreeUri(context: Context, treeUri: Uri, notebookIds: List<String> = emptyList()): Int {
+        val all = listAllNotebooks()
+        val targets = if (notebookIds.isEmpty()) all else all.filter { it.id in notebookIds }
+        val documentDir = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri) ?: return 0
+        if (!documentDir.canWrite()) return 0
+
+        var count = 0
+        for (nb in targets) {
+            try {
+                val items = loadNotebookHistory(nb.id)
+                val settings = loadNotebookSettings(nb.id)
+                val jsonString = JSONObject().apply {
+                    put("version", 2)
+                    put("notebook_name", nb.name)
+                    put("notebookName", nb.name)
+                    put("exported_at", System.currentTimeMillis())
+                    put("settings", settings.toExportSettingsJson())
+                    put("words", serializeHistoryToJson(items))
+                    put("history", serializeHistoryToJson(items))
+                }.toString(2)
+
+                val safeBase = sanitizeFileName(nb.name).ifBlank { "Notizbuch" }
+                val fileName = "$safeBase.json"
+
+                // Delete existing file in folder to overwrite cleanly
+                val existing = documentDir.findFile(fileName)
+                existing?.delete()
+
+                val newDoc = documentDir.createFile("application/json", fileName)
+                if (newDoc != null) {
+                    context.contentResolver.openOutputStream(newDoc.uri)?.use { os ->
+                        os.write(jsonString.toByteArray(Charsets.UTF_8))
+                    }
+                    count++
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error writing notebook ${nb.name} to tree URI", e)
+            }
+        }
+        return count
+    }
+
+    /**
+     * Resolves a non-conflicting notebook name by appending a suffix like (2), (3) if it already exists.
+     */
+    fun resolveUniqueNotebookName(baseName: String): String {
+        val existingNames = listAllNotebooks().map { it.name.trim().lowercase() }.toSet()
+        val cleanBase = baseName.trim().ifBlank { "Notizbuch" }
+        if (!existingNames.contains(cleanBase.lowercase())) {
+            return cleanBase
+        }
+        var counter = 2
+        while (true) {
+            val candidate = "$cleanBase ($counter)"
+            if (!existingNames.contains(candidate.lowercase())) {
+                return candidate
+            }
+            counter++
+        }
+    }
+
+    /**
+     * Parses an arbitrary JSON string into either a single notebook or multiple notebooks representation.
+     * Supports both new formats (with settings) and legacy formats (history only).
+     */
+    fun parseImportedJson(jsonString: String, fallbackFileName: String = "Importiertes_Notizbuch"): ImportedJsonResult {
+        val trimmed = jsonString.trim()
+        if (trimmed.isEmpty()) return ImportedJsonResult.EmptyOrInvalid
+
+        val cleanFallback = fallbackFileName.removeSuffix(".json").removeSuffix(".JSON").trim().ifBlank { "Importiertes_Notizbuch" }
+
+        try {
+            // Case 1: Root is a JSON Array of words (legacy format)
+            if (trimmed.startsWith("[")) {
+                val items = parseJsonHistory(trimmed)
+                return if (items.isNotEmpty()) {
+                    ImportedJsonResult.SingleNotebook(cleanFallback, items, null)
+                } else {
+                    ImportedJsonResult.EmptyOrInvalid
+                }
+            }
+
+            val rootObj = JSONObject(trimmed)
+
+            // Case 2: Root object has "words" or "history" array directly (single notebook)
+            if (rootObj.has("words") || rootObj.has("history")) {
+                val wordsArray = rootObj.optJSONArray("words") ?: rootObj.optJSONArray("history")
+                val name = rootObj.optString("notebook_name").ifBlank { rootObj.optString("notebookName") }.trim().ifBlank { cleanFallback }
+                val items = if (wordsArray != null) parseJsonHistory(wordsArray.toString()) else emptyList()
+                val settingsObj = rootObj.optJSONObject("settings")
+                val settings = if (settingsObj != null) NotebookSettings.parseFromExportSettingsJson(settingsObj, name) else null
+                return if (items.isNotEmpty() || settings != null) {
+                    ImportedJsonResult.SingleNotebook(name, items, settings)
+                } else {
+                    ImportedJsonResult.EmptyOrInvalid
+                }
+            }
+
+            // Case 3: Root object contains "notebooks" array
+            val notebooksArray = rootObj.optJSONArray("notebooks")
+            if (notebooksArray != null && notebooksArray.length() > 0) {
+                val packages = mutableListOf<ImportedNotebookPackage>()
+                for (i in 0 until notebooksArray.length()) {
+                    val itemObj = notebooksArray.getJSONObject(i)
+                    val name = itemObj.optString("notebook_name").ifBlank { itemObj.optString("notebookName", "Notizbuch ${i + 1}") }
+                    val wordsArray = itemObj.optJSONArray("words") ?: itemObj.optJSONArray("history")
+                    val items = if (wordsArray != null) parseJsonHistory(wordsArray.toString()) else emptyList()
+                    val settingsObj = itemObj.optJSONObject("settings")
+                    val settings = if (settingsObj != null) NotebookSettings.parseFromExportSettingsJson(settingsObj, name) else null
+                    packages.add(ImportedNotebookPackage(name, items, settings))
+                }
+                return when {
+                    packages.size == 1 -> ImportedJsonResult.SingleNotebook(packages[0].name, packages[0].words, packages[0].settings)
+                    packages.size > 1 -> ImportedJsonResult.MultipleNotebooks(packages)
+                    else -> ImportedJsonResult.EmptyOrInvalid
+                }
+            }
+
+            // Case 4: Key-value map: { "Notebook1": { "settings": ..., "words": [...] }, ... }
+            val packages = mutableListOf<ImportedNotebookPackage>()
+            val keys = rootObj.keys()
+            val metadataKeys = setOf("version", "exported_at", "type", "description")
+
+            while (keys.hasNext()) {
+                val key = keys.next()
+                if (key in metadataKeys) continue
+
+                val value = rootObj.opt(key)
+                if (value is JSONObject) {
+                    val wordsArray = value.optJSONArray("words") ?: value.optJSONArray("history")
+                    val items = if (wordsArray != null) parseJsonHistory(wordsArray.toString()) else emptyList()
+                    val settingsObj = value.optJSONObject("settings")
+                    val settings = if (settingsObj != null) NotebookSettings.parseFromExportSettingsJson(settingsObj, key) else null
+                    if (items.isNotEmpty() || settings != null) {
+                        packages.add(ImportedNotebookPackage(key, items, settings))
+                    }
+                } else if (value is JSONArray) {
+                    val items = parseJsonHistory(value.toString())
+                    if (items.isNotEmpty()) {
+                        packages.add(ImportedNotebookPackage(key, items, null))
+                    }
+                }
+            }
+
+            return when {
+                packages.size > 1 -> ImportedJsonResult.MultipleNotebooks(packages)
+                packages.size == 1 -> ImportedJsonResult.SingleNotebook(packages[0].name, packages[0].words, packages[0].settings)
+                else -> ImportedJsonResult.EmptyOrInvalid
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing imported JSON", e)
+        }
+
+        return ImportedJsonResult.EmptyOrInvalid
+    }
+
+    /**
+     * Imports a single notebook as a brand-new notebook with full settings restoration.
+     * Automatically applies a conflict-free unique name if needed.
+     */
+    fun importSingleNotebookAsNew(
+        name: String,
+        words: List<WordHistoryEntity>,
+        importedSettings: NotebookSettings? = null
+    ): Notebook {
+        val root = getRootDirectory()
+        val uniqueName = resolveUniqueNotebookName(name)
+        val cleanFolderBase = sanitizeFileName(uniqueName).ifBlank { "Notizbuch" }
+        var folderName = cleanFolderBase
+        var counter = 1
+        while (File(root, folderName).exists()) {
+            folderName = "${cleanFolderBase}_$counter"
+            counter++
+        }
+
+        val targetDir = File(root, folderName).apply { mkdirs() }
+        val finalSettings = (importedSettings?.copy(
+            notebookName = uniqueName,
+            customApiKey = "",
+            openRouterApiKey = "",
+            storageFolderUri = ""
+        ) ?: NotebookSettings(notebookName = uniqueName))
+
+        File(targetDir, SETTINGS_FILE_NAME).writeText(finalSettings.toJson())
+        File(targetDir, HISTORY_FILE_NAME).writeText(serializeHistoryToJson(words).toString(2))
+
+        val notebook = Notebook(
+            id = folderName,
+            name = finalSettings.notebookName,
+            lastModified = System.currentTimeMillis(),
+            wordCount = words.size,
+            settings = finalSettings
+        )
+        setActiveNotebookId(folderName)
+        backupManager?.scheduleBackup(folderName)
+        return notebook
+    }
+
+    /**
+     * Merges imported words into the currently active notebook without losing existing items.
+     */
+    fun importSingleNotebookMergeActive(newWords: List<WordHistoryEntity>): List<WordHistoryEntity> {
+        val currentItems = loadActiveHistory()
+        val currentKeyMap = currentItems.associateBy { "${it.word.trim().lowercase()}_${it.type.trim().lowercase()}" }.toMutableMap()
+
+        // Merge: update existing or append new
+        for (item in newWords) {
+            val key = "${item.word.trim().lowercase()}_${item.type.trim().lowercase()}"
+            val existing = currentKeyMap[key]
+            val manual = if (item.manualTranslation.isNotBlank()) {
+                item.manualTranslation
+            } else {
+                existing?.manualTranslation.orEmpty()
+            }
+            currentKeyMap[key] = item.copy(manualTranslation = manual)
+        }
+
+        val merged = currentKeyMap.values.sortedByDescending { it.timestamp }
+        saveActiveHistory(merged)
+        return merged
+    }
+
+    /**
+     * Imports multiple notebooks as separate individual notebooks.
+     */
+    fun importMultipleNotebooksSeparate(packages: List<ImportedNotebookPackage>): List<Notebook> {
+        val importedList = mutableListOf<Notebook>()
+        for (pkg in packages) {
+            val nb = importSingleNotebookAsNew(pkg.name, pkg.words, pkg.settings)
+            importedList.add(nb)
+        }
+        if (importedList.isNotEmpty()) {
+            setActiveNotebookId(importedList.first().id)
+        }
+        return importedList
+    }
+
+    /**
+     * Imports multiple notebooks combined as a single notebook.
+     */
+    fun importMultipleNotebooksAsSingle(
+        name: String,
+        allWords: List<WordHistoryEntity>,
+        firstSettings: NotebookSettings? = null
+    ): Notebook {
+        return importSingleNotebookAsNew(name, allWords, firstSettings)
+    }
+
+    private fun sanitizeFileName(name: String): String {
+        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+    }
+
+    fun serializeHistoryToJson(items: List<WordHistoryEntity>): JSONArray {
+        val jsonArray = JSONArray()
+        for (item in items) {
+            val obj = JSONObject().apply {
+                put("id", item.id)
+                put("word", item.word)
+                put("type", item.type)
+                put("data", item.data)
+                put("timestamp", item.timestamp)
+                put("gender", item.gender)
+                put("genderArticle", item.genderArticle)
+                put("meaningEnglish", item.meaningEnglish)
+                put("rawJsonResult", item.rawJsonResult)
+                put("translationLanguage", item.translationLanguage)
+                put("manualTranslation", item.manualTranslation)
+                put("manual_translation", item.manualTranslation)
+                put("subtitles", item.manualTranslation)
+                put("custom_translation", item.manualTranslation)
+                if (item.type.equals("Verb", ignoreCase = true)) {
+                    val details = extractVerbQuickDetails(item)
+                    put("verb", details.verb.ifBlank { item.word })
+                    put("auxiliary", details.auxiliary.removeSurrounding("(", ")"))
+                    put("praeteritum", details.praeteritum)
+                    put("partizip1", details.partizip1)
+                    put("partizip2", details.partizip2)
+                    put("verb_type", details.verbType)
+                    put("separable", details.separable)
+                    put("case_object", details.caseObject)
+                    put("english", details.englishMeaning)
+                } else {
+                    val details = extractNounQuickDetails(item)
+                    put("singular", details.singular)
+                    put("plural", details.plural)
+                    put("pluralNoun", details.plural)
+                    put("genitive", details.genitiveSingular)
+                    put("genitiveSingular", details.genitiveSingular)
+                    put("dativePlural", details.dativePlural)
+                    put("english", details.englishMeaning)
+                }
+            }
+            jsonArray.put(obj)
+        }
+        return jsonArray
+    }
+
+    fun parseJsonHistory(jsonString: String): List<WordHistoryEntity> {
+        val result = mutableListOf<WordHistoryEntity>()
+        val trimmed = jsonString.trim()
+        if (trimmed.isEmpty() || trimmed == "[]") return result
+
+        try {
+            val jsonArray = JSONArray(trimmed)
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val rawWord = obj.optSafeString("word").ifBlank {
+                    obj.optSafeString("verb").ifBlank {
+                        obj.optSafeString("infinitiv")
+                    }
+                }
+                val data = obj.optSafeString("data").ifBlank { obj.toString() }
+                val rawJsonResult = obj.optSafeString("rawJsonResult").ifBlank { data }
+                val type = obj.optSafeString("type", "Nomen")
+                val cleanWord = sanitizeHistoryWord(rawWord, data.ifBlank { rawJsonResult }, type)
+                if (cleanWord.isBlank() || cleanWord.equals("null", ignoreCase = true)) {
+                    continue // Skip and remove corrupted null records
+                }
+                val meaningEnglish = obj.optSafeString("meaningEnglish").ifBlank {
+                    obj.optSafeString("english")
+                }
+                val gender = obj.optSafeString("gender").ifBlank {
+                    obj.optSafeString("auxiliary")
+                }
+                val genderArticle = obj.optSafeString("genderArticle").ifBlank {
+                    obj.optSafeString("partizip2")
+                }
+                val translationLanguage = obj.optSafeString("translationLanguage", "en")
+                val manualTranslation = obj.optSafeString("manualTranslation")
+                    .ifBlank { obj.optSafeString("manual_translation") }
+                    .ifBlank { obj.optSafeString("subtitles") }
+                    .ifBlank { obj.optSafeString("custom_translation") }
+
+                result.add(
+                    WordHistoryEntity(
+                        id = obj.optLong("id", 0L),
+                        word = cleanWord,
+                        type = type,
+                        data = data,
+                        timestamp = obj.optLong("timestamp", System.currentTimeMillis()),
+                        gender = gender,
+                        genderArticle = genderArticle,
+                        meaningEnglish = meaningEnglish,
+                        rawJsonResult = rawJsonResult,
+                        translationLanguage = translationLanguage,
+                        manualTranslation = manualTranslation
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing history json", e)
+        }
+        return result
+    }
+}
+
+sealed class ImportedJsonResult {
+    data class SingleNotebook(
+        val detectedName: String,
+        val words: List<WordHistoryEntity>,
+        val settings: NotebookSettings? = null
+    ) : ImportedJsonResult()
+
+    data class MultipleNotebooks(
+        val packages: List<ImportedNotebookPackage>
+    ) : ImportedJsonResult() {
+        val notebooks: Map<String, List<WordHistoryEntity>>
+            get() = packages.associate { it.name to it.words }
+    }
+
+    object EmptyOrInvalid : ImportedJsonResult()
+}
