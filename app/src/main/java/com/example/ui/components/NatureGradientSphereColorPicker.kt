@@ -1269,7 +1269,7 @@ fun NatureGradientSphereColorPicker(
                     }
 
                     // ==========================================
-                    // 7. BOTTOM ACTIONS: Cancel / Apply
+                    // 7. BOTTOM ACTIONS: Cancel / Confirm
                     // ==========================================
                     Row(
                         modifier = Modifier
@@ -1281,45 +1281,49 @@ fun NatureGradientSphereColorPicker(
                         // Cancel Button
                         OutlinedButton(
                             onClick = onDismiss,
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.2.dp, Color(0xFFCCDDC4)),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFFCCDDC4)),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 containerColor = Color(0xFFF7F9F3),
                                 contentColor = natureTextDark
                             ),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(46.dp)
+                                .height(42.dp)
                                 .testTag("color_picker_cancel_button")
                         ) {
                             Text(
-                                text = strings.colorPickerCancel,
-                                fontSize = 14.sp,
+                                text = strings.cancel,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = natureTextDark
+                                color = natureTextDark,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
-                        // Apply Button
+                        // Confirm Button
                         Button(
                             onClick = {
                                 onColorChosen(currentHex)
                             },
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = naturePrimaryGreen,
                                 contentColor = Color.White
                             ),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(46.dp)
+                                .height(42.dp)
                                 .testTag("color_picker_apply_button")
                         ) {
                             Text(
-                                text = strings.colorPickerApply,
-                                fontSize = 14.sp,
+                                text = strings.confirm,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = Color.White,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
@@ -1394,21 +1398,47 @@ fun NatureGradientSphereColorPicker(
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        CustomColorManager.removeCustomColor(context, targetHex)
-                        customColors = CustomColorManager.getCustomColors(context)
-                        colorToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape = RoundedCornerShape(8.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(strings.delete)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { colorToDelete = null }) {
-                    Text(strings.cancel)
+                    OutlinedButton(
+                        onClick = { colorToDelete = null },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, natureBorder)
+                    ) {
+                        Text(
+                            text = strings.cancel,
+                            color = natureTextDark,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            CustomColorManager.removeCustomColor(context, targetHex)
+                            customColors = CustomColorManager.getCustomColors(context)
+                            colorToDelete = null
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = naturePrimaryGreen),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = strings.confirm,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
             }
         )
@@ -2171,7 +2201,12 @@ private fun ColorPreviewAndModesPanel(
                             .weight(1f)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) natureSurfaceActive else Color(0xFFE4EEE0))
+                            .background(Color(0xFFE4EEE0))
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) natureSurfaceActive else Color.Transparent,
+                                shape = RoundedCornerShape(16.dp)
+                            )
                             .clickable { onModeSelected(index) }
                             .testTag("color_mode_$modeName"),
                         contentAlignment = Alignment.Center
@@ -2180,7 +2215,7 @@ private fun ColorPreviewAndModesPanel(
                             text = modeName,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                            color = if (isSelected) Color.White else natureTextDark
+                            color = if (isSelected) natureSurfaceActive else natureTextDark
                         )
                     }
                 }
@@ -2302,7 +2337,7 @@ private fun SavedColorsManagementDialog(
 
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) Color(0xFFEDF4E8) else Color(0xFFF5F8F2),
+                                color = Color(0xFFF5F8F2),
                                 border = BorderStroke(
                                     if (isSelected) 1.8.dp else 1.dp,
                                     if (isSelected) natureTextDark else Color(0xFFDCEAD4)
@@ -2414,14 +2449,32 @@ private fun SavedColorsManagementDialog(
                     }
                 }
 
-                // Close Button
-                Button(
-                    onClick = onDismiss,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEDF4E8)),
-                    modifier = Modifier.fillMaxWidth()
+                // Action Buttons: Cancel & Confirm
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(strings.doneButton, color = natureTextDark, fontWeight = FontWeight.Bold)
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, natureBorder),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                    ) {
+                        Text(strings.cancel, color = natureTextDark, fontWeight = FontWeight.SemiBold)
+                    }
+                    Button(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = naturePrimaryGreen),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                    ) {
+                        Text(strings.confirm, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

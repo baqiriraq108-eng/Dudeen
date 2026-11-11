@@ -537,7 +537,8 @@ fun MainScreen(
                         searchTypes.forEach { (type, label, weightVal) ->
                             val isSelected = uiState.selectedGrammarType == type ||
                                 (type == GrammarType.NOMEN && uiState.selectedGrammarType == GrammarType.SENTENCE)
-                            val textColor = if (isSelected) Color.White else GeoOnSurfaceVariant
+                            val activeBorderColor = if (GeoIsBoldTheme) GeoCardRibbonColor else GeoPrimary
+                            val textColor = if (isSelected) GeoPrimary else GeoOnSurfaceVariant
                             val icon = when (type) {
                                 GrammarType.NOMEN -> Icons.Default.Description
                                 GrammarType.VERB -> Icons.Default.Bolt
@@ -550,19 +551,10 @@ fun MainScreen(
                                     .weight(weightVal)
                                     .height(44.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .then(
-                                        if (isSelected) {
-                                            if (GeoIsBoldTheme) Modifier.background(Brush.horizontalGradient(GeoBannerGradient))
-                                            else Modifier.background(GeoPrimary)
-                                        } else {
-                                            Modifier.background(GeoSurfaceVariant)
-                                        }
-                                    )
+                                    .background(GeoSurfaceVariant)
                                     .border(
-                                        1.dp,
-                                        if (isSelected) {
-                                            if (GeoIsBoldTheme) GeoCardRibbonColor else GeoPrimary
-                                        } else GeoBorder,
+                                        if (isSelected) 1.5.dp else 1.dp,
+                                        if (isSelected) activeBorderColor else GeoBorder,
                                         RoundedCornerShape(12.dp)
                                     )
                                     .clickable { viewModel.onGrammarTypeSelected(type) }

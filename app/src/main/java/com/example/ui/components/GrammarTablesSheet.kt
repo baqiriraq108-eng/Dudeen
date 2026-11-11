@@ -407,9 +407,9 @@ fun GrammarTablesSheet(
                                             Surface(
                                                 onClick = { tempSpeed = preset },
                                                 shape = RoundedCornerShape(10.dp),
-                                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                                 border = BorderStroke(
-                                                    1.dp,
+                                                    if (isSelected) 1.5.dp else 1.dp,
                                                     if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                                 ),
                                                 modifier = Modifier
@@ -424,7 +424,7 @@ fun GrammarTablesSheet(
                                                         text = String.format(Locale.US, "%.1fx", preset),
                                                         fontSize = 13.sp,
                                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                     )
                                                 }
                                             }
@@ -529,18 +529,19 @@ fun GrammarTablesSheet(
                                 }
                             }
 
-                            // Action buttons: [ Abbrechen ] [ Übernehmen ]
+                            // Action buttons: [ Abbrechen / Cancel ] [ Bestätigen / Confirm ]
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 OutlinedButton(
                                     onClick = { showSpeedDialog = false },
                                     shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(40.dp),
+                                        .height(42.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
                                     Text(
@@ -550,8 +551,10 @@ fun GrammarTablesSheet(
                                             else -> "Abbrechen"
                                         },
                                         fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
 
@@ -567,18 +570,19 @@ fun GrammarTablesSheet(
                                     ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(40.dp),
+                                        .height(42.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
                                     Text(
                                         text = when (appLanguage.lowercase()) {
-                                            "en" -> "Apply"
-                                            "ar" -> "تطبيق"
-                                            else -> "Übernehmen"
+                                            "en" -> "Confirm"
+                                            "ar" -> "تأكيد"
+                                            else -> "Bestätigen"
                                         },
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
-                                        maxLines = 1
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
                             }

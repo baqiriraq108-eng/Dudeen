@@ -41,6 +41,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -437,7 +439,12 @@ fun HistoryFilterPills(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) GeoPrimary else GeoSurfaceVariant)
+                    .background(GeoSurfaceVariant)
+                    .border(
+                        width = if (isSelected) 1.5.dp else 1.dp,
+                        color = if (isSelected) GeoPrimary else GeoBorder,
+                        shape = RoundedCornerShape(8.dp)
+                    )
                     .clickable { onFilterChanged(index) }
                     .padding(horizontal = 11.dp, vertical = 4.dp)
                     .testTag("history_filter_$index"),
@@ -447,7 +454,7 @@ fun HistoryFilterPills(
                     text = title,
                     fontSize = 11.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) Color.White else GeoOnSurfaceVariant,
+                    color = if (isSelected) GeoPrimary else GeoOnSurfaceVariant,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -570,16 +577,44 @@ fun ClearHistoryConfirmDialog(
             )
         },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                modifier = Modifier.testTag("confirm_clear_history")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(strings.delete, color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(strings.cancel, color = GeoPrimary)
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, GeoBorder)
+                ) {
+                    Text(
+                        text = strings.cancel,
+                        color = GeoOnSurface,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .testTag("confirm_clear_history"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                ) {
+                    Text(
+                        text = strings.confirm,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
     )
@@ -616,16 +651,44 @@ fun DeleteHistoryItemConfirmDialog(
             )
         },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                modifier = Modifier.testTag("confirm_delete_history_item")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(strings.delete, color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(strings.cancel, color = GeoPrimary)
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, GeoBorder)
+                ) {
+                    Text(
+                        text = strings.cancel,
+                        color = GeoOnSurface,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .testTag("confirm_delete_history_item"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                ) {
+                    Text(
+                        text = strings.confirm,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
             }
         }
     )

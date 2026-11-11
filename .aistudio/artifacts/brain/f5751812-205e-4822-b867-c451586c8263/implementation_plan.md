@@ -1,170 +1,112 @@
-# Voice Input Search (English & German) & Synchronized Storage Button Sizing
+# Unified Design System Refactoring: Dialogs, Outline-Only Selection & Dotted Speech Tempo Slider
 
-Integrate bidirectional voice search functionality (German & English) into both the main grammar search bar and the history log search bar, and update the "Set Storage as Primary" button with the exact SVG log icon while harmonizing it with the adjacent "Delete Storage" button to an identical, well-proportioned size (38.dp) that preserves all rich icon details.
+This plan unifies the application's interactive patterns across three core pillars: standardized modal/sheet action buttons (`Confirm` / `Cancel` in English and `Bestätigen` / `Abbrechen` in German with matching geometry), a crisp outline-only selection system across every selectable component (zero background tinting), and a high-performance custom dotted Speech Tempo (`Sprech-Tempo`) slider with edge insets and lag-free scrubbing.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> - **Matched Button Sizing & Detail Preservation (Confirmed)**:
->   Both the **"Set as Primary Storage"** button and the adjacent **"Delete Storage"** button will be formatted with **identical dimensions (`38.dp x 38.dp`)**:
->   - **Size Rationale (`38.dp`)**: Neither too large to overwhelm the backup folder row, nor too small to blur the intricate Log cover, folded sheet, "Log" typography, lines, and faceted gold star. The icon within renders at a crisp `26.dp–28.dp`.
->   - **Visual Consistency**: Both buttons share matching rounded corner styling (`RoundedCornerShape(10.dp)`), subtle borders, and elevation, creating a balanced action pair.
->   - **Delete Storage Button**: Styled with a matching `38.dp` container with a soft container background and error-toned `Icons.Default.DeleteOutline`, perfectly mirroring the Primary button's silhouette.
-> - **Exact SVG Icon for Primary Storage**:
->   Built using the exact SVG code provided:
->   - Dark navy cover (`#182335` to `#2d3f5d`) with rounded corners.
->   - White sheet with folded bottom-right corner and delicate gradient fold.
->   - Bold "Log" text and 3 horizontal data bars (`#86868b`).
->   - Golden faceted star (`#fff085`, `#fde047`, `#f59e0b`, `#d97706`, `#b45309`) tilted at `-8°`.
-> - **Voice Input Flow (German & English)**:
->   - Microphone icons placed inside both search bars next to the clear button.
->   - Tapping opens a quick language selector dialog (`Deutsch` vs `English`) pre-selecting the active app language.
->   - Recognized text populates the search field for user review and editing without auto-submitting.
+> The following design and behavioral choices have been confirmed during Phase 1 and govern this refactoring:
+
+- **Confirmed Decision 1 — Uniform Dialog & Sheet Action Labels**: All procedural modals, alert dialogs, and bottom sheets across the application (including creation, saving, deletion, settings, and export flows) will standardize on **"Confirm" / "Cancel"** in English and **"Bestätigen" / "Abbrechen"** in German, housed in identically sized action containers (`42.dp` height, equal flex weight or matched minimum width, `10.dp` corner radius).
+- **Confirmed Decision 2 — Universal Outline-Only Selection**: Every selectable element—including grammar category tabs, history filter chips, sort chips, notebook cards, backup storage cards, theme/mode selectors, and settings options—will indicate its active/selected state exclusively via a **`1.5.dp–2.dp` accent border stroke**, keeping the interior container background unchanged and free of solid or tinted color fills.
+- **Confirmed Decision 3 — Active/Inactive Dotted Slider Track with Edge Insets**: The Speech Tempo (`Sprech-Tempo`) slider track will render a custom Canvas-based dotted pattern inset from both the left and right terminals, where dots to the left of the thumb illuminate in the primary accent color and dots to the right render in a muted outline tone.
 
 ---
 
 ## 1. Overview & Core Concept
 
-1. **Voice Input Search**:
-   - Hands-free query input in both the main grammar query field and the history log search field.
-   - User can choose German (`de-DE`) or English (`en-US`) on each voice interaction.
-   - Built on Android OS `RecognizerIntent.ACTION_RECOGNIZE_SPEECH` with native audio waveform and zero dangerous runtime permissions.
-2. **Harmonized Storage Action Buttons**:
-   - Updates the "Set as Primary Storage" button to use the user's exact SVG vector / asset.
-   - Synchronizes the adjacent "Delete Storage" button to the exact same size (`38.dp`), with consistent container styling, spacing, and touch targets.
+- **What It Does**: Elevates visual consistency and tactile responsiveness across the entire German grammar and vocabulary workspace by eliminating visual clutter (mixed button labels, heavy background fills on selected items, and stepped slider hitching).
+- **Target Audience / Persona**: Bilingual (German/English) language learners and power users who rely on fast, distraction-free dictionary lookups, audio pronunciation scrubbing, and multi-notebook organization.
+- **Key Value**:
+  - **Predictable Modal Ergonomics**: Every dialog and sheet presents identically proportioned primary and secondary action buttons with consistent linguistic framing.
+  - **Restrained Visual Hierarchy**: Replacing heavy selection fills with crisp accent borders preserves dark/light surface contrast and keeps text legibility high.
+  - **Zero-Lag Audio Control**: Decoupling drag-scrub UI state from TTS engine persistence eliminates frame drops while providing a refined, tactile dotted track.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### Storage Action Buttons Comparison & Hierarchy
+- **Key User Flows**:
+  1. **Procedural Dialogs & Sheets**: Whether creating a notebook, confirming storage changes, clearing history, configuring API keys, or applying a theme in a bottom sheet, the user encounters a symmetrical two-button footer: an outline secondary button (`Cancel` / `Abbrechen`) paired with a filled primary button (`Confirm` / `Bestätigen`) of identical height (`42.dp`), corner radius (`10.dp`), and balanced width.
+  2. **Selecting Tabs, Filters, Notebooks & Folders**: Tapping a grammar tab (`Ausdrücke`, `Verb`, `Wörter`, `Adjektive`), a history filter chip, a sort criterion, a language/provider option, or a notebook/storage card immediately highlights its perimeter with a `1.5.dp–2.dp` accent border (`GeoPrimary` or `MaterialTheme.colorScheme.primary`) while preserving the neutral surface background (`GeoSurface` / `GeoSurfaceVariant`) underneath.
+  3. **Adjusting Speech Tempo (`Sprech-Tempo`)**: Dragging the speech speed thumb glides continuously at 60–120fps across a custom horizontal dotted track. The extreme left and right ends of the track feature a clean horizontal inset so dots never clip against the thumb boundaries or track edges. Only when the finger releases (or +/- / preset is tapped) does the updated speed commit to persistent storage and the TTS engine.
 
-```
-Non-Primary Backup Folder Row:
-┌────────────────────────────────────────────────────────────────────────┐
-│  📁 /Storage/Emulated/Documents/Backup                                  │
-│  Active • Last sync: 10.11.2026                                         │
-│                                            ┌──────────┐  ┌──────────┐  │
-│                                            │  [Log★]  │  │   [🗑]   │  │
-│                                            │ (38.dp)  │  │ (38.dp)  │  │
-│                                            └──────────┘  └──────────┘  │
-│                                            Set Primary      Delete     │
-└────────────────────────────────────────────────────────────────────────┘
-
-Primary Storage Folder Row:
-┌────────────────────────────────────────────────────────────────────────┐
-│  ⭐ [Primary Badge] /Storage/PrimaryHistory                            │
-│  Active • Last sync: 10.11.2026                          ┌──────────┐  │
-│                                                          │   [🗑]   │  │
-│                                                          │ (38.dp)  │  │
-│                                                          └──────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-- **Set Primary Button**: `38.dp x 38.dp`, `RoundedCornerShape(10.dp)`, filled with `primaryContainer` and bordered with `primary.copy(alpha = 0.7f)`, rendering the full Log document with golden star.
-- **Delete Button**: `38.dp x 38.dp`, `RoundedCornerShape(10.dp)`, filled with `errorContainer.copy(alpha = 0.35f)` and bordered with `error.copy(alpha = 0.45f)`, hosting `Icons.Default.DeleteOutline` (20.dp).
-
-### Voice Search Interaction Flow
-
-```
-[Tap 🎤 in Search Field]
-          │
-          ▼
-┌────────────────────────────────────────┐
-│     Voice Input Language / Sprache     │
-│                                        │
-│  [ 🇩🇪 Deutsch (de-DE) ]  ← Highlighted │
-│  [ 🇬🇧 English (en-US) ]                │
-└────────────────────────────────────────┘
-          │ (Tap Language)
-          ▼
-┌────────────────────────────────────────┐
-│ Android Native Speech Recognizer (OS) │
-│   "Sprechen Sie jetzt..." / Waveform   │
-└────────────────────────────────────────┘
-          │ (Speech Transcribed)
-          ▼
-┌────────────────────────────────────────┐
-│ Search field populated with text       │
-│  (User reviews, edits, or taps Search) │
-└────────────────────────────────────────┘
-```
+- **Visual Identity & Theme**:
+  - *Aesthetic Direction*: Precision geometric minimalism with crisp borders and zero visual bloat.
+  - *Color Palette & Mood*:
+    - **Primary Action ("Confirm" / "Bestätigen")**: Filled with `GeoPrimary` / `MaterialTheme.colorScheme.primary` and `onPrimary` label contrast.
+    - **Secondary Action ("Cancel" / "Abbrechen")**: Transparent/surface container with a `1.dp` `GeoBorder` / `outlineVariant` stroke and `GeoOnSurface` label.
+    - **Selected State**: `1.5.dp` to `2.dp` `GeoPrimary` border stroke over an unaltered `GeoSurface` or `GeoSurfaceVariant` background (`Color.Transparent` overlay).
+    - **Dotted Slider Track**: Active dots in `GeoPrimary`; inactive dots in `GeoOnSurfaceVariant.copy(alpha = 0.35f)`.
+  - *Typography & Hierarchy*: Bold `13.sp–14.sp` single-line button and chip labels (`maxLines = 1`, `softWrap = false`); selected items pair the accent border with bold/primary-colored typography and icons for clear dual-coding.
 
 ---
 
-## 3. Technical Architecture & File Changes
+## 3. Key Product Decisions & Trade-Offs
 
-```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                                MainScreen                                 │
-│                                                                           │
-│   ┌────────────────────────────────────────────────────────────────────┐  │
-│   │ Main Search Bar                                                    │  │
-│   │ [🔍 Search] [Query Input] [🎤 Mic Button] [✖ Clear] [Suchen Button] │  │
-│   └────────────────────────────────────────────────────────────────────┘  │
-│                                     │                                     │
-│   ┌─────────────────────────────────┼──────────────────────────────────┐  │
-│   │ HistorySection                  ▼                                  │  │
-│   │ ┌────────────────────────────────────────────────────────────────┐ │  │
-│   │ │ History Search Bar                                             │ │  │
-│   │ │ [🔍 Filter] [History Query] [🎤 Mic Button] [✖ Clear]          │ │  │
-│   │ └────────────────────────────────────────────────────────────────┘ │  │
-│   └─────────────────────────────────┬──────────────────────────────────┘  │
-│                                     │                                     │
-│                                     ▼                                     │
-│   ┌────────────────────────────────────────────────────────────────────┐  │
-│   │ VoiceSearchLanguageDialog                                          │  │
-│   │ • 🇩🇪 Deutsch (de-DE)                                              │  │
-│   │ • 🇬🇧 English (en-US)                                              │  │
-│   └─────────────────────────────────┬──────────────────────────────────┘  │
-│                                     ▼                                     │
-│   ┌────────────────────────────────────────────────────────────────────┐  │
-│   │ RecognizerIntent.ACTION_RECOGNIZE_SPEECH                           │  │
-│   │ • Populates searchQuery or historySearchQuery                     │  │
-│   └────────────────────────────────────────────────────────────────────┘  │
-│                                                                           │
-│   ┌────────────────────────────────────────────────────────────────────┐  │
-│   │ NotebookManagerDialog (NotebookComponents.kt)                      │  │
-│   │ • Set Primary Button: 38.dp Surface with exact Log★ SVG            │  │
-│   │ • Delete Button: 38.dp Surface with Delete icon                    │  │
-│   └────────────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────────────┘
-```
+- **Decision 1: Reusable Dialog Action Bar Component**
+  - *Chosen Approach*: Introduce a shared `StandardDialogActionRow` (and aligned `confirmButton` / `dismissButton` button builders) enforcing `Modifier.weight(1f).height(42.dp)` and `RoundedCornerShape(10.dp)` with centralized `strings.confirm` (`Confirm` / `Bestätigen`) and `strings.cancel` (`Cancel` / `Abbrechen`).
+  - *Why*: Guarantees pixel-identical button sizing and label consistency across every `AlertDialog` and `ModalBottomSheet` without ad-hoc per-dialog styling drift.
+  - *Alternatives Considered*: Styling each dialog's buttons inline—rejected because Material 3 `AlertDialog` default `confirmButton`/`dismissButton` slots wrap content unevenly unless constrained by a shared sizing specification.
 
-### Planned File Edits
+- **Decision 2: Outline-Only Selection Token System**
+  - *Chosen Approach*: Replace all conditional `containerColor = if (isSelected) primary else surfaceVariant` and `Modifier.background(if (isSelected) ...)` patterns with constant neutral surface backgrounds paired with `BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) GeoPrimary else GeoBorder)`.
+  - *Why*: Eliminates jarring blocks of solid color across dark and custom themes while keeping active states unmistakable through border weight, accent stroke color, and text/icon tinting.
 
-1. **`app/src/main/res/drawable/ic_set_primary_storage_log.xml`**:
-   - Add the exact SVG vector asset converted for Android (256x256 viewport, `#182335` to `#2d3f5d` cover, white sheet with fold, "Log" typography, lines, faceted golden star).
-   - Also copy `public/assets/aistudio/log_icon_96_437e062a.png` as drawable asset `ic_primary_storage_log_png.png`.
-
-2. **`app/src/main/java/com/example/ui/components/NotebookComponents.kt`**:
-   - Update `NotebookManagerDialog`:
-     - Set primary button: `Modifier.size(38.dp)`, displaying the exact Log SVG icon (`26.dp`), with `testTag = "set_primary_button_${folder.uriString.hashCode()}"`.
-     - Delete button: `Surface` of `Modifier.size(38.dp)` with `RoundedCornerShape(10.dp)`, containing `Icons.Default.DeleteOutline` (20.dp) with `testTag = "delete_folder_button_${folder.uriString.hashCode()}"`.
-
-3. **`app/src/main/java/com/example/ui/components/VoiceSearchLanguageDialog.kt`** (New):
-   - M3 Dialog offering immediate choice between `🇩🇪 Deutsch (de-DE)` and `🇬🇧 English (en-US)`.
-   - Passes selected locale string to the speech recognition launcher.
-
-4. **`app/src/main/java/com/example/ui/MainScreen.kt`**:
-   - Register `rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult())`.
-   - Add the microphone icon button inside the main search bar next to the clear button.
-   - On recognized text, update `uiState.searchQuery` via `viewModel.onQueryChange(text)`.
-
-5. **`app/src/main/java/com/example/ui/components/HistorySection.kt`**:
-   - Add the microphone icon button inside `HistorySearchBar` next to the clear button.
-   - On recognized text, update `historySearchQuery` via `onSearchQueryChange(text)`.
-
-6. **`app/src/main/java/com/example/ui/i18n/SettingsLocalization.kt`**:
-   - Add localized strings across `DE_STRINGS`, `EN_STRINGS`, and `AR_STRINGS` for voice search prompts and descriptions.
+- **Decision 3: Decoupled Scrubbing State & Custom Canvas Dotted Track for `Sprech-Tempo`**
+  - *Chosen Approach*: Maintain a fast, local un-stepped `Float` state during pointer drag gestures, committing the rounded `0.1x` increment via `onValueChangeFinished` (and on +/- or preset taps), paired with a custom `SliderDefaults.Track` (or custom Canvas overlay) that draws evenly spaced circular dots inset by `10.dp` from both track ends.
+  - *Why*: Writing to DataStore/SharedPreferences and re-initializing TTS parameters on every intermediate drag pixel causes main-thread stutter; committing on drag completion makes scrubbing instantaneous while keeping the live numeric readout (`1.0x`) responsive in real time.
 
 ---
 
-## 4. Verification & Testing
+## 4. Technical Architecture & Data Strategy *(Technical Reference)*
 
-1. **Compilation**: Run `compile_applet` to confirm vector drawables, activities, and Compose layouts compile cleanly.
-2. **Unit Tests**: Run `gradle :app:testDebugUnitTest --tests "com.example.util.HistoryFilterHelperTest"` to ensure search ranking and filtering are completely unaffected.
-3. **UI Verification**:
-   - Inspect the primary storage and delete buttons in the backup folder section to confirm they match at `38.dp` and that the Log + Star details are sharp and clear.
-   - Inspect the microphone button in both search bars.
-   - Verify the voice language dialog opens and launches speech recognition without errors.
+### Architecture & Component Diagram
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        Localization & Design Tokens                        │
+│  • SettingsStrings: confirm ("Confirm" / "Bestätigen")                     │
+│                     cancel  ("Cancel"  / "Abbrechen")                      │
+│  • Selection Style: Neutral Surface + 1.5dp–2dp Accent Border (No Fill)    │
+└───────────────────┬────────────────────────────────────┬───────────────────┘
+                    │                                    │
+                    ▼                                    ▼
+┌───────────────────────────────────────┐  ┌─────────────────────────────────┐
+│     Unified Modal & Sheet Actions     │  │  Outline-Only Selectable Views  │
+│  • Equal-sized 42.dp Action Buttons   │  │  • Grammar Category Tabs        │
+│  • RoundedCornerShape(10.dp)          │  │  • History & Sort Filter Chips  │
+│  • Applied across:                    │  │  • Notebook & Backup Cards      │
+│    - Notebook Create/Rename/Delete    │  │  • AI Provider & Language Pills │
+│    - Backup & Primary Storage Modals  │  │  • Theme Mode & Color Swatches  │
+│    - Settings / API Key / Clear Logs  │  │  • Export Scope/Format/Paper    │
+│    - Color, Sort & Export Dialogs     │  └─────────────────────────────────┘
+└───────────────────────────────────────┘
+                    │
+                    ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                 Optimized Speech Tempo Control (Sprech-Tempo)              │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ Local Drag State (60fps continuous float) ──► Live Text ("1.2x")     │  │
+│  │ Custom Canvas Dotted Track:                                          │  │
+│  │   [ 10.dp Inset ]  ●  ●  ●  ●  (Thumb)  ○  ○  ○  [ 10.dp Inset ]     │  │
+│  │                    └── Active ──┘       └─ Muted ─┘                  │  │
+│  │ onValueChangeFinished ──► Snap 0.1x ──► ViewModel / TTS Persistence  │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Interactive Component & State Mapping
+
+1. **Localization Dictionary (`SettingsStrings`)**:
+   - Standardize all procedural confirmation strings in `EN_STRINGS` to `"Confirm"` / `"Cancel"` and in `DE_STRINGS` to `"Bestätigen"` / `"Abbrechen"`.
+2. **Dialog & Bottom Sheet Footer Standardization**:
+   - All `AlertDialog` and `ModalBottomSheet` action rows use matching `42.dp` height, `RoundedCornerShape(10.dp)`, `1.dp` outline border for `"Cancel" / "Abbrechen"`, and filled primary tone for `"Confirm" / "Bestätigen"`.
+3. **Outline-Only Selection Conversion**:
+   - **Main Screen**: Grammar type tabs (`Ausdrücke`, `Verb`, `Wörter`, `Adjektive`) and result declension/conjugation tabs use neutral `GeoSurfaceVariant` background with a `1.5.dp` `GeoPrimary` border when selected.
+   - **History & Sort Sheets**: Category filter chips, sort direction chips, and sort criteria pills remove solid primary background fills and apply a `1.5.dp` `GeoPrimary` border when active.
+   - **Notebooks & Storage**: Active notebook items, theme color selectors, and primary/selected storage cards use neutral card backgrounds with a `1.5.dp–2.dp` accent border.
+   - **Settings, Color & Export Modals**: AI provider cards, language toggles, theme mode `FilterChip`s (`System`, `Light`, `Dark`), and export scope/format/orientation selectors use transparent/neutral backgrounds with a `1.5.dp` accent border for the selected state.
+4. **Speech Tempo Slider (`SprechTempoControl` & `TtsSpeedSlider`)**:
+   - **Smooth Scrubbing**: `rawSliderValue` updates purely in local `mutableFloatStateOf` during `onValueChange` without triggering external ViewModel/TTS writes; `onValueChangeFinished` snaps to the nearest `0.1f` and invokes `onSpeedChange`.
+   - **Custom Inset Dotted Track**: Custom `track` lambda draws a row of evenly spaced circular dots (`3.5.dp` diameter) across the track width with a `10.dp` horizontal inset on both the left and right ends so no dots appear at the far terminals. Dots at positions `<= thumbFraction` render in `GeoPrimary`, and dots `> thumbFraction` render in `GeoOnSurfaceVariant.copy(alpha = 0.35f)`.

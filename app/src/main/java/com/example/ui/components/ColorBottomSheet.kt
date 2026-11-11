@@ -235,7 +235,7 @@ fun ColorBottomSheet(
                         FilterChip(
                             selected = isSystemSelected,
                             onClick = { previewMode = "auto" },
-                            label = { Text(strings.themeModeAuto, fontSize = 12.sp) },
+                            label = { Text(strings.themeModeAuto, fontSize = 12.sp, fontWeight = if (isSystemSelected) FontWeight.Bold else FontWeight.Normal) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.SettingsBrightness,
@@ -244,9 +244,20 @@ fun ColorBottomSheet(
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = previewTheme.primary,
-                                selectedLabelColor = Color.White,
-                                selectedLeadingIconColor = Color.White
+                                containerColor = Color.Transparent,
+                                selectedContainerColor = Color.Transparent,
+                                labelColor = textPrimary,
+                                iconColor = textSecondary,
+                                selectedLabelColor = previewTheme.primary,
+                                selectedLeadingIconColor = previewTheme.primary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isSystemSelected,
+                                borderColor = dividerColor,
+                                selectedBorderColor = previewTheme.primary,
+                                borderWidth = 1.dp,
+                                selectedBorderWidth = 1.5.dp
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -256,7 +267,7 @@ fun ColorBottomSheet(
                         FilterChip(
                             selected = isLightSelected,
                             onClick = { previewMode = "light" },
-                            label = { Text(strings.themeModeLight, fontSize = 12.sp) },
+                            label = { Text(strings.themeModeLight, fontSize = 12.sp, fontWeight = if (isLightSelected) FontWeight.Bold else FontWeight.Normal) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.LightMode,
@@ -265,9 +276,20 @@ fun ColorBottomSheet(
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = previewTheme.primary,
-                                selectedLabelColor = Color.White,
-                                selectedLeadingIconColor = Color.White
+                                containerColor = Color.Transparent,
+                                selectedContainerColor = Color.Transparent,
+                                labelColor = textPrimary,
+                                iconColor = textSecondary,
+                                selectedLabelColor = previewTheme.primary,
+                                selectedLeadingIconColor = previewTheme.primary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isLightSelected,
+                                borderColor = dividerColor,
+                                selectedBorderColor = previewTheme.primary,
+                                borderWidth = 1.dp,
+                                selectedBorderWidth = 1.5.dp
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -277,7 +299,7 @@ fun ColorBottomSheet(
                         FilterChip(
                             selected = isDarkSelected,
                             onClick = { previewMode = "dark" },
-                            label = { Text(strings.themeModeDark, fontSize = 12.sp) },
+                            label = { Text(strings.themeModeDark, fontSize = 12.sp, fontWeight = if (isDarkSelected) FontWeight.Bold else FontWeight.Normal) },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.DarkMode,
@@ -286,9 +308,20 @@ fun ColorBottomSheet(
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = previewTheme.primary,
-                                selectedLabelColor = Color.White,
-                                selectedLeadingIconColor = Color.White
+                                containerColor = Color.Transparent,
+                                selectedContainerColor = Color.Transparent,
+                                labelColor = textPrimary,
+                                iconColor = textSecondary,
+                                selectedLabelColor = previewTheme.primary,
+                                selectedLeadingIconColor = previewTheme.primary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = isDarkSelected,
+                                borderColor = dividerColor,
+                                selectedBorderColor = previewTheme.primary,
+                                borderWidth = 1.dp,
+                                selectedBorderWidth = 1.5.dp
                             ),
                             modifier = Modifier.weight(1f)
                         )
@@ -420,7 +453,7 @@ fun ColorBottomSheet(
             ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, dividerColor),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = textPrimary),
                     modifier = Modifier
@@ -431,7 +464,9 @@ fun ColorBottomSheet(
                     Text(
                         text = strings.cancel,
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
 
@@ -440,20 +475,22 @@ fun ColorBottomSheet(
                         onApplyTheme(previewTheme, previewMode)
                         onDismiss()
                     },
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = previewTheme.primary,
                         contentColor = Color.White
                     ),
                     modifier = Modifier
-                        .weight(1.2f)
+                        .weight(1f)
                         .height(42.dp)
                         .testTag("apply_color_selection")
                 ) {
                     Text(
-                        text = strings.applyButton,
+                        text = strings.confirm,
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -568,11 +605,7 @@ private fun ColorCardItem(
     modifier: Modifier = Modifier
 ) {
     val textPrimary = if (isPreviewDark) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
-    val itemBg = if (isSelected) {
-        theme.primary.copy(alpha = if (isPreviewDark) 0.25f else 0.12f)
-    } else {
-        if (isPreviewDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
-    }
+    val itemBg = if (isPreviewDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
     val itemBorder = if (isSelected) theme.primary else (if (isPreviewDark) Color(0xFF383838) else Color(0xFFE2E2E2))
 
     Row(

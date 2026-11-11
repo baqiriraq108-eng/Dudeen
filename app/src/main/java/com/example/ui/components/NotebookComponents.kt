@@ -479,8 +479,8 @@ fun CreateNotebookDialog(
                                 Surface(
                                     onClick = { selectedThemeMode = modeKey },
                                     shape = RoundedCornerShape(8.dp),
-                                    color = if (isSelected) GeoPrimaryContainer else GeoSurfaceVariant,
-                                    border = BorderStroke(1.dp, if (isSelected) GeoPrimary else GeoBorder),
+                                    color = GeoSurfaceVariant,
+                                    border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) GeoPrimary else GeoBorder),
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Box(
@@ -504,30 +504,47 @@ fun CreateNotebookDialog(
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        val name = notebookName.trim().ifBlank { "Neues Notizbuch" }
-                        onCreate(name, selectedThemeId, selectedThemeMode)
-                    },
-                    enabled = notebookName.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = strings.createButton,
-                        color = GeoOnPrimary,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = onDismiss) {
-                    Text(
-                        text = strings.cancel,
-                        color = GeoOnSurface,
-                        maxLines = 1,
-                        softWrap = false
-                    )
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder)
+                    ) {
+                        Text(
+                            text = strings.cancel,
+                            color = GeoOnSurface,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            val name = notebookName.trim().ifBlank { "Neues Notizbuch" }
+                            onCreate(name, selectedThemeId, selectedThemeMode)
+                        },
+                        enabled = notebookName.isNotBlank(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                    ) {
+                        Text(
+                            text = strings.confirm,
+                            color = GeoOnPrimary,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
             },
             containerColor = GeoSurface,
@@ -1137,13 +1154,13 @@ fun NotebookManagerDialog(
                                                                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                                                                     modifier = Modifier.weight(1f)
                                                                 ) {
-                                                                    // Primary Badge ONLY (Removed label for non-backup/non-primary storage)
+                                                                    // Primary Badge ONLY (Outline-only indicator)
                                                                     if (folder.isPrimary) {
                                                                         Surface(
                                                                             shape = RoundedCornerShape(8.dp),
-                                                                            color = MaterialTheme.colorScheme.primary,
-                                                                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                                                                            shadowElevation = 1.dp,
+                                                                            color = Color.Transparent,
+                                                                            contentColor = MaterialTheme.colorScheme.primary,
+                                                                            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
                                                                             modifier = Modifier.testTag("primary_storage_badge_${folder.uriString.hashCode()}")
                                                                         ) {
                                                                             Row(
@@ -1154,13 +1171,14 @@ fun NotebookManagerDialog(
                                                                                 Icon(
                                                                                     imageVector = Icons.Default.Star,
                                                                                     contentDescription = null,
-                                                                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                                                                    tint = MaterialTheme.colorScheme.primary,
                                                                                     modifier = Modifier.size(12.dp)
                                                                                 )
                                                                                 Text(
                                                                                     text = strings.primaryStorageBadge,
                                                                                     fontSize = 11.sp,
                                                                                     fontWeight = FontWeight.Bold,
+                                                                                    color = MaterialTheme.colorScheme.primary,
                                                                                     maxLines = 1,
                                                                                     softWrap = false
                                                                                 )
@@ -1468,12 +1486,12 @@ fun NotebookManagerDialog(
 
                                             Spacer(modifier = Modifier.width(6.dp))
 
-                                            // Mutually exclusive: Pill badge for Aktiv vs. Öffnen
+                                            // Mutually exclusive: Outline-only Pill badge for Aktiv vs. Öffnen
                                             if (isActive) {
                                                 Surface(
                                                     shape = RoundedCornerShape(12.dp),
-                                                    color = if (theme.isBoldTheme) ribbonCol.copy(alpha = 0.16f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                                    border = BorderStroke(1.dp, if (theme.isBoldTheme) ribbonCol else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                                                    color = Color.Transparent,
+                                                    border = BorderStroke(1.5.dp, if (theme.isBoldTheme) ribbonCol else MaterialTheme.colorScheme.primary)
                                                 ) {
                                                     Row(
                                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -1498,8 +1516,8 @@ fun NotebookManagerDialog(
                                                 Surface(
                                                     onClick = { onSelectNotebook(notebook.id) },
                                                     shape = RoundedCornerShape(12.dp),
-                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+                                                    color = Color.Transparent,
+                                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                                 ) {
                                                     Row(
                                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -1655,31 +1673,49 @@ fun NotebookManagerDialog(
                     )
                 },
                 confirmButton = {
-                    Button(
-                        onClick = {
-                            val name = newTitle.trim()
-                            if (name.isNotBlank()) {
-                                onRenameNotebook(target.id, name)
-                            }
-                            notebookToRename = null
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = strings.save,
-                            color = GeoOnPrimary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                },
-                dismissButton = {
-                    OutlinedButton(onClick = { notebookToRename = null }) {
-                        Text(
-                            text = strings.cancel,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        OutlinedButton(
+                            onClick = { notebookToRename = null },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, GeoBorder)
+                        ) {
+                            Text(
+                                text = strings.cancel,
+                                color = GeoOnSurface,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                val name = newTitle.trim()
+                                if (name.isNotBlank()) {
+                                    onRenameNotebook(target.id, name)
+                                }
+                                notebookToRename = null
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                        ) {
+                            Text(
+                                text = strings.confirm,
+                                color = GeoOnPrimary,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
             )
@@ -1708,28 +1744,46 @@ fun NotebookManagerDialog(
                     )
                 },
                 confirmButton = {
-                    Button(
-                        onClick = {
-                            onDeleteNotebook(target.id)
-                            notebookToDelete = null
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA1A1A))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = strings.delete,
-                            color = Color.White,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                },
-                dismissButton = {
-                    OutlinedButton(onClick = { notebookToDelete = null }) {
-                        Text(
-                            text = strings.cancel,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        OutlinedButton(
+                            onClick = { notebookToDelete = null },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, GeoBorder)
+                        ) {
+                            Text(
+                                text = strings.cancel,
+                                color = GeoOnSurface,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                onDeleteNotebook(target.id)
+                                notebookToDelete = null
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                        ) {
+                            Text(
+                                text = strings.confirm,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
             )
@@ -1760,28 +1814,46 @@ fun NotebookManagerDialog(
                     )
                 },
                 confirmButton = {
-                    Button(
-                        onClick = {
-                            onSetPrimaryBackupFolder(targetFolder.uriString)
-                            folderToSetPrimary = null
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = strings.setPrimaryConfirmButton,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                },
-                dismissButton = {
-                    OutlinedButton(onClick = { folderToSetPrimary = null }) {
-                        Text(
-                            text = strings.cancel,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        OutlinedButton(
+                            onClick = { folderToSetPrimary = null },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Text(
+                                text = strings.cancel,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                onSetPrimaryBackupFolder(targetFolder.uriString)
+                                folderToSetPrimary = null
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text(
+                                text = strings.confirm,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
             )
@@ -1930,40 +2002,15 @@ fun JsonExportActionDialog(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Save to file (Primary)
-                        Button(
-                            onClick = onSaveToFile,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = GeoPrimary,
-                                contentColor = GeoOnPrimary
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Save,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = strings.saveToFile,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
                         // Share (Secondary)
                         OutlinedButton(
                             onClick = onShare,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(12.dp),
+                                .height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
                             border = BorderStroke(1.dp, GeoPrimary.copy(alpha = 0.7f)),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = GeoPrimary
@@ -1972,29 +2019,60 @@ fun JsonExportActionDialog(
                             Icon(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = null,
-                                modifier = Modifier.size(17.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = strings.share,
                                 fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+
+                        // Confirm / Save to file (Primary)
+                        Button(
+                            onClick = onSaveToFile,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GeoPrimary,
+                                contentColor = GeoOnPrimary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = strings.confirm,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
 
                     // Cancel
-                    TextButton(
+                    OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(38.dp)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder)
                     ) {
                         Text(
                             text = strings.cancel,
-                            color = GeoOnSurfaceVariant,
+                            color = GeoOnSurface,
                             fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
@@ -2089,6 +2167,12 @@ fun SelectNotebooksExportDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .border(
+                                        width = if (isChecked) 1.5.dp else 1.dp,
+                                        color = if (isChecked) GeoPrimary else Color.Transparent,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
                                     .clickable {
                                         selectedIds = if (isChecked) {
                                             selectedIds - nb.id
@@ -2096,7 +2180,7 @@ fun SelectNotebooksExportDialog(
                                             selectedIds + nb.id
                                         }
                                     }
-                                    .padding(vertical = 4.dp, horizontal = 4.dp),
+                                    .padding(vertical = 4.dp, horizontal = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Checkbox(
@@ -2143,8 +2227,8 @@ fun SelectNotebooksExportDialog(
                     Surface(
                         onClick = { exportMode = "combined" },
                         shape = RoundedCornerShape(6.dp),
-                        color = if (exportMode == "combined") GeoPrimaryContainer.copy(alpha = 0.4f) else Color.Transparent,
-                        border = BorderStroke(1.dp, if (exportMode == "combined") GeoPrimary else GeoBorder.copy(alpha = 0.5f)),
+                        color = Color.Transparent,
+                        border = BorderStroke(if (exportMode == "combined") 1.5.dp else 1.dp, if (exportMode == "combined") GeoPrimary else GeoBorder.copy(alpha = 0.5f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -2177,8 +2261,8 @@ fun SelectNotebooksExportDialog(
                     Surface(
                         onClick = { exportMode = "separate" },
                         shape = RoundedCornerShape(6.dp),
-                        color = if (exportMode == "separate") GeoPrimaryContainer.copy(alpha = 0.4f) else Color.Transparent,
-                        border = BorderStroke(1.dp, if (exportMode == "separate") GeoPrimary else GeoBorder.copy(alpha = 0.5f)),
+                        color = Color.Transparent,
+                        border = BorderStroke(if (exportMode == "separate") 1.5.dp else 1.dp, if (exportMode == "separate") GeoPrimary else GeoBorder.copy(alpha = 0.5f)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -2210,28 +2294,53 @@ fun SelectNotebooksExportDialog(
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        val list = selectedIds.toList()
-                        if (exportMode == "combined") {
-                            onExportCombined(list)
-                        } else {
-                            onExportSeparate(list)
-                        }
-                    },
-                    enabled = selectedIds.isNotEmpty(),
-                    colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = strings.exportCountAction(selectedIds.size),
-                        fontSize = 12.5.sp,
-                        color = GeoOnPrimary
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(text = strings.cancel, fontSize = 12.5.sp, color = GeoOnSurfaceVariant)
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder)
+                    ) {
+                        Text(
+                            text = strings.cancel,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GeoOnSurface,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            val list = selectedIds.toList()
+                            if (exportMode == "combined") {
+                                onExportCombined(list)
+                            } else {
+                                onExportSeparate(list)
+                            }
+                        },
+                        enabled = selectedIds.isNotEmpty(),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                    ) {
+                        Text(
+                            text = strings.confirm,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GeoOnPrimary,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
             },
             containerColor = GeoSurface,
@@ -2375,19 +2484,20 @@ fun ImportSingleChoiceDialog(
                         )
                     }
 
-                    // Cancel: Abbrechen (Height 36dp, text only)
-                    TextButton(
+                    // Cancel: Abbrechen (Height 42dp, OutlinedButton)
+                    OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(36.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder)
                     ) {
                         Text(
                             text = strings.cancel,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = GeoOnSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GeoOnSurface,
                             maxLines = 1,
                             softWrap = false
                         )
@@ -2494,7 +2604,7 @@ fun ImportMultiChoiceDialog(
                         onClick = onImportAllSeparate,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp),
+                            .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = GeoPrimary,
@@ -2515,7 +2625,7 @@ fun ImportMultiChoiceDialog(
                         onClick = { onImportAsSingle(singleNotebookName.trim().ifBlank { fallbackName }) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp),
+                            .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, GeoPrimary),
                         colors = ButtonDefaults.outlinedButtonColors(
@@ -2532,18 +2642,19 @@ fun ImportMultiChoiceDialog(
                         )
                     }
 
-                    TextButton(
+                    OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(36.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder)
                     ) {
                         Text(
                             text = strings.cancel,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = GeoOnSurfaceVariant,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GeoOnSurface,
                             maxLines = 1,
                             softWrap = false
                         )
@@ -2649,46 +2760,46 @@ fun PostImportApiKeyDialog(
                 }
             },
             confirmButton = {
-                Column(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (keyInput.isNotBlank()) {
-                        Button(
-                            onClick = { onSaveApiKey(keyInput.trim()) },
-                            colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = strings.postImportKeySave,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = GeoOnPrimary
-                            )
-                        }
-                    }
-
                     OutlinedButton(
-                        onClick = onOpenFullSettings,
-                        border = BorderStroke(1.dp, GeoPrimary),
-                        modifier = Modifier.fillMaxWidth()
+                        onClick = onSkip,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
                     ) {
                         Text(
-                            text = strings.postImportKeyOpenSettings,
-                            fontSize = 12.sp,
+                            text = strings.cancel,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoPrimary
+                            color = GeoOnSurface
                         )
                     }
 
-                    TextButton(
-                        onClick = onSkip,
-                        modifier = Modifier.fillMaxWidth()
+                    Button(
+                        onClick = {
+                            if (keyInput.isNotBlank()) {
+                                onSaveApiKey(keyInput.trim())
+                            } else {
+                                onOpenFullSettings()
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
                     ) {
                         Text(
-                            text = strings.postImportKeySkip,
-                            fontSize = 12.sp,
-                            color = GeoOnSurfaceVariant
+                            text = strings.confirm,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = GeoOnPrimary
                         )
                     }
                 }

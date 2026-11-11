@@ -502,35 +502,29 @@ fun HistorySortBottomSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Action Buttons: Reset & Done
+            // Action Buttons: Cancel & Confirm
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
                     onClick = {
                         onSortOptionChanged(HistorySortOption())
+                        onDismissRequest()
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(38.dp)
+                        .height(42.dp)
                         .testTag("sort_reset_button"),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, GeoBorder)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.RestartAlt,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = GeoOnSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = strings.defaultResetButton,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = GeoOnSurfaceVariant,
+                        text = strings.cancel,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GeoOnSurface,
                         maxLines = 1,
                         softWrap = false
                     )
@@ -540,21 +534,14 @@ fun HistorySortBottomSheet(
                     onClick = onDismissRequest,
                     modifier = Modifier
                         .weight(1f)
-                        .height(38.dp)
+                        .height(42.dp)
                         .testTag("sort_apply_button"),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = strings.doneButton,
-                        fontSize = 12.sp,
+                        text = strings.confirm,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         maxLines = 1,
@@ -576,28 +563,56 @@ fun HistorySortBottomSheet(
         DatePickerDialog(
             onDismissRequest = { showDatePickerDialog = false },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        val selectedMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
-                        onSortOptionChanged(
-                            currentSortOption.copy(
-                                field = HistorySortField.DATE,
-                                dateSortMode = DateSortMode.MANUAL,
-                                manualDateMillis = selectedMillis
-                            )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = { showDatePickerDialog = false },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder)
+                    ) {
+                        Text(
+                            text = strings.cancel,
+                            color = GeoOnSurface,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false
                         )
-                        showDatePickerDialog = false
-                    },
-                    modifier = Modifier.testTag("date_picker_confirm")
-                ) {
-                    Text(strings.confirmApplyButton, fontWeight = FontWeight.Bold, color = GeoPrimary)
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDatePickerDialog = false }
-                ) {
-                    Text(strings.cancel, color = GeoOnSurfaceVariant)
+                    }
+                    Button(
+                        onClick = {
+                            val selectedMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+                            onSortOptionChanged(
+                                currentSortOption.copy(
+                                    field = HistorySortField.DATE,
+                                    dateSortMode = DateSortMode.MANUAL,
+                                    manualDateMillis = selectedMillis
+                                )
+                            )
+                            showDatePickerDialog = false
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .testTag("date_picker_confirm"),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                    ) {
+                        Text(
+                            text = strings.confirm,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
                 }
             }
         ) {
@@ -615,17 +630,16 @@ private fun SortDirectionChip(
     modifier: Modifier = Modifier,
     testTag: String = ""
 ) {
-    val bg = if (isSelected) GeoPrimary else GeoSurfaceVariant
-    val textColor = if (isSelected) Color.White else GeoOnSurfaceVariant
-    val iconColor = if (isSelected) Color.White else GeoPrimary
+    val textColor = if (isSelected) GeoPrimary else GeoOnSurfaceVariant
+    val iconColor = if (isSelected) GeoPrimary else GeoOnSurfaceVariant
 
     Row(
         modifier = modifier
             .height(36.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(bg)
+            .background(GeoSurfaceVariant)
             .border(
-                1.dp,
+                if (isSelected) 1.5.dp else 1.dp,
                 if (isSelected) GeoPrimary else if (GeoIsBoldTheme) GeoGlowColor.copy(alpha = 0.5f) else GeoBorder,
                 RoundedCornerShape(8.dp)
             )
@@ -661,17 +675,16 @@ private fun SortCriterionChip(
     icon: ImageVector,
     testTag: String = ""
 ) {
-    val bg = if (isSelected) GeoPrimary else GeoSurfaceVariant
-    val textColor = if (isSelected) Color.White else GeoOnSurfaceVariant
-    val iconColor = if (isSelected) Color.White else GeoPrimary
+    val textColor = if (isSelected) GeoPrimary else GeoOnSurfaceVariant
+    val iconColor = if (isSelected) GeoPrimary else GeoOnSurfaceVariant
 
     Row(
         modifier = Modifier
             .height(32.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(bg)
+            .background(GeoSurfaceVariant)
             .border(
-                1.dp,
+                if (isSelected) 1.5.dp else 1.dp,
                 if (isSelected) GeoPrimary else if (GeoIsBoldTheme) GeoGlowColor.copy(alpha = 0.5f) else GeoBorder,
                 RoundedCornerShape(8.dp)
             )
@@ -707,16 +720,15 @@ private fun SubOptionChip(
     onClick: () -> Unit,
     testTag: String = ""
 ) {
-    val bg = if (isSelected) GeoPrimary else GeoSurfaceVariant
-    val textColor = if (isSelected) Color.White else GeoOnSurfaceVariant
+    val textColor = if (isSelected) GeoPrimary else GeoOnSurfaceVariant
 
     Box(
         modifier = Modifier
             .height(28.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(bg)
+            .background(GeoSurfaceVariant)
             .border(
-                1.dp,
+                if (isSelected) 1.5.dp else 1.dp,
                 if (isSelected) GeoPrimary else GeoBorder,
                 RoundedCornerShape(6.dp)
             )

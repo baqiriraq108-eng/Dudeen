@@ -268,7 +268,7 @@ fun ApiKeyDialog(
                                             color = if (isSelected) GeoPrimary else GeoBorder
                                         ),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (isSelected) GeoPrimaryContainer.copy(alpha = 0.5f) else GeoSurface,
+                                            containerColor = GeoSurface,
                                             contentColor = if (isSelected) GeoPrimary else GeoOnSurface
                                         ),
                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
@@ -522,8 +522,18 @@ fun ApiKeyDialog(
                                                 Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(12.dp))
                                             },
                                             colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = GeoPrimaryContainer,
-                                                selectedLabelColor = GeoPrimary
+                                                containerColor = Color.Transparent,
+                                                selectedContainerColor = Color.Transparent,
+                                                selectedLabelColor = GeoPrimary,
+                                                selectedLeadingIconColor = GeoPrimary
+                                            ),
+                                            border = FilterChipDefaults.filterChipBorder(
+                                                enabled = true,
+                                                selected = showFreeOnly,
+                                                borderColor = GeoBorder,
+                                                selectedBorderColor = GeoPrimary,
+                                                borderWidth = 1.dp,
+                                                selectedBorderWidth = 1.5.dp
                                             )
                                         )
                                         Text(
@@ -914,7 +924,7 @@ fun ApiKeyDialog(
                                                 color = if (isLangSelected) GeoPrimary else GeoBorder
                                             ),
                                             colors = ButtonDefaults.outlinedButtonColors(
-                                                containerColor = if (isLangSelected) GeoPrimaryContainer.copy(alpha = 0.5f) else GeoSurface,
+                                                containerColor = GeoSurface,
                                                 contentColor = if (isLangSelected) GeoPrimary else GeoOnSurface
                                             ),
                                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
@@ -958,7 +968,7 @@ fun ApiKeyDialog(
                                                     color = if (isTransSelected) GeoPrimary else GeoBorder
                                                 ),
                                                 colors = ButtonDefaults.outlinedButtonColors(
-                                                    containerColor = if (isTransSelected) GeoPrimaryContainer.copy(alpha = 0.5f) else GeoSurface,
+                                                    containerColor = GeoSurface,
                                                     contentColor = if (isTransSelected) GeoPrimary else GeoOnSurface
                                                 ),
                                                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
@@ -980,49 +990,53 @@ fun ApiKeyDialog(
                 }
             },
             // ==============================================================
-            // 6. Save and Close Buttons (At the Bottom)
+            // 6. Cancel and Confirm Buttons (At the Bottom)
             // ==============================================================
             confirmButton = {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp)
+                            .height(42.dp)
                             .testTag("close_api_key_dialog"),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, GeoBorder),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface)
                     ) {
                         Text(
-                            text = strings.close,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
+                            text = strings.cancel,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
 
                     Button(
                         onClick = onSaveAll,
                         modifier = Modifier
-                            .weight(1.2f)
-                            .height(40.dp)
+                            .weight(1f)
+                            .height(42.dp)
                             .testTag("save_api_key_button"),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = GeoPrimary,
                             contentColor = GeoOnPrimary
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
-                            text = strings.save,
+                            text = strings.confirm,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }

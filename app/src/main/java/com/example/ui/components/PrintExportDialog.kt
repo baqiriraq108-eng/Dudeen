@@ -397,7 +397,12 @@ fun PrintExportDialog(
                                     .weight(1f)
                                     .height(30.dp)
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(if (isSelected) GeoSurface else Color.Transparent)
+                                    .background(Color.Transparent)
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.dp,
+                                        color = if (isSelected) GeoPrimary else Color.Transparent,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
                                     .clickable { selectedScope = scopeItem }
                                     .testTag("scope_tab_${scopeItem.name.lowercase()}"),
                                 contentAlignment = Alignment.Center
@@ -405,8 +410,8 @@ fun PrintExportDialog(
                                 Text(
                                     text = label,
                                     fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (isSelected) GeoOnSurface else GeoOnSurfaceVariant,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) GeoPrimary else GeoOnSurfaceVariant,
                                     maxLines = 1,
                                     softWrap = false
                                 )
@@ -440,7 +445,12 @@ fun PrintExportDialog(
                                 .weight(1f)
                                 .height(32.dp)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(if (isExcel) GeoSurface else Color.Transparent)
+                                .background(Color.Transparent)
+                                .border(
+                                    width = if (isExcel) 1.5.dp else 1.dp,
+                                    color = if (isExcel) GeoPrimary else Color.Transparent,
+                                    shape = RoundedCornerShape(6.dp)
+                                )
                                 .clickable { selectedFormat = ExportSharingManager.ExportFormat.XLSX }
                                 .padding(horizontal = 6.dp)
                                 .testTag("format_excel_tab"),
@@ -453,15 +463,15 @@ fun PrintExportDialog(
                                 Icon(
                                     imageVector = Icons.Default.TableChart,
                                     contentDescription = null,
-                                    tint = if (isExcel) Color(0xFF107C41) else GeoOnSurfaceVariant,
+                                    tint = if (isExcel) GeoPrimary else GeoOnSurfaceVariant,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
                                     text = "Excel (.xlsx)",
                                     fontSize = 11.5.sp,
-                                    fontWeight = if (isExcel) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (isExcel) GeoOnSurface else GeoOnSurfaceVariant,
+                                    fontWeight = if (isExcel) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isExcel) GeoPrimary else GeoOnSurfaceVariant,
                                     maxLines = 1,
                                     softWrap = false
                                 )
@@ -475,7 +485,12 @@ fun PrintExportDialog(
                                 .weight(1f)
                                 .height(32.dp)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(if (isPdf) GeoSurface else Color.Transparent)
+                                .background(Color.Transparent)
+                                .border(
+                                    width = if (isPdf) 1.5.dp else 1.dp,
+                                    color = if (isPdf) GeoPrimary else Color.Transparent,
+                                    shape = RoundedCornerShape(6.dp)
+                                )
                                 .clickable { selectedFormat = ExportSharingManager.ExportFormat.PDF }
                                 .padding(horizontal = 6.dp)
                                 .testTag("format_pdf_tab"),
@@ -488,15 +503,15 @@ fun PrintExportDialog(
                                 Icon(
                                     imageVector = Icons.Default.Description,
                                     contentDescription = null,
-                                    tint = if (isPdf) Color(0xFFB3261E) else GeoOnSurfaceVariant,
+                                    tint = if (isPdf) GeoPrimary else GeoOnSurfaceVariant,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
                                     text = "PDF",
                                     fontSize = 11.5.sp,
-                                    fontWeight = if (isPdf) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (isPdf) GeoOnSurface else GeoOnSurfaceVariant,
+                                    fontWeight = if (isPdf) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isPdf) GeoPrimary else GeoOnSurfaceVariant,
                                     maxLines = 1,
                                     softWrap = false
                                 )
@@ -583,7 +598,12 @@ fun PrintExportDialog(
                                             .weight(1f)
                                             .height(26.dp)
                                             .clip(RoundedCornerShape(5.dp))
-                                            .background(if (isSelected) GeoSurface else Color.Transparent)
+                                            .background(Color.Transparent)
+                                            .border(
+                                                width = if (isSelected) 1.5.dp else 1.dp,
+                                                color = if (isSelected) GeoPrimary else Color.Transparent,
+                                                shape = RoundedCornerShape(5.dp)
+                                            )
                                             .clickable { isLandscape = landscape }
                                             .testTag(if (landscape) "paper_landscape" else "paper_portrait"),
                                         contentAlignment = Alignment.Center
@@ -591,8 +611,8 @@ fun PrintExportDialog(
                                         Text(
                                             text = label,
                                             fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                            color = if (isSelected) GeoOnSurface else GeoOnSurfaceVariant,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) GeoPrimary else GeoOnSurfaceVariant,
                                             maxLines = 1,
                                             softWrap = false
                                         )
@@ -672,21 +692,20 @@ fun PrintExportDialog(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // Action Buttons Side by Side (Speichern & Teilen) with equal weight
-                Row(
+                // Action Buttons Side by Side (Confirm / Save & Share / Cancel)
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Save Button
-                    Button(
-                        onClick = {
-                            val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
-                            val targetFileName = ExportSharingManager.buildFileName(sanitizedBase, selectedFormat, effectiveNotebookName)
-                            try {
-                                saveFileLauncher.launch(targetFileName)
-                            } catch (e: Exception) {
-                                // Fallback directly to Downloads folder if picker unavailable
-                                ExportSharingManager.saveUnifiedToDownloads(
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Share Button (Secondary Outline)
+                        OutlinedButton(
+                            onClick = {
+                                val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
+                                ExportSharingManager.shareUnifiedSearchHistory(
                                     context = context,
                                     nouns = effectiveNouns,
                                     verbs = effectiveVerbs,
@@ -699,90 +718,115 @@ fun PrintExportDialog(
                                     notebookName = effectiveNotebookName
                                 )
                                 onDismiss()
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(42.dp)
-                            .testTag("export_save_button"),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GeoPrimary,
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("export_share_button"),
+                            border = BorderStroke(1.dp, GeoPrimary.copy(alpha = 0.7f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = GeoPrimary
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Save,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = strings.save,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White,
-                                maxLines = 1,
-                                softWrap = false
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = null,
+                                    tint = GeoPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = strings.share,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GeoPrimary,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        // Confirm / Save Button (Primary)
+                        Button(
+                            onClick = {
+                                val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
+                                val targetFileName = ExportSharingManager.buildFileName(sanitizedBase, selectedFormat, effectiveNotebookName)
+                                try {
+                                    saveFileLauncher.launch(targetFileName)
+                                } catch (e: Exception) {
+                                    // Fallback directly to Downloads folder if picker unavailable
+                                    ExportSharingManager.saveUnifiedToDownloads(
+                                        context = context,
+                                        nouns = effectiveNouns,
+                                        verbs = effectiveVerbs,
+                                        adjectives = effectiveAdjektive,
+                                        scope = selectedScope,
+                                        format = selectedFormat,
+                                        customBaseName = sanitizedBase,
+                                        paperSize = selectedPaperSize,
+                                        typography = currentTypography,
+                                        notebookName = effectiveNotebookName
+                                    )
+                                    onDismiss()
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("export_save_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = GeoPrimary,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Save,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = strings.confirm,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
                         }
                     }
 
-                    // Share Button
-                    Button(
-                        onClick = {
-                            val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
-                            ExportSharingManager.shareUnifiedSearchHistory(
-                                context = context,
-                                nouns = effectiveNouns,
-                                verbs = effectiveVerbs,
-                                adjectives = effectiveAdjektive,
-                                scope = selectedScope,
-                                format = selectedFormat,
-                                customBaseName = sanitizedBase,
-                                paperSize = selectedPaperSize,
-                                typography = currentTypography,
-                                notebookName = effectiveNotebookName
-                            )
-                            onDismiss()
-                        },
+                    // Cancel Button (Uniform 42.dp height and 10.dp radius)
+                    OutlinedButton(
+                        onClick = onDismiss,
                         modifier = Modifier
-                            .weight(1f)
-                            .height(42.dp)
-                            .testTag("export_share_button"),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GeoPrimary,
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                            .fillMaxWidth()
+                            .height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = strings.share,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
+                        Text(
+                            text = strings.cancel,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GeoOnSurface,
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
                 }
             }
@@ -1154,12 +1198,9 @@ private fun FontSizePickerDialog(
                                             .weight(1f)
                                             .height(30.dp)
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(
-                                                if (isSelected) MaterialTheme.colorScheme.primary
-                                                else MaterialTheme.colorScheme.surface
-                                            )
+                                            .background(MaterialTheme.colorScheme.surface)
                                             .border(
-                                                width = 1.dp,
+                                                width = if (isSelected) 1.5.dp else 1.dp,
                                                 color = if (isSelected) MaterialTheme.colorScheme.primary
                                                 else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
                                                 shape = RoundedCornerShape(6.dp)
@@ -1175,7 +1216,7 @@ private fun FontSizePickerDialog(
                                             text = label,
                                             fontSize = 11.5.sp,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
@@ -1331,27 +1372,28 @@ private fun FontSizePickerDialog(
                         thickness = 1.dp
                     )
 
-                    // Bottom Action Buttons: [ Abbrechen ] [ Übernehmen ]
+                    // Bottom Action Buttons: [ Cancel / Abbrechen ] [ Confirm / Bestätigen ]
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         OutlinedButton(
                             onClick = onDismiss,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(36.dp)
+                                .height(42.dp)
                                 .testTag("font_size_cancel_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Text(
                                 text = strings.cancel,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
 
@@ -1368,20 +1410,21 @@ private fun FontSizePickerDialog(
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(36.dp)
+                                .height(42.dp)
                                 .testTag("font_size_confirm_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary
                             )
                         ) {
                             Text(
-                                text = strings.confirmApplyButton,
-                                fontSize = 12.5.sp,
+                                text = strings.confirm,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }
