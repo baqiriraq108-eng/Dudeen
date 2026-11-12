@@ -40,7 +40,7 @@ enum class AppLanguage(
 /**
  * Comprehensive strings dictionary for the entire application interface, settings, and dialogs.
  */
-data class SettingsStrings(
+class SettingsStrings(
     val language: AppLanguage,
 
     // Common actions
@@ -304,16 +304,10 @@ data class SettingsStrings(
     val apiKeyBannerTitle: String,
     val apiKeyBannerSubtitle: String,
     val apiKeyBannerButton: String,
-    val folderOverlayBody: String,
-    val folderOverlayButton: String,
     val manualTranslationEditPlaceholder: String,
     val manualTranslationNewPlaceholder: String,
     val manualTranslationAddMorePlaceholder: String,
     val voiceSearchDesc: String,
-    val voiceLanguageDialogTitle: String,
-    val voiceLanguageDialogSubtitle: String,
-    val voiceLanguageGerman: String,
-    val voiceLanguageEnglish: String,
     val voiceSearchPromptGerman: String,
     val voiceSearchPromptEnglish: String,
     val voiceSearchNotAvailable: String
@@ -407,9 +401,6 @@ data class SettingsStrings(
     val translatingSentenceStatus: String get() = searchingSentenceStatus
     val analyzingConjugationStatus: String get() = searchingVerbStatus
     val analyzingDeclensionStatus: String get() = searchingNounStatus
-    val folderSelectionTitle: String get() = historyStorageTitle
-    val folderSelectionMessage: String get() = folderOverlayBody
-    val selectFolderButton: String get() = folderOverlayButton
     val historyTitle: String get() = historyHeaderTitle
     val clearHistoryDesc: String get() = clearHistoryButton
     val clearButton: String get() = historyClearButton
@@ -705,16 +696,10 @@ object AppStrings {
         apiKeyBannerTitle = "Gemini API-Schlüssel erforderlich",
         apiKeyBannerSubtitle = "Konfigurieren Sie Ihren API-Schlüssel in den Einstellungen, um deutsche Wörter zu analysieren.",
         apiKeyBannerButton = "Einstellungen",
-        folderOverlayBody = "Bitte wählen Sie einen Speicherort für Ihren Suchverlauf aus. Dieser Ordner bleibt auch nach dem Löschen der App-Daten erhalten.",
-        folderOverlayButton = "📂 Ordner auswählen",
         manualTranslationEditPlaceholder = "Übersetzung bearbeiten...",
         manualTranslationNewPlaceholder = "Eigene Übersetzung...",
         manualTranslationAddMorePlaceholder = "Weitere Übersetzung hinzufügen...",
         voiceSearchDesc = "Sprachsuche (Deutsch / Englisch)",
-        voiceLanguageDialogTitle = "Sprache für Spracheingabe",
-        voiceLanguageDialogSubtitle = "Wählen Sie die Sprache für die Spracherkennung aus:",
-        voiceLanguageGerman = "Deutsch (de-DE)",
-        voiceLanguageEnglish = "English (en-US)",
         voiceSearchPromptGerman = "Sprechen Sie jetzt auf Deutsch...",
         voiceSearchPromptEnglish = "Speak now in English...",
         voiceSearchNotAvailable = "Spracherkennung ist auf diesem Gerät nicht verfügbar."
@@ -972,16 +957,10 @@ object AppStrings {
         apiKeyBannerTitle = "Gemini API Key Required",
         apiKeyBannerSubtitle = "Configure your API key in Settings to analyze German noun declensions.",
         apiKeyBannerButton = "Settings",
-        folderOverlayBody = "Please select a storage location for your search history. This folder is preserved even if app data is cleared.",
-        folderOverlayButton = "📂 Select Folder",
         manualTranslationEditPlaceholder = "Edit translation...",
         manualTranslationNewPlaceholder = "Custom translation...",
         manualTranslationAddMorePlaceholder = "Add another translation...",
         voiceSearchDesc = "Voice search (German / English)",
-        voiceLanguageDialogTitle = "Voice Input Language",
-        voiceLanguageDialogSubtitle = "Select the language for voice recognition:",
-        voiceLanguageGerman = "Deutsch (de-DE)",
-        voiceLanguageEnglish = "English (en-US)",
         voiceSearchPromptGerman = "Sprechen Sie jetzt auf Deutsch...",
         voiceSearchPromptEnglish = "Speak now in English...",
         voiceSearchNotAvailable = "Speech recognition is not available on this device."
@@ -1246,16 +1225,10 @@ object AppStrings {
         apiKeyBannerTitle = "مفتاح Gemini API مطلوب",
         apiKeyBannerSubtitle = "قم بإعداد مفتاح API في الإعدادات لتحليل الكلمات الألمانية.",
         apiKeyBannerButton = "الإعدادات",
-        folderOverlayBody = "يرجى اختيار موقع تخزين لسجل البحث الخاص بك. سيبقى هذا المجلد محفوظاً حتى بعد مسح بيانات التطبيق.",
-        folderOverlayButton = "📂 اختر مجلداً",
         manualTranslationEditPlaceholder = "تعديل الترجمة...",
         manualTranslationNewPlaceholder = "ترجمة خاصة...",
         manualTranslationAddMorePlaceholder = "إضافة ترجمة أخرى...",
         voiceSearchDesc = "البحث الصوتي (ألماني / إنجليزي)",
-        voiceLanguageDialogTitle = "لغة الإدخال الصوتي",
-        voiceLanguageDialogSubtitle = "اختر لغة التعرف على الصوت:",
-        voiceLanguageGerman = "Deutsch (الألمانية)",
-        voiceLanguageEnglish = "English (الإنجليزية)",
         voiceSearchPromptGerman = "تحدث الآن بالألمانية...",
         voiceSearchPromptEnglish = "تحدث الآن بالإنجليزية...",
         voiceSearchNotAvailable = "التعرف على الصوت غير متوفر على هذا الجهاز."

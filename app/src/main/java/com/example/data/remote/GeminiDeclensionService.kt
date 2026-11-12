@@ -13,14 +13,16 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 class GeminiDeclensionService(private val context: Context? = null) {
 
+    // Fast per-attempt timeouts so overloaded endpoints fail over quickly instead of hanging for 60s
     private val client = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(12, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(12, TimeUnit.SECONDS)
         .build()
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -29,31 +31,90 @@ class GeminiDeclensionService(private val context: Context? = null) {
         const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
         const val DEFAULT_OPENROUTER_MODEL = "openrouter/auto"
 
+        private const val MODEL_COOLDOWN_MS = 60_000L
+        private val modelCooldownUntilMs = ConcurrentHashMap<String, Long>()
+
         /**
-         * Maps outdated or deprecated model names to modern supported models.
+         * Records a temporary cooldown for a model that returned 503 (overloaded), 429 (quota/rate limit),
+         * 404 (unavailable), or timed out, so subsequent requests immediately route to a healthy model.
+         */
+        fun markModelUnhealthy(modelId: String, durationMs: Long = MODEL_COOLDOWN_MS) {
+            modelCooldownUntilMs[modelId.lowercase()] = System.currentTimeMillis() + durationMs
+        }
+
+        fun isModelHealthy(modelId: String): Boolean {
+            val until = modelCooldownUntilMs[modelId.lowercase()] ?: return true
+            if (System.currentTimeMillis() >= until) {
+                modelCooldownUntilMs.remove(modelId.lowercase())
+                return true
+            }
+            return false
+        }
+
+        /**
+         * Maps outdated, deprecated, non-existent, or paid-only model names to verified active Free-Tier models.
          */
         fun sanitizeModelId(provider: ModelProvider, rawModelId: String): String {
             val trimmed = rawModelId.trim().removePrefix("models/")
             if (provider == ModelProvider.GEMINI) {
-                return when {
+                val mapped = when {
                     trimmed.isBlank() -> DEFAULT_GEMINI_MODEL
+                    trimmed.equals("gemini-3.5-flash", ignoreCase = true) -> "gemini-2.5-flash"
                     trimmed.equals("gemini-3.8-flash", ignoreCase = true) -> "gemini-2.5-flash"
+                    trimmed.equals("gemini-3.1-pro-preview", ignoreCase = true) -> "gemini-2.5-pro"
+                    trimmed.equals("gemini-3-pro-preview", ignoreCase = true) -> "gemini-2.5-pro"
                     trimmed.equals("gemini-1.5-flash", ignoreCase = true) -> "gemini-2.5-flash"
+                    trimmed.equals("gemini-1.5-flash-8b", ignoreCase = true) -> "gemini-2.5-flash-lite"
                     trimmed.equals("gemini-1.5-pro", ignoreCase = true) -> "gemini-2.5-pro"
-                    trimmed.equals("gemini-2.0-flash", ignoreCase = true) -> "gemini-2.5-flash"
-                    trimmed.equals("gemini-2.0-flash-exp", ignoreCase = true) -> "gemini-2.5-flash"
+                    trimmed.equals("gemini-2.0-flash-exp", ignoreCase = true) -> "gemini-2.0-flash"
+                    trimmed.equals("gemini-2.0-flash-lite", ignoreCase = true) -> "gemini-2.5-flash-lite"
                     trimmed.equals("gemini-2.0-pro", ignoreCase = true) -> "gemini-2.5-pro"
                     trimmed.equals("gemini-pro", ignoreCase = true) -> "gemini-2.5-pro"
                     trimmed.equals("gemini-flash-latest", ignoreCase = true) -> "gemini-2.5-flash"
                     else -> trimmed
                 }
+                return if (com.example.data.ApiKeyManager.VERIFIED_FREE_GEMINI_MODEL_IDS.contains(mapped.lowercase())) {
+                    mapped.lowercase()
+                } else {
+                    DEFAULT_GEMINI_MODEL
+                }
             } else {
                 return when {
                     trimmed.isBlank() -> DEFAULT_OPENROUTER_MODEL
-                    trimmed.equals("google/gemini-2.0-flash-exp:free", ignoreCase = true) -> "google/gemini-2.5-flash"
+                    trimmed.equals("google/gemini-2.0-flash-exp:free", ignoreCase = true) -> DEFAULT_OPENROUTER_MODEL
+                    trimmed.equals("google/gemini-2.5-flash", ignoreCase = true) -> DEFAULT_OPENROUTER_MODEL
                     else -> trimmed
                 }
             }
+        }
+
+        /**
+         * Builds the ordered candidate model list starting with the user's selected model
+         * followed by the active Free-Tier Flash/Lite failover chain.
+         * Healthy models are prioritized first; cooled-down models are placed at the end as last resort.
+         */
+        fun buildFailoverChain(primaryModelId: String): List<String> {
+            val sanitizedPrimary = sanitizeModelId(ModelProvider.GEMINI, primaryModelId)
+            val allCandidates = LinkedHashSet<String>().apply {
+                add(sanitizedPrimary)
+                addAll(com.example.data.ApiKeyManager.FAST_GEMINI_FAILOVER_CHAIN)
+            }.toList()
+
+            val healthy = allCandidates.filter { isModelHealthy(it) }
+            val cooledDown = allCandidates.filterNot { isModelHealthy(it) }
+            return healthy + cooledDown
+        }
+
+        /**
+         * Returns true if the model supports `thinkingConfig.thinkingBudget = 0` to eliminate
+         * internal thinking latency for deterministic structured JSON grammar tables.
+         */
+        private fun supportsZeroThinkingBudget(modelId: String): Boolean {
+            val lower = modelId.lowercase()
+            return lower == "gemini-2.5-flash" ||
+                lower == "gemini-2.5-flash-lite" ||
+                lower == "gemini-3-flash-preview" ||
+                lower == "gemini-3.1-flash-lite-preview"
         }
     }
 
@@ -121,12 +182,52 @@ class GeminiDeclensionService(private val context: Context? = null) {
     }
 
     /**
-     * Executes query via Google Gemini Generative Language API
+     * Executes query via Google Gemini Generative Language API with:
+     * 1. Zero-thinking fast JSON config (`thinkingBudget: 0`) for Flash/Lite models.
+     * 2. Automatic instant failover cascade across verified Free-Tier Flash/Lite models
+     *    when a model is overloaded (503), rate-limited (429), unavailable (404), or times out.
      */
     private fun fetchRawFromGemini(
         prompt: String,
         apiKey: String,
         selectedModelId: String
+    ): String {
+        val candidateModels = buildFailoverChain(selectedModelId)
+        var lastException: IOException? = null
+
+        for (targetModel in candidateModels) {
+            try {
+                return executeSingleGeminiCall(
+                    prompt = prompt,
+                    apiKey = apiKey,
+                    targetModel = targetModel,
+                    includeZeroThinking = supportsZeroThinkingBudget(targetModel)
+                )
+            } catch (e: GeminiInvalidKeyException) {
+                // Do not fail over on an invalid API key; surface immediately
+                throw IOException(e.message ?: "Invalid Gemini API Key. Please check your key at ai.google.dev.")
+            } catch (e: GeminiRetryableException) {
+                markModelUnhealthy(targetModel)
+                lastException = IOException(e.message ?: "Modell $targetModel ausgelastet.")
+                // Continue immediately to next healthy free-tier Flash/Lite model in cascade
+            } catch (e: IOException) {
+                // SocketTimeoutException / network glitch on this model endpoint
+                markModelUnhealthy(targetModel, 30_000L)
+                lastException = e
+            }
+        }
+
+        throw lastException ?: IOException("Alle kostenlosen Gemini-Modelle sind derzeit ausgelastet. Bitte versuchen Sie es gleich erneut.")
+    }
+
+    private class GeminiInvalidKeyException(message: String) : IOException(message)
+    private class GeminiRetryableException(val code: Int, message: String) : IOException(message)
+
+    private fun executeSingleGeminiCall(
+        prompt: String,
+        apiKey: String,
+        targetModel: String,
+        includeZeroThinking: Boolean
     ): String {
         val requestJson = JSONObject().apply {
             val partsArray = JSONArray().apply {
@@ -143,10 +244,14 @@ class GeminiDeclensionService(private val context: Context? = null) {
             put("generationConfig", JSONObject().apply {
                 put("responseMimeType", "application/json")
                 put("temperature", 0.1)
+                if (includeZeroThinking) {
+                    put("thinkingConfig", JSONObject().apply {
+                        put("thinkingBudget", 0)
+                    })
+                }
             })
         }
 
-        val targetModel = sanitizeModelId(ModelProvider.GEMINI, selectedModelId)
         val url = "https://generativelanguage.googleapis.com/v1beta/models/$targetModel:generateContent?key=$apiKey"
         val request = Request.Builder()
             .url(url)
@@ -156,7 +261,24 @@ class GeminiDeclensionService(private val context: Context? = null) {
         client.newCall(request).execute().use { response ->
             val responseBody = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                val errorMsg = parseGeminiErrorMessage(response.code, responseBody)
+                val code = response.code
+                // If an endpoint rejects thinkingConfig with HTTP 400, retry once without thinkingConfig on the same model
+                if (code == 400 && includeZeroThinking && responseBody.contains("thinking", ignoreCase = true)) {
+                    return executeSingleGeminiCall(
+                        prompt = prompt,
+                        apiKey = apiKey,
+                        targetModel = targetModel,
+                        includeZeroThinking = false
+                    )
+                }
+
+                val errorMsg = parseGeminiErrorMessage(code, responseBody)
+                if (code == 401 || (code in listOf(400, 403) && errorMsg.contains("Invalid Gemini API Key", ignoreCase = true))) {
+                    throw GeminiInvalidKeyException(errorMsg)
+                }
+                if (code in listOf(404, 408, 429, 500, 502, 503, 504)) {
+                    throw GeminiRetryableException(code, errorMsg)
+                }
                 throw IOException(errorMsg)
             }
 
@@ -199,7 +321,7 @@ class GeminiDeclensionService(private val context: Context? = null) {
 
         if (provider == ModelProvider.OPENROUTER) {
             requestBuilder.addHeader("HTTP-Referer", "https://deklination.app")
-            requestBuilder.addHeader("X-Title", "German Deklination App")
+            requestBuilder.addHeader("X-Title", "Deklo")
         }
 
         val request = requestBuilder
@@ -261,7 +383,7 @@ class GeminiDeclensionService(private val context: Context? = null) {
                     .url(authKeyUrl)
                     .addHeader("Authorization", "Bearer $trimmedKey")
                     .addHeader("HTTP-Referer", "https://deklination.app")
-                    .addHeader("X-Title", "German Deklination App")
+                    .addHeader("X-Title", "Deklo")
                     .get()
                     .build()
 
@@ -329,7 +451,7 @@ class GeminiDeclensionService(private val context: Context? = null) {
                 .addHeader("Authorization", "Bearer $apiKey")
                 .addHeader("Content-Type", "application/json")
                 .addHeader("HTTP-Referer", "https://deklination.app")
-                .addHeader("X-Title", "German Deklination App")
+                .addHeader("X-Title", "Deklo")
                 .post(pingJson.toString().toRequestBody(jsonMediaType))
                 .build()
 
@@ -397,7 +519,7 @@ class GeminiDeclensionService(private val context: Context? = null) {
             val requestBuilder = Request.Builder()
                 .url(url)
                 .addHeader("HTTP-Referer", "https://deklination.app")
-                .addHeader("X-Title", "German Deklination App")
+                .addHeader("X-Title", "Deklo")
                 .get()
 
             val trimmedKey = apiKey.trim()

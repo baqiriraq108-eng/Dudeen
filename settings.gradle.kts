@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Deklination & Konjugation"
+rootProject.name = "Deklo"
 include(":app")

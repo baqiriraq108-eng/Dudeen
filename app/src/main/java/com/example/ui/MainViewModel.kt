@@ -108,7 +108,6 @@ data class MainUiState(
     val testKeyResult: Pair<Boolean, String>? = null, // Pair(isSuccess, message)
     val remainingDailyRequests: Int = 20,
     val totalDailyQuota: Int = 20,
-    val isFolderSelectionRequired: Boolean = false,
     val selectedHistoryFolderName: String = "Kein Ordner ausgewählt",
     val replaceHistoryOnImport: Boolean = false,
     val importStatusMessage: String? = null,
@@ -183,12 +182,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val historyList: StateFlow<List<WordHistoryEntity>> = repository.searchHistory.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Eagerly,
         initialValue = emptyList()
     )
     val recentQueries: StateFlow<List<SearchQueryEntity>> = repository.recentSearchQueries.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Eagerly,
         initialValue = emptyList()
     )
 
@@ -211,70 +210,71 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Pre-warm Grammar Tables in background RAM cache on app start for instant opening
         com.example.data.repository.GrammarTablesRepository.warmCache(viewModelScope)
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val allNotebooks = notebookRepository.listAllNotebooks()
+                val activeNotebook = notebookRepository.getActiveNotebook()
+                val notebookSettings = activeNotebook.settings
+
+                // Apply notebook settings
+                val activeTheme = AppThemePackage.fromId(notebookSettings.themeColorId)
+                val activeThemeMode = notebookSettings.themeMode
+                ttsManager.setSpeedRate(notebookSettings.ttsSpeed)
+
+                val isConfigured = if (notebookSettings.customApiKey.isNotBlank() || notebookSettings.openRouterApiKey.isNotBlank()) {
+                    true
+                } else {
+                    repository.isApiKeyConfigured()
+                }
+                val provider = ModelProvider.fromId(notebookSettings.selectedProvider)
+                val currentModel = notebookSettings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
+                val geminiKey = notebookSettings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
+                val openRouterKey = notebookSettings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
+                val (remaining, total) = repository.getDailyUsage(provider, currentModel)
+                val folderName = if (notebookSettings.storageFolderUri.isNotBlank()) {
+                    notebookSettings.storageFolderUri
+                } else {
+                    "Standard (${activeNotebook.name})"
+                }
+
+                val currentAppLanguage = themePreferences.getAppLanguage()
+                val activeLanguage = if (currentAppLanguage.isNotBlank()) currentAppLanguage else notebookSettings.appLanguage.ifBlank { "de" }
+                themePreferences.saveAppLanguage(activeLanguage)
+
+                val currentTranslationLanguage = themePreferences.getTranslationLanguage()
+                val activeTranslationLanguage = if (currentTranslationLanguage.isNotBlank()) currentTranslationLanguage else notebookSettings.translationLanguage.ifBlank { "en" }
+                themePreferences.saveTranslationLanguage(activeTranslationLanguage)
+
+                _uiState.update { current ->
+                    current.copy(
+                        allNotebooks = allNotebooks,
+                        activeNotebook = activeNotebook,
+                        themeMode = activeThemeMode,
+                        appLanguage = activeLanguage,
+                        translationLanguage = activeTranslationLanguage,
+                        hasApiKey = isConfigured,
+                        selectedProvider = provider,
+                        apiKeyInput = geminiKey,
+                        geminiApiKeyInput = geminiKey,
+                        openRouterApiKeyInput = openRouterKey,
+                        otherApiKeyInput = openRouterKey,
+                        selectedModel = currentModel,
+                        availableModels = repository.getAvailableModelsForProvider(provider),
+                        selectedTheme = activeTheme,
+                        remainingDailyRequests = remaining,
+                        totalDailyQuota = total,
+                        selectedHistoryFolderName = folderName
+                    )
+                }
+            } catch (e: Throwable) {
+                Log.e("MainViewModel", "Failed to load initial notebook settings", e)
+            }
+
             try {
                 repository.syncHistoryOnStartup()
             } catch (e: Throwable) {
                 Log.e("MainViewModel", "Failed to sync history on startup", e)
             }
-        }
-
-        try {
-            val allNotebooks = notebookRepository.listAllNotebooks()
-            val activeNotebook = notebookRepository.getActiveNotebook()
-            val notebookSettings = activeNotebook.settings
-
-            // Apply notebook settings
-            val activeTheme = AppThemePackage.fromId(notebookSettings.themeColorId)
-            val activeThemeMode = notebookSettings.themeMode
-            ttsManager.setSpeedRate(notebookSettings.ttsSpeed)
-
-            val isConfigured = if (notebookSettings.customApiKey.isNotBlank() || notebookSettings.openRouterApiKey.isNotBlank()) {
-                true
-            } else {
-                repository.isApiKeyConfigured()
-            }
-            val provider = ModelProvider.fromId(notebookSettings.selectedProvider)
-            val currentModel = notebookSettings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
-            val geminiKey = notebookSettings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
-            val openRouterKey = notebookSettings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
-            val (remaining, total) = repository.getDailyUsage(provider, currentModel)
-            val folderName = if (notebookSettings.storageFolderUri.isNotBlank()) {
-                notebookSettings.storageFolderUri
-            } else {
-                "Standard (${activeNotebook.name})"
-            }
-
-            val currentAppLanguage = themePreferences.getAppLanguage()
-            val activeLanguage = if (currentAppLanguage.isNotBlank()) currentAppLanguage else notebookSettings.appLanguage.ifBlank { "de" }
-            themePreferences.saveAppLanguage(activeLanguage)
-
-            val currentTranslationLanguage = themePreferences.getTranslationLanguage()
-            val activeTranslationLanguage = if (currentTranslationLanguage.isNotBlank()) currentTranslationLanguage else notebookSettings.translationLanguage.ifBlank { "en" }
-            themePreferences.saveTranslationLanguage(activeTranslationLanguage)
-
-            _uiState.value = _uiState.value.copy(
-                allNotebooks = allNotebooks,
-                activeNotebook = activeNotebook,
-                themeMode = activeThemeMode,
-                appLanguage = activeLanguage,
-                translationLanguage = activeTranslationLanguage,
-                hasApiKey = isConfigured,
-                selectedProvider = provider,
-                apiKeyInput = geminiKey,
-                geminiApiKeyInput = geminiKey,
-                openRouterApiKeyInput = openRouterKey,
-                otherApiKeyInput = openRouterKey,
-                selectedModel = currentModel,
-                availableModels = repository.getAvailableModelsForProvider(provider),
-                selectedTheme = activeTheme,
-                remainingDailyRequests = remaining,
-                totalDailyQuota = total,
-                isFolderSelectionRequired = false,
-                selectedHistoryFolderName = folderName
-            )
-        } catch (e: Throwable) {
-            Log.e("MainViewModel", "Failed to load initial notebook settings", e)
         }
     }
 
@@ -1333,7 +1333,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.onFolderSelected(uri)
             val newName = repository.getHistoryFolderName()
             _uiState.value = _uiState.value.copy(
-                isFolderSelectionRequired = false,
                 selectedHistoryFolderName = newName,
                 importStatusMessage = "Speicherort festgelegt: $newName"
             )

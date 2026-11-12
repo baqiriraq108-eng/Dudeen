@@ -1,5 +1,5 @@
 {
-  "name": "Deklination & Konjugation",
+  "name": "Deklo",
   "description": "German declension and verb conjugation, grammar tables, search history, pronunciation and smart export app.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

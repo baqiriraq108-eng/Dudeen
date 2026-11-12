@@ -2147,67 +2147,67 @@ enum class AppThemePackage(
         shortName = name,
         primaryHex = primaryHex,
         secondaryHex = darkHex,
-        backgroundHex = 0xFFFFFFFF,
-        surfaceHex = 0xFFFFFFFF,
-        onSurfaceHex = 0xFF2A2A2A,
-        primaryContainerHex = primaryHex,
-        onPrimaryContainerHex = 0xFFFFFFFF,
+        backgroundHex = ThemeLayerMath.blendHex(0xFFFAFBFD, primaryHex, 0.045f),
+        surfaceHex = ThemeLayerMath.blendHex(0xFFFFFFFF, primaryHex, 0.02f),
+        onSurfaceHex = 0xFF1C1D21,
+        primaryContainerHex = ThemeLayerMath.blendHex(0xFFFFFFFF, lightHex, 0.28f),
+        onPrimaryContainerHex = ThemeLayerMath.darkenHex(darkHex, 0.35f),
         accentHex = lightHex,
-        borderHex = 0xFFE5E5E5,
-        surfaceVariantHex = 0xFFF5F5F5,
-        onSurfaceVariantHex = 0xFF6B6B6B,
-        outlineHex = primaryHex,
+        borderHex = ThemeLayerMath.blendHex(0xFFE0E2E7, primaryHex, 0.24f),
+        surfaceVariantHex = ThemeLayerMath.blendHex(0xFFF2F4F7, primaryHex, 0.14f),
+        onSurfaceVariantHex = ThemeLayerMath.blendHex(0xFF4A4D54, darkHex, 0.25f),
+        outlineHex = ThemeLayerMath.blendHex(0xFF72767E, primaryHex, 0.35f),
         swatchHex = primaryHex,
         hasCustomPalette = true,
         primaryLightHex = primaryHex,
         onPrimaryLightHex = 0xFFFFFFFF,
-        primaryContainerLightHex = primaryHex,
-        onPrimaryContainerLightHex = 0xFFFFFFFF,
+        primaryContainerLightHex = ThemeLayerMath.blendHex(0xFFFFFFFF, lightHex, 0.28f),
+        onPrimaryContainerLightHex = ThemeLayerMath.darkenHex(darkHex, 0.35f),
         secondaryLightHex = darkHex,
         onSecondaryLightHex = 0xFFFFFFFF,
-        secondaryContainerLightHex = 0xFFF5F5F5,
-        onSecondaryContainerLightHex = 0xFF2A2A2A,
+        secondaryContainerLightHex = ThemeLayerMath.blendHex(0xFFFFFFFF, darkHex, 0.18f),
+        onSecondaryContainerLightHex = ThemeLayerMath.darkenHex(darkHex, 0.42f),
         tertiaryLightHex = lightHex,
         onTertiaryLightHex = 0xFFFFFFFF,
-        tertiaryContainerLightHex = 0xFFF5F5F5,
-        onTertiaryContainerLightHex = 0xFF2A2A2A,
+        tertiaryContainerLightHex = ThemeLayerMath.blendHex(0xFFFFFFFF, lightHex, 0.22f),
+        onTertiaryContainerLightHex = ThemeLayerMath.darkenHex(primaryHex, 0.38f),
         errorLightHex = 0xFFC0392B,
         onErrorLightHex = 0xFFFFFFFF,
         errorContainerLightHex = 0xFFFFDAD6,
         onErrorContainerLightHex = 0xFF410002,
-        backgroundLightHex = 0xFFFAFAFA,
-        onBackgroundLightHex = 0xFF1A1A1A,
-        surfaceLightHex = 0xFFFFFFFF,
-        onSurfaceLightHex = 0xFF2A2A2A,
-        surfaceVariantLightHex = 0xFFF5F5F5,
-        onSurfaceVariantLightHex = 0xFF6B6B6B,
-        outlineLightHex = primaryHex,
+        backgroundLightHex = ThemeLayerMath.blendHex(0xFFFAFBFD, primaryHex, 0.045f),
+        onBackgroundLightHex = 0xFF1A1B1E,
+        surfaceLightHex = ThemeLayerMath.blendHex(0xFFFFFFFF, primaryHex, 0.02f),
+        onSurfaceLightHex = 0xFF1C1D21,
+        surfaceVariantLightHex = ThemeLayerMath.blendHex(0xFFF2F4F7, primaryHex, 0.14f),
+        onSurfaceVariantLightHex = ThemeLayerMath.blendHex(0xFF4A4D54, darkHex, 0.25f),
+        outlineLightHex = ThemeLayerMath.blendHex(0xFF72767E, primaryHex, 0.35f),
         primaryDarkHex = lightHex,
-        onPrimaryDarkHex = 0xFFFFFFFF,
-        primaryContainerDarkHex = darkHex,
-        onPrimaryContainerDarkHex = lightHex,
-        secondaryDarkHex = darkHex,
+        onPrimaryDarkHex = ThemeLayerMath.darkenHex(darkHex, 0.55f),
+        primaryContainerDarkHex = ThemeLayerMath.blendHex(0xFF18191C, darkHex, 0.58f),
+        onPrimaryContainerDarkHex = ThemeLayerMath.lightenHex(lightHex, 0.35f),
+        secondaryDarkHex = ThemeLayerMath.blendHex(darkHex, lightHex, 0.40f),
         onSecondaryDarkHex = 0xFFFFFFFF,
-        secondaryContainerDarkHex = 0xFF2A2A2A,
-        onSecondaryContainerDarkHex = 0xFFE0E0E0,
-        tertiaryDarkHex = lightHex,
-        onTertiaryDarkHex = 0xFFFFFFFF,
-        tertiaryContainerDarkHex = 0xFF2A2A2A,
-        onTertiaryContainerDarkHex = 0xFFE0E0E0,
+        secondaryContainerDarkHex = ThemeLayerMath.blendHex(0xFF1E2024, darkHex, 0.38f),
+        onSecondaryContainerDarkHex = ThemeLayerMath.lightenHex(lightHex, 0.42f),
+        tertiaryDarkHex = ThemeLayerMath.lightenHex(lightHex, 0.22f),
+        onTertiaryDarkHex = ThemeLayerMath.darkenHex(darkHex, 0.55f),
+        tertiaryContainerDarkHex = ThemeLayerMath.blendHex(0xFF1E2024, lightHex, 0.28f),
+        onTertiaryContainerDarkHex = ThemeLayerMath.lightenHex(lightHex, 0.48f),
         errorDarkHex = 0xFFE74C3C,
         onErrorDarkHex = 0xFFFFFFFF,
         errorContainerDarkHex = 0xFF93000A,
         onErrorContainerDarkHex = 0xFFFFDAD6,
-        backgroundDarkHex = 0xFF141311,
-        onBackgroundDarkHex = 0xFFFFFFFF,
-        surfaceDarkHex = 0xFF1F1F1F,
-        onSurfaceDarkHex = 0xFFE0E0E0,
-        surfaceVariantDarkHex = 0xFF2A2A2A,
-        onSurfaceVariantDarkHex = 0xFFAAAAAA,
-        outlineDarkHex = lightHex,
+        backgroundDarkHex = ThemeLayerMath.blendHex(0xFF111215, darkHex, 0.12f),
+        onBackgroundDarkHex = 0xFFECEEF2,
+        surfaceDarkHex = ThemeLayerMath.blendHex(0xFF17181C, darkHex, 0.14f),
+        onSurfaceDarkHex = 0xFFE6E8EC,
+        surfaceVariantDarkHex = ThemeLayerMath.blendHex(0xFF23252A, primaryHex, 0.18f),
+        onSurfaceVariantDarkHex = ThemeLayerMath.blendHex(0xFFB4B8C0, lightHex, 0.22f),
+        outlineDarkHex = ThemeLayerMath.blendHex(0xFF8A8E96, lightHex, 0.38f),
         isBoldTheme = false,
-        headerKasusLightHex = 0xFFF5F5F5,
-        headerKasusDarkHex = 0xFF2A2A2A,
+        headerKasusLightHex = ThemeLayerMath.blendHex(0xFFF2F4F7, primaryHex, 0.16f),
+        headerKasusDarkHex = ThemeLayerMath.blendHex(0xFF23252A, primaryHex, 0.22f),
         glowColorLightHex = primaryHex,
         glowColorDarkHex = lightHex,
         bannerGradientStartLightHex = primaryHex,
@@ -2234,10 +2234,168 @@ enum class AppThemePackage(
     val outline: Color get() = Color(outlineHex)
     val swatch: Color get() = Color(swatchHex)
 
-    val darkVariantHex: Long get() = if (secondaryHex != 0L) secondaryHex else primaryHex
-    val lightVariantHex: Long get() = if (accentHex != 0L) accentHex else primaryHex
+    val darkVariantHex: Long
+        get() = when {
+            secondaryHex != 0L && secondaryHex != primaryHex -> secondaryHex
+            else -> ThemeLayerMath.darkenHex(primaryHex, 0.24f)
+        }
+
+    val lightVariantHex: Long
+        get() = when {
+            accentHex != 0L && accentHex != primaryHex && accentHex != secondaryHex -> accentHex
+            primaryContainerHex != 0L && primaryContainerHex != primaryHex -> ThemeLayerMath.blendHex(primaryHex, primaryContainerHex, 0.45f)
+            else -> ThemeLayerMath.lightenHex(primaryHex, 0.26f)
+        }
+
     val darkVariant: Color get() = Color(darkVariantHex)
     val lightVariant: Color get() = Color(lightVariantHex)
+
+    // =========================================================================
+    // 4-Tier Multi-Layered Color System Accessors
+    // =========================================================================
+
+    fun tier1Primary(isDark: Boolean): Color = Color(
+        if (isDark) {
+            if (hasCustomPalette) primaryDarkHex else ThemeLayerMath.lightenHex(lightVariantHex, 0.14f)
+        } else {
+            primaryLightHex
+        }
+    )
+
+    fun tier2Secondary(isDark: Boolean): Color = Color(
+        if (isDark) {
+            if (hasCustomPalette && secondaryDarkHex != primaryDarkHex) {
+                secondaryDarkHex
+            } else {
+                ThemeLayerMath.blendHex(darkVariantHex, lightVariantHex, 0.35f)
+            }
+        } else {
+            if (secondaryLightHex != primaryLightHex) {
+                secondaryLightHex
+            } else {
+                darkVariantHex
+            }
+        }
+    )
+
+    fun tier3Tertiary(isDark: Boolean): Color = Color(
+        if (isDark) {
+            if (hasCustomPalette && tertiaryDarkHex != primaryDarkHex && tertiaryDarkHex != secondaryDarkHex) {
+                tertiaryDarkHex
+            } else {
+                ThemeLayerMath.lightenHex(lightVariantHex, 0.28f)
+            }
+        } else {
+            if (tertiaryLightHex != primaryLightHex && tertiaryLightHex != secondaryLightHex) {
+                tertiaryLightHex
+            } else {
+                lightVariantHex
+            }
+        }
+    )
+
+    fun tier4Quaternary(isDark: Boolean): Color = Color(
+        if (isDark) {
+            ThemeLayerMath.blendHex(
+                if (hasCustomPalette) surfaceVariantDarkHex else 0xFF23252A,
+                lightVariantHex,
+                0.15f
+            )
+        } else {
+            ThemeLayerMath.blendHex(
+                if (hasCustomPalette) surfaceVariantLightHex else surfaceVariantHex,
+                primaryLightHex,
+                0.10f
+            )
+        }
+    )
+
+    fun tier4Swatch(isDark: Boolean): Color = Color(
+        if (isDark) {
+            ThemeLayerMath.blendHex(0xFF2A2C32, lightVariantHex, 0.34f)
+        } else {
+            ThemeLayerMath.blendHex(0xFFF3F5F8, primaryHex, 0.30f)
+        }
+    )
+
+    fun tier1Container(isDark: Boolean): Color = Color(
+        if (isDark) {
+            ThemeLayerMath.blendHex(0xFF18191D, darkVariantHex, 0.52f)
+        } else {
+            if (primaryContainerLightHex != primaryLightHex) primaryContainerLightHex
+            else ThemeLayerMath.blendHex(0xFFFFFFFF, lightVariantHex, 0.26f)
+        }
+    )
+
+    fun onTier1Container(isDark: Boolean): Color = Color(
+        if (isDark) {
+            ThemeLayerMath.lightenHex(lightVariantHex, 0.42f)
+        } else {
+            ThemeLayerMath.darkenHex(darkVariantHex, 0.38f)
+        }
+    )
+
+    fun tier2Container(isDark: Boolean): Color = Color(
+        if (isDark) {
+            ThemeLayerMath.blendHex(0xFF1D1F24, darkVariantHex, 0.36f)
+        } else {
+            ThemeLayerMath.blendHex(0xFFFFFFFF, darkVariantHex, 0.16f)
+        }
+    )
+
+    fun onTier2Container(isDark: Boolean): Color = Color(
+        if (isDark) {
+            ThemeLayerMath.lightenHex(lightVariantHex, 0.45f)
+        } else {
+            ThemeLayerMath.darkenHex(darkVariantHex, 0.42f)
+        }
+    )
+
+    fun tier3Container(isDark: Boolean): Color = Color(
+        if (isDark) {
+            ThemeLayerMath.blendHex(0xFF1D1F24, lightVariantHex, 0.26f)
+        } else {
+            ThemeLayerMath.blendHex(0xFFFFFFFF, lightVariantHex, 0.20f)
+        }
+    )
+
+    fun onTier3Container(isDark: Boolean): Color = Color(
+        if (isDark) {
+            ThemeLayerMath.lightenHex(lightVariantHex, 0.50f)
+        } else {
+            ThemeLayerMath.darkenHex(primaryHex, 0.38f)
+        }
+    )
+
+    fun tier4SurfaceLowest(isDark: Boolean): Color = Color(
+        if (isDark) ThemeLayerMath.blendHex(0xFF0E0F12, darkVariantHex, 0.10f)
+        else 0xFFFFFFFF
+    )
+
+    fun tier4SurfaceLow(isDark: Boolean): Color = Color(
+        if (isDark) ThemeLayerMath.blendHex(0xFF16171B, darkVariantHex, 0.14f)
+        else ThemeLayerMath.blendHex(0xFFF8F9FB, primaryHex, 0.06f)
+    )
+
+    fun tier4SurfaceContainer(isDark: Boolean): Color = Color(
+        if (isDark) ThemeLayerMath.blendHex(0xFF1C1E23, darkVariantHex, 0.18f)
+        else ThemeLayerMath.blendHex(0xFFF3F5F8, primaryHex, 0.10f)
+    )
+
+    fun tier4SurfaceHigh(isDark: Boolean): Color = Color(
+        if (isDark) ThemeLayerMath.blendHex(0xFF23262C, primaryHex, 0.20f)
+        else ThemeLayerMath.blendHex(0xFFEEF1F5, primaryHex, 0.14f)
+    )
+
+    fun tier4SurfaceHighest(isDark: Boolean): Color = Color(
+        if (isDark) ThemeLayerMath.blendHex(0xFF2C2F36, lightVariantHex, 0.22f)
+        else ThemeLayerMath.blendHex(0xFFE6EAF0, primaryHex, 0.18f)
+    )
+
+    fun tier4Border(isDark: Boolean): Color = Color(
+        if (isDark) ThemeLayerMath.blendHex(0xFF383B42, lightVariantHex, 0.25f)
+        else ThemeLayerMath.blendHex(borderHex, primaryHex, 0.18f)
+    )
 
     companion object {
         // Category 1: Calm & Soft (10 Colors)
@@ -2480,6 +2638,33 @@ object AppThemeColors {
         @Composable
         @ReadOnlyComposable
         get() = LocalAppThemePackage.current.isBoldTheme
+}
+
+/**
+ * Deterministic ARGB hex math for multi-layered tonal palette generation.
+ */
+object ThemeLayerMath {
+    fun blendHex(baseHex: Long, tintHex: Long, ratio: Float): Long {
+        val t = ratio.coerceIn(0f, 1f)
+        val inv = 1f - t
+        val r1 = ((baseHex shr 16) and 0xFF).toFloat()
+        val g1 = ((baseHex shr 8) and 0xFF).toFloat()
+        val b1 = (baseHex and 0xFF).toFloat()
+
+        val r2 = ((tintHex shr 16) and 0xFF).toFloat()
+        val g2 = ((tintHex shr 8) and 0xFF).toFloat()
+        val b2 = (tintHex and 0xFF).toFloat()
+
+        val r = (r1 * inv + r2 * t).toInt().coerceIn(0, 255).toLong()
+        val g = (g1 * inv + g2 * t).toInt().coerceIn(0, 255).toLong()
+        val b = (b1 * inv + b2 * t).toInt().coerceIn(0, 255).toLong()
+
+        return (0xFFL shl 24) or (r shl 16) or (g shl 8) or b
+    }
+
+    fun darkenHex(hex: Long, amount: Float): Long = blendHex(hex, 0xFF0A0B0E, amount)
+
+    fun lightenHex(hex: Long, amount: Float): Long = blendHex(hex, 0xFFFFFFFF, amount)
 }
 
 val LocalTranslationLanguage = staticCompositionLocalOf { "en" }

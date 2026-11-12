@@ -1,6 +1,0 @@
-{
-  "summary":  "Implementation plan for standardizing dialog action buttons (Confirm/Cancel and Bestätigen/Abbrechen with uniform container sizes), enforcing outline-only selection indicators without background fills across all selectable elements, and optimizing the Speech Tempo slider with smooth scrubbing and an inset dotted track design.",
-  "updatedAt":  "2026-11-11T00:08:56.051726849Z",
-  "requestFeedback":  true,
-  "userFacing":  true
-}

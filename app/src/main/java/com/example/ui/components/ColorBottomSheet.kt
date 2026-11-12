@@ -122,10 +122,10 @@ fun ColorBottomSheet(
         else -> isSystemDark
     }
 
-    val windowBg = if (isPreviewDark) Color(0xFF1F1F1F) else Color(0xFFFFFFFF)
+    val windowBg = previewTheme.tier4SurfaceLow(isPreviewDark)
     val textPrimary = if (isPreviewDark) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
-    val textSecondary = if (isPreviewDark) Color(0xFFAAAAAA) else Color(0xFF6B6B6B)
-    val dividerColor = if (isPreviewDark) Color(0xFF3F3F3F) else Color(0xFFE5E5E5)
+    val textSecondary = if (isPreviewDark) Color(0xFFB4B8C0) else Color(0xFF5A5D64)
+    val dividerColor = previewTheme.tier4Border(isPreviewDark)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -515,8 +515,8 @@ private fun CategoryExpandableSection(
 ) {
     val rotation by animateFloatAsState(targetValue = if (isExpanded) 180f else 0f, label = "arrow_rot")
     val textPrimary = if (isPreviewDark) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
-    val cardBg = if (isPreviewDark) Color(0xFF262626) else Color(0xFFF9F9F9)
-    val borderColor = if (isPreviewDark) Color(0xFF383838) else Color(0xFFE5E5E5)
+    val cardBg = selectedTheme.tier4SurfaceContainer(isPreviewDark)
+    val borderColor = selectedTheme.tier4Border(isPreviewDark)
 
     Column(
         modifier = Modifier
@@ -594,7 +594,8 @@ private fun CategoryExpandableSection(
 }
 
 /**
- * Individual Color Card Item displaying Name and Primary, Dark, Light Swatches
+ * Individual Color Card Item displaying Name and Four Tonal Layer Swatches:
+ * Tier 1 (Primary), Tier 2 (Secondary), Tier 3 (Tertiary), Tier 4 (Quaternary)
  */
 @Composable
 private fun ColorCardItem(
@@ -604,23 +605,28 @@ private fun ColorCardItem(
     isPreviewDark: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val tier1 = theme.tier1Primary(isPreviewDark)
+    val tier2 = theme.tier2Secondary(isPreviewDark)
+    val tier3 = theme.tier3Tertiary(isPreviewDark)
+    val tier4 = theme.tier4Swatch(isPreviewDark)
+
     val textPrimary = if (isPreviewDark) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
-    val itemBg = if (isPreviewDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
-    val itemBorder = if (isSelected) theme.primary else (if (isPreviewDark) Color(0xFF383838) else Color(0xFFE2E2E2))
+    val itemBg = theme.tier4SurfaceLowest(isPreviewDark)
+    val itemBorder = if (isSelected) tier1 else theme.tier4Border(isPreviewDark)
 
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(itemBg)
-            .border(if (isSelected) 2.dp else 1.dp, itemBorder, RoundedCornerShape(8.dp))
+            .border(if (isSelected) 2.dp else 1.dp, itemBorder, RoundedCornerShape(10.dp))
             .clickable { onSelect() }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 9.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -630,7 +636,7 @@ private fun ColorCardItem(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Ausgewählt",
-                        tint = theme.primary,
+                        tint = tier1,
                         modifier = Modifier.size(13.dp)
                     )
                 }
@@ -638,60 +644,41 @@ private fun ColorCardItem(
                     text = theme.shortName,
                     fontSize = 11.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = textPrimary,
+                    color = if (isSelected) tier1 else textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // Swatches: Primary, Dark, Light
+            // Four Tonal Layer Swatches: Tier 1 (Primary), Tier 2 (Secondary), Tier 3 (Tertiary), Tier 4 (Quaternary)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Primary
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(theme.primary)
-                        .border(0.5.dp, Color.Black.copy(alpha = 0.2f), CircleShape)
-                )
-                // Dark
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(theme.darkVariant)
-                        .border(0.5.dp, Color.Black.copy(alpha = 0.2f), CircleShape)
-                )
-                // Light
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(theme.lightVariant)
-                        .border(0.5.dp, Color.Black.copy(alpha = 0.2f), CircleShape)
-                )
+                listOf(tier1, tier2, tier3, tier4).forEach { swatchColor ->
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(swatchColor)
+                            .border(
+                                0.6.dp,
+                                if (isPreviewDark) Color.White.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.18f),
+                                CircleShape
+                            )
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * Live Preview Mock Component simulating the app interface using Section 3 rules:
- * - Header: Primary background + White text/icons (Light) / Dark variant + White text/icons (Dark)
- * - Main background: 5% Primary (Light) / 5% Dark variant (Dark)
- * - Card background: #FFFFFF (Light) / #1F1F1F (Dark)
- * - Main titles: #1A1A1A (Light) / #FFFFFF (Dark)
- * - Card titles: Primary (Light) / Light variant (Dark)
- * - Body text: #2A2A2A (Light) / #E0E0E0 (Dark)
- * - Secondary text: #6B6B6B (Light) / #AAAAAA (Dark)
- * - Primary buttons: Primary + White
- * - Result card top accent bar (2dp): Primary (Light) / Light variant (Dark)
- * - Search field: #F5F5F5 (Light) / #2A2A2A (Dark)
- * - Audio icon: Primary (Light) / Light variant (Dark)
- * - Semantic labels (Maskulin, Feminin, Neutrum): remain fixed
+ * Live Preview Mock Component simulating the 4-Tier Color Hierarchy:
+ * - Tier 1 (Primary): Header banner (Light), Primary button, Result card top accent bar (2dp), Primary audio icon
+ * - Tier 2 (Secondary): Dark-mode header banner, Card title accent, Secondary tonal badges
+ * - Tier 3 (Tertiary): Search icon & harmonic highlight accents
+ * - Tier 4 (Quaternary): Elevated card container, Search field idle surface, Structural borders
  */
 @Composable
 private fun LivePreviewMock(
@@ -699,22 +686,24 @@ private fun LivePreviewMock(
     isDark: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val headerBg = if (isDark) theme.darkVariant else theme.primary
-    val mainBg = if (isDark) Color(0xFF141311) else Color(0xFFFAFAFA)
-    val cardBg = if (isDark) Color(0xFF1F1F1F) else Color(0xFFFFFFFF)
-    val mainTitle = if (isDark) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
-    val cardTitle = if (isDark) theme.lightVariant else theme.primary
-    val bodyText = if (isDark) Color(0xFFE0E0E0) else Color(0xFF2A2A2A)
-    val secondaryText = if (isDark) Color(0xFFAAAAAA) else Color(0xFF6B6B6B)
-    val searchIdleBg = if (isDark) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
-    val accentBarColor = if (isDark) theme.lightVariant else theme.primary
-    val audioIconColor = if (isDark) theme.lightVariant else theme.primary
+    val tier1 = theme.tier1Primary(isDark)
+    val tier2 = theme.tier2Secondary(isDark)
+    val tier3 = theme.tier3Tertiary(isDark)
+    val headerBg = if (isDark) theme.tier2Secondary(isDark = false) else theme.tier1Primary(isDark = false)
+    val mainBg = Color(if (isDark) theme.backgroundDarkHex else theme.backgroundLightHex)
+    val cardBg = theme.tier4SurfaceContainer(isDark)
+    val cardTitle = tier1
+    val bodyText = if (isDark) Color(0xFFE6E8EC) else Color(0xFF1C1D21)
+    val searchIdleBg = theme.tier4SurfaceHigh(isDark)
+    val borderCol = theme.tier4Border(isDark)
+    val accentBarColor = tier1
+    val audioIconColor = tier3
 
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = mainBg),
-        border = BorderStroke(1.dp, if (isDark) Color(0xFF3F3F3F) else Color(0xFFE5E5E5))
+        border = BorderStroke(1.dp, borderCol)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // 1. Header (Primary / Dark variant + White text/icons)
@@ -740,7 +729,7 @@ private fun LivePreviewMock(
                         Text("🇩🇪", fontSize = 10.sp)
                     }
                     Text(
-                        text = "Deklination & Konjugation",
+                        text = "Deklo",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White

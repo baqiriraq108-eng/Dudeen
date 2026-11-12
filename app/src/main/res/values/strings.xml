@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Deklination &amp; Konjugation</string>
+    <string name="app_name">Deklo</string>
     <string name="export_dialog_title">Export &amp; Suchverlauf</string>
     <string name="export_dialog_subtitle">PDF &amp; Excel (.xlsx) herunterladen &amp; teilen</string>
     <string name="export_section_share">Direkt über andere Apps teilen:</string>

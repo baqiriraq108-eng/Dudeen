@@ -74,13 +74,13 @@ class ApiKeyManager(context: Context) {
         private const val KEY_SELECTED_PROVIDER = "selected_model_provider"
         private const val KEY_SELECTED_MODEL_PREFIX = "selected_model_for_"
 
-        // Cache for dynamically fetched Gemini models (24 hours)
-        private const val KEY_CACHED_GEMINI_MODELS_JSON = "cached_gemini_models_json"
-        private const val KEY_CACHED_GEMINI_TIMESTAMP = "cached_gemini_models_timestamp"
+        // Cache for dynamically fetched Gemini models (24 hours) - v2 invalidates stale/deprecated cached models
+        private const val KEY_CACHED_GEMINI_MODELS_JSON = "cached_gemini_models_v2_json"
+        private const val KEY_CACHED_GEMINI_TIMESTAMP = "cached_gemini_models_v2_timestamp"
 
-        // Cache for dynamically fetched OpenRouter models
-        private const val KEY_CACHED_OPENROUTER_MODELS_JSON = "cached_openrouter_models_json"
-        private const val KEY_CACHED_OPENROUTER_TIMESTAMP = "cached_openrouter_models_timestamp"
+        // Cache for dynamically fetched OpenRouter models - v2 invalidates non-free cached models
+        private const val KEY_CACHED_OPENROUTER_MODELS_JSON = "cached_openrouter_models_v2_json"
+        private const val KEY_CACHED_OPENROUTER_TIMESTAMP = "cached_openrouter_models_v2_timestamp"
         private const val CACHE_EXPIRATION_MS = 24 * 60 * 60 * 1000L // 24 hours
 
         // Daily usage tracking keys
@@ -89,7 +89,33 @@ class ApiKeyManager(context: Context) {
 
         const val DEFAULT_MODEL = "gemini-2.5-flash"
 
-        // Curated Gemini Models (Used out of the box and as robust fallback)
+        /**
+         * Strictly verified Google AI Studio Free-Tier operational Gemini models.
+         * Paid-only (e.g., gemini-3.1-pro-preview, gemini-1.5-pro), non-existent (gemini-3.5-flash),
+         * and deprecated (gemini-1.5-flash, gemini-2.0-flash-exp, gemini-2.0-flash-lite) models are excluded.
+         */
+        val VERIFIED_FREE_GEMINI_MODEL_IDS = setOf(
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-3-flash-preview",
+            "gemini-3.1-flash-lite-preview",
+            "gemini-2.0-flash",
+            "gemini-2.5-pro"
+        )
+
+        /**
+         * Ordered fast failover cascade of Free-Tier Flash & Lite models used when a primary model
+         * experiences high load (HTTP 503), rate limiting (HTTP 429), or network timeout.
+         */
+        val FAST_GEMINI_FAILOVER_CHAIN = listOf(
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-3-flash-preview",
+            "gemini-3.1-flash-lite-preview",
+            "gemini-2.0-flash"
+        )
+
+        // Curated Active Free-Tier Gemini Models (Verified against official Google Gemini API docs)
         val DEFAULT_GEMINI_MODELS = listOf(
             AiModelInfo(
                 id = "gemini-2.5-flash",
@@ -103,6 +129,50 @@ class ApiKeyManager(context: Context) {
                 dailyQuota = 1500
             ),
             AiModelInfo(
+                id = "gemini-2.5-flash-lite",
+                name = "Gemini 2.5 Flash-Lite",
+                provider = ModelProvider.GEMINI,
+                tier = "Lite",
+                description = "Ultraschnelles Free-Tier-Modell mit minimaler Antwortlatenz",
+                functionalDescription = "Sofort-Grammatikanalyse",
+                isPro = false,
+                isFreeTier = true,
+                dailyQuota = 1500
+            ),
+            AiModelInfo(
+                id = "gemini-3-flash-preview",
+                name = "Gemini 3 Flash Preview",
+                provider = ModelProvider.GEMINI,
+                tier = "Flash",
+                description = "Next-Gen Flash-Modell mit hoher Geschwindigkeit im Free-Tier",
+                functionalDescription = "Schnelles Multimodales Modell",
+                isPro = false,
+                isFreeTier = true,
+                dailyQuota = 1500
+            ),
+            AiModelInfo(
+                id = "gemini-3.1-flash-lite-preview",
+                name = "Gemini 3.1 Flash-Lite Preview",
+                provider = ModelProvider.GEMINI,
+                tier = "Lite",
+                description = "Hochgradig optimiertes Lite-Modell der nächsten Generation",
+                functionalDescription = "Schnelle Textanalyse",
+                isPro = false,
+                isFreeTier = true,
+                dailyQuota = 1500
+            ),
+            AiModelInfo(
+                id = "gemini-2.0-flash",
+                name = "Gemini 2.0 Flash",
+                provider = ModelProvider.GEMINI,
+                tier = "Flash",
+                description = "Bewährtes Flash-Modell ohne Thinking-Verzögerung",
+                functionalDescription = "Direkte JSON-Antwort",
+                isPro = false,
+                isFreeTier = true,
+                dailyQuota = 1500
+            ),
+            AiModelInfo(
                 id = "gemini-2.5-pro",
                 name = "Gemini 2.5 Pro",
                 provider = ModelProvider.GEMINI,
@@ -111,44 +181,11 @@ class ApiKeyManager(context: Context) {
                 functionalDescription = "Reasoning & Linguistik",
                 isPro = true,
                 isFreeTier = true,
-                dailyQuota = 1500
-            ),
-            AiModelInfo(
-                id = "gemini-3.5-flash",
-                name = "Gemini 3.5 Flash",
-                provider = ModelProvider.GEMINI,
-                tier = "Flash",
-                description = "Neuestes Flash-Modell mit hoher Geschwindigkeit",
-                functionalDescription = "Multimodales Modell",
-                isPro = false,
-                isFreeTier = true,
-                dailyQuota = 1500
-            ),
-            AiModelInfo(
-                id = "gemini-3.1-pro-preview",
-                name = "Gemini 3.1 Pro Preview",
-                provider = ModelProvider.GEMINI,
-                tier = "Pro",
-                description = "Vorschau auf Spitzenmodell der nächsten Generation",
-                functionalDescription = "Reasoning & Logik",
-                isPro = true,
-                isFreeTier = true,
-                dailyQuota = 1500
-            ),
-            AiModelInfo(
-                id = "gemini-3.1-flash-lite-preview",
-                name = "Gemini 3.1 Flash Lite Preview",
-                provider = ModelProvider.GEMINI,
-                tier = "Lite",
-                description = "Ultraschnelle und leichtgewichtige Textanalyse",
-                functionalDescription = "Schnelle Textanalyse",
-                isPro = false,
-                isFreeTier = true,
-                dailyQuota = 1500
+                dailyQuota = 1000
             )
         )
 
-        // Curated OpenRouter Models (Used out of the box and as robust fallback)
+        // Curated Free-Tier OpenRouter Models
         val DEFAULT_OPENROUTER_MODELS = listOf(
             AiModelInfo(
                 id = "openrouter/auto",
@@ -169,16 +206,6 @@ class ApiKeyManager(context: Context) {
                 functionalDescription = "Kostenloses Routing",
                 isFreeTier = true,
                 dailyQuota = 50
-            ),
-            AiModelInfo(
-                id = "google/gemini-2.5-flash",
-                name = "Google: Gemini 2.5 Flash",
-                provider = ModelProvider.OPENROUTER,
-                tier = "Flash",
-                description = "Schnelles Google Gemini Modell über OpenRouter",
-                functionalDescription = "Text- & Grammatikanalyse",
-                isFreeTier = false,
-                dailyQuota = 1000
             ),
             AiModelInfo(
                 id = "meta-llama/llama-3.3-70b-instruct:free",
@@ -279,7 +306,7 @@ class ApiKeyManager(context: Context) {
     }
 
     fun parseGeminiModelsJson(jsonString: String): List<AiModelInfo> {
-        val result = mutableListOf<AiModelInfo>()
+        val discoveredIds = mutableSetOf<String>()
         val root = JSONObject(jsonString)
         val modelsArray = root.optJSONArray("models") ?: return DEFAULT_GEMINI_MODELS
 
@@ -301,60 +328,17 @@ class ApiKeyManager(context: Context) {
             }
             if (!supportsGenerateContent) continue
 
-            // Remove "models/" prefix for standard model ID
-            val modelId = rawName.removePrefix("models/")
-            val lowerId = modelId.lowercase(Locale.ROOT)
+            val modelId = rawName.removePrefix("models/").lowercase(Locale.ROOT)
 
-            // Exclude embedding, aqa, and image/video-only generative models from text grammar selection
-            if (lowerId.contains("embedding") || lowerId.contains("embed") || lowerId.contains("aqa") ||
-                lowerId.contains("imagen") || lowerId.contains("veo") || lowerId.contains("tts")
-            ) {
-                continue
+            // Strictly allow ONLY verified active Free-Tier Gemini models
+            if (VERIFIED_FREE_GEMINI_MODEL_IDS.contains(modelId)) {
+                discoveredIds.add(modelId)
             }
-
-            val displayName = item.optString("displayName", modelId).ifBlank { modelId }
-            val description = item.optString("description", "")
-
-            val isFlash = lowerId.contains("flash")
-            val isLite = lowerId.contains("lite")
-            val isPro = lowerId.contains("pro")
-            val tier = when {
-                isLite -> "Lite"
-                isFlash -> "Flash"
-                isPro -> "Pro"
-                else -> "Gemini"
-            }
-
-            val functionalDesc = when {
-                isFlash -> "Schnelles Multimodales Modell"
-                isLite -> "Schnelle Textanalyse"
-                isPro -> "Reasoning & Linguistik"
-                else -> "Text- & Grammatikanalyse"
-            }
-
-            result.add(
-                AiModelInfo(
-                    id = modelId,
-                    name = displayName,
-                    provider = ModelProvider.GEMINI,
-                    tier = tier,
-                    description = if (description.isNotBlank()) description else "Google Gemini Modell",
-                    functionalDescription = functionalDesc,
-                    isPro = isPro,
-                    isFreeTier = true,
-                    dailyQuota = 1500
-                )
-            )
         }
 
-        // Sort: Recommended modern flash models first, non-experimental first, then alphabetical
-        result.sortWith(
-            compareByDescending<AiModelInfo> { it.id.contains("flash", ignoreCase = true) }
-                .thenBy { it.id.contains("experimental", ignoreCase = true) || it.id.contains("exp", ignoreCase = true) }
-                .thenBy { it.name }
-        )
-
-        return if (result.isNotEmpty()) result else DEFAULT_GEMINI_MODELS
+        // Preserve canonical ordering and curated German descriptions for verified free-tier models
+        val filtered = DEFAULT_GEMINI_MODELS.filter { discoveredIds.contains(it.id.lowercase(Locale.ROOT)) }
+        return if (filtered.isNotEmpty()) filtered else DEFAULT_GEMINI_MODELS
     }
 
     // -------------------------------------------------------------
@@ -403,10 +387,14 @@ class ApiKeyManager(context: Context) {
 
             val isFree = (promptPrice == "0" || promptPrice == "0.0") &&
                     (completionPrice == "0" || completionPrice == "0.0") ||
-                    id.endsWith(":free", ignoreCase = true)
+                    id.endsWith(":free", ignoreCase = true) ||
+                    id.equals("openrouter/auto", ignoreCase = true) ||
+                    id.equals("openrouter/free", ignoreCase = true)
 
-            val tier = if (isFree) "Free" else "Standard"
-            val functionalDesc = deriveOpenRouterFunctionalDescription(item, id, isFree)
+            if (!isFree) continue
+
+            val tier = "Free"
+            val functionalDesc = deriveOpenRouterFunctionalDescription(item, id, isFree = true)
 
             result.add(
                 AiModelInfo(
@@ -416,17 +404,19 @@ class ApiKeyManager(context: Context) {
                     tier = tier,
                     description = if (description.isNotBlank()) description else "OpenRouter Modell",
                     functionalDescription = functionalDesc,
-                    isPro = !isFree,
-                    isFreeTier = isFree,
-                    dailyQuota = if (isFree) 50 else 1000
+                    isPro = false,
+                    isFreeTier = true,
+                    dailyQuota = 50
                 )
             )
         }
 
-        // Sort so free models appear first, and "openrouter/free" is at top if present
-        result.sortWith(compareByDescending<AiModelInfo> { it.id == "openrouter/free" }
-            .thenByDescending { it.isFreeTier }
-            .thenBy { it.name })
+        // Sort so "openrouter/auto" and "openrouter/free" appear first, then alphabetical
+        result.sortWith(
+            compareByDescending<AiModelInfo> { it.id == "openrouter/auto" }
+                .thenByDescending { it.id == "openrouter/free" }
+                .thenBy { it.name }
+        )
 
         return if (result.isNotEmpty()) result else DEFAULT_OPENROUTER_MODELS
     }
@@ -550,9 +540,17 @@ class ApiKeyManager(context: Context) {
     // -------------------------------------------------------------
     fun getSelectedModel(provider: ModelProvider = getSelectedProvider()): String {
         val key = KEY_SELECTED_MODEL_PREFIX + provider.id
-        val stored = prefs.getString(key, null)?.trim()
+        val rawStored = prefs.getString(key, null)?.trim()
+        val stored = if (!rawStored.isNullOrBlank()) {
+            com.example.data.remote.GeminiDeclensionService.sanitizeModelId(provider, rawStored)
+        } else {
+            null
+        }
         val providerModels = getModelsForActiveProvider(provider)
         return if (!stored.isNullOrBlank() && providerModels.any { it.id == stored }) {
+            if (stored != rawStored) {
+                prefs.edit().putString(key, stored).apply()
+            }
             stored
         } else if (providerModels.isNotEmpty()) {
             providerModels.first().id
@@ -563,7 +561,8 @@ class ApiKeyManager(context: Context) {
 
     fun saveSelectedModel(modelId: String, provider: ModelProvider = getSelectedProvider()) {
         val key = KEY_SELECTED_MODEL_PREFIX + provider.id
-        prefs.edit().putString(key, modelId).apply()
+        val sanitized = com.example.data.remote.GeminiDeclensionService.sanitizeModelId(provider, modelId)
+        prefs.edit().putString(key, sanitized).apply()
     }
 
     // -------------------------------------------------------------

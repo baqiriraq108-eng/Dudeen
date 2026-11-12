@@ -187,11 +187,60 @@ class WordRepository(
         }
     }
 
+    private val memoryGrammarCache = java.util.concurrent.ConcurrentHashMap<String, com.example.data.model.GrammarResult>()
+
+    private fun buildCacheKey(word: String, type: com.example.data.model.GrammarType, translationLang: String): String {
+        return "${word.trim().lowercase()}|${type.displayName.lowercase()}|${translationLang.trim().lowercase()}"
+    }
+
     suspend fun searchGrammar(
         word: String,
         type: com.example.data.model.GrammarType,
         translationLang: String = "en"
-    ): com.example.data.model.GrammarResult {
+    ): com.example.data.model.GrammarResult = withContext(Dispatchers.IO) {
+        val trimmedInput = word.trim()
+        val cacheKey = buildCacheKey(trimmedInput, type, translationLang)
+
+        // 1. Check fast in-memory cache first (<1ms)
+        memoryGrammarCache[cacheKey]?.let { cachedResult ->
+            val existingEntity = historyDao.findByWordAndType(cachedResult.word.ifBlank { trimmedInput }, type.displayName)
+                ?: historyDao.findByWordAndType(trimmedInput, type.displayName)
+            if (existingEntity != null) {
+                val refreshed = existingEntity.copy(timestamp = System.currentTimeMillis())
+                historyDao.insert(refreshed)
+                externalHistoryStorage?.appendOrUpdateItem(refreshed)
+                notebookRepository?.appendOrUpdateItemInActiveHistory(refreshed)
+                recordSearchQuery(existingEntity.word, type)
+                return@withContext cachedResult
+            }
+        }
+
+        // 2. Check local Room history database for an existing analyzed entry matching (word, type, translationLang)
+        val localExisting = historyDao.findByWordAndType(trimmedInput, type.displayName)
+        if (localExisting != null && localExisting.translationLanguage.equals(translationLang, ignoreCase = true)) {
+            val rawJson = localExisting.data.ifBlank { localExisting.rawJsonResult }
+            if (rawJson.isNotBlank()) {
+                val parsedLocal = runCatching {
+                    com.example.data.model.GrammarResult.fromJson(
+                        jsonStr = rawJson,
+                        fallbackType = type,
+                        fallbackWord = localExisting.word
+                    )
+                }.getOrNull()
+
+                if (parsedLocal != null) {
+                    memoryGrammarCache[cacheKey] = parsedLocal
+                    memoryGrammarCache[buildCacheKey(localExisting.word, type, translationLang)] = parsedLocal
+                    val refreshed = localExisting.copy(timestamp = System.currentTimeMillis())
+                    historyDao.insert(refreshed)
+                    externalHistoryStorage?.appendOrUpdateItem(refreshed)
+                    notebookRepository?.appendOrUpdateItemInActiveHistory(refreshed)
+                    recordSearchQuery(localExisting.word, type)
+                    return@withContext parsedLocal
+                }
+            }
+        }
+
         val provider = apiKeyManager.getSelectedProvider()
         val apiKey = apiKeyManager.getActiveApiKey()
         val modelId = apiKeyManager.getSelectedModel(provider)
@@ -205,7 +254,7 @@ class WordRepository(
             translationLang = translationLang
         )
 
-        // Increment daily usage on successful lookup
+        // Increment daily usage on successful network lookup
         apiKeyManager.incrementDailyUsage(provider)
 
         val cleanResultWord = com.example.data.model.sanitizeHistoryWord(
@@ -214,8 +263,13 @@ class WordRepository(
             type.displayName
         ).ifBlank { word.trim() }
 
+        memoryGrammarCache[cacheKey] = result
+        if (cleanResultWord.isNotBlank()) {
+            memoryGrammarCache[buildCacheKey(cleanResultWord, type, translationLang)] = result
+        }
+
         if (cleanResultWord.isBlank() || cleanResultWord.equals("null", ignoreCase = true)) {
-            return result
+            return@withContext result
         }
 
         // Save or update in search history
@@ -320,12 +374,13 @@ class WordRepository(
         // Track user search query in local Room storage
         recordSearchQuery(cleanResultWord, type)
 
-        return result
+        return@withContext result
     }
 
     /**
      * Synchronizes persistent notebook history / external history with Room database.
      * Merges items intelligently so manual translations and word records are never lost.
+     * Skips redundant disk/Room rewrites when Room and notebook storage are already in sync.
      */
     suspend fun syncHistoryOnStartup() = withContext(Dispatchers.IO) {
         historyDao.deleteCorruptedNullEntries()
@@ -359,11 +414,20 @@ class WordRepository(
 
             if (notebookItems.isEmpty() && roomItems.isNotEmpty()) {
                 notebookRepository.saveActiveHistory(roomItems)
+                withContext(Dispatchers.Default) {
+                    com.example.ui.components.HistoryQuickDetailsCache.prewarm(roomItems)
+                }
             } else if (notebookItems.isNotEmpty()) {
                 val merged = mergeHistoryLists(notebookItems, roomItems)
-                historyDao.clearAll()
-                historyDao.insertAll(merged)
-                notebookRepository.saveActiveHistory(merged)
+                if (!areHistoryListsSynced(roomItems, merged)) {
+                    historyDao.replaceAllHistory(merged)
+                }
+                if (!areHistoryListsSynced(notebookItems, merged)) {
+                    notebookRepository.saveActiveHistory(merged)
+                }
+                withContext(Dispatchers.Default) {
+                    com.example.ui.components.HistoryQuickDetailsCache.prewarm(merged)
+                }
             }
             return@withContext
         }
@@ -378,15 +442,47 @@ class WordRepository(
         }
 
         if (externalItems.isNotEmpty() && roomItems.isEmpty()) {
-            historyDao.insertAll(externalItems)
+            historyDao.replaceAllHistory(externalItems)
+            withContext(Dispatchers.Default) {
+                com.example.ui.components.HistoryQuickDetailsCache.prewarm(externalItems)
+            }
         } else if (roomItems.isNotEmpty() && externalItems.isEmpty()) {
             storage.saveHistory(roomItems)
+            withContext(Dispatchers.Default) {
+                com.example.ui.components.HistoryQuickDetailsCache.prewarm(roomItems)
+            }
         } else if (externalItems.isNotEmpty() || roomItems.isNotEmpty()) {
             val merged = mergeHistoryLists(externalItems, roomItems)
-            historyDao.clearAll()
-            historyDao.insertAll(merged)
-            storage.saveHistory(merged)
+            if (!areHistoryListsSynced(roomItems, merged)) {
+                historyDao.replaceAllHistory(merged)
+            }
+            if (!areHistoryListsSynced(externalItems, merged)) {
+                storage.saveHistory(merged)
+            }
+            withContext(Dispatchers.Default) {
+                com.example.ui.components.HistoryQuickDetailsCache.prewarm(merged)
+            }
         }
+    }
+
+    private fun areHistoryListsSynced(
+        first: List<WordHistoryEntity>,
+        second: List<WordHistoryEntity>
+    ): Boolean {
+        if (first.size != second.size) return false
+        for (i in first.indices) {
+            val a = first[i]
+            val b = second[i]
+            if (!a.word.equals(b.word, ignoreCase = false) ||
+                !a.type.equals(b.type, ignoreCase = false) ||
+                a.timestamp != b.timestamp ||
+                a.manualTranslation != b.manualTranslation ||
+                a.meaningEnglish != b.meaningEnglish
+            ) {
+                return false
+            }
+        }
+        return true
     }
 
     private fun mergeHistoryLists(
@@ -426,9 +522,10 @@ class WordRepository(
     }
 
     suspend fun reloadRoomWithItems(items: List<WordHistoryEntity>) = withContext(Dispatchers.IO) {
-        historyDao.clearAll()
-        if (items.isNotEmpty()) {
-            historyDao.insertAll(items)
+        memoryGrammarCache.clear()
+        historyDao.replaceAllHistory(items)
+        withContext(Dispatchers.Default) {
+            com.example.ui.components.HistoryQuickDetailsCache.prewarm(items)
         }
     }
 
@@ -455,18 +552,25 @@ class WordRepository(
 
     suspend fun deleteHistoryItem(id: Long) = withContext(Dispatchers.IO) {
         val entity = historyDao.findById(id)
+        if (entity != null) {
+            val prefix = "${entity.word.trim().lowercase()}|${entity.type.trim().lowercase()}|"
+            memoryGrammarCache.keys.removeIf { it.startsWith(prefix) }
+        }
         historyDao.deleteById(id)
         externalHistoryStorage?.deleteItem(id)
         notebookRepository?.deleteItemInActiveHistory(id, entity?.word, entity?.type)
     }
 
     suspend fun clearAllHistory() = withContext(Dispatchers.IO) {
+        memoryGrammarCache.clear()
         historyDao.clearAll()
         externalHistoryStorage?.clearHistory()
         notebookRepository?.clearActiveHistory()
     }
 
     suspend fun clearHistoryByType(type: com.example.data.model.GrammarType) = withContext(Dispatchers.IO) {
+        val typeSegment = "|${type.displayName.lowercase()}|"
+        memoryGrammarCache.keys.removeIf { it.contains(typeSegment) }
         historyDao.clearByType(type.displayName)
         val remaining = historyDao.getAllHistoryList()
         externalHistoryStorage?.saveHistory(remaining)
@@ -511,9 +615,9 @@ class WordRepository(
         notebookRepository?.saveActiveHistory(updatedList)
 
         // Reload Room with active notebook items only
-        historyDao.clearAll()
-        if (updatedList.isNotEmpty()) {
-            historyDao.insertAll(updatedList)
+        historyDao.replaceAllHistory(updatedList)
+        withContext(Dispatchers.Default) {
+            com.example.ui.components.HistoryQuickDetailsCache.prewarm(updatedList)
         }
 
         // Update external storage for active notebook if configured

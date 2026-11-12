@@ -133,23 +133,87 @@ object HistoryFormatterCache {
     private val shortDateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
     fun formatDate(timestamp: Long): String {
-        val cached = dateCache.get(timestamp)
+        val cached = synchronized(dateCache) { dateCache.get(timestamp) }
         if (cached != null) return cached
         val formatted = synchronized(dateFormat) {
             dateFormat.format(Date(timestamp))
         }
-        dateCache.put(timestamp, formatted)
+        synchronized(dateCache) { dateCache.put(timestamp, formatted) }
         return formatted
     }
 
     fun formatShortDate(timestamp: Long): String {
-        val cached = shortDateCache.get(timestamp)
+        val cached = synchronized(shortDateCache) { shortDateCache.get(timestamp) }
         if (cached != null) return cached
         val formatted = synchronized(shortDateFormat) {
             shortDateFormat.format(Date(timestamp))
         }
-        shortDateCache.put(timestamp, formatted)
+        synchronized(shortDateCache) { shortDateCache.put(timestamp, formatted) }
         return formatted
+    }
+}
+
+object HistoryQuickDetailsCache {
+    private val nounCache = LruCache<String, com.example.data.model.NounQuickDetails>(1024)
+    private val verbCache = LruCache<String, com.example.data.model.VerbQuickDetails>(1024)
+    private val pluralCache = LruCache<String, String>(1024)
+
+    private fun keyFor(item: WordHistoryEntity): String =
+        "${item.id}_${item.timestamp}_${item.word.hashCode()}_${item.rawJsonResult.hashCode()}"
+
+    fun getVerbDetails(item: WordHistoryEntity): com.example.data.model.VerbQuickDetails {
+        val key = keyFor(item)
+        synchronized(verbCache) {
+            verbCache.get(key)?.let { return it }
+        }
+        val computed = extractVerbQuickDetails(item)
+        synchronized(verbCache) {
+            verbCache.put(key, computed)
+        }
+        return computed
+    }
+
+    fun getNounDetails(item: WordHistoryEntity): com.example.data.model.NounQuickDetails {
+        val key = keyFor(item)
+        synchronized(nounCache) {
+            nounCache.get(key)?.let { return it }
+        }
+        val computed = extractNounQuickDetails(item)
+        synchronized(nounCache) {
+            nounCache.put(key, computed)
+        }
+        return computed
+    }
+
+    fun getPluralForm(item: WordHistoryEntity): String {
+        val key = keyFor(item)
+        synchronized(pluralCache) {
+            pluralCache.get(key)?.let { return it }
+        }
+        val computed = extractPluralForm(item.rawJsonResult)
+        synchronized(pluralCache) {
+            pluralCache.put(key, computed)
+        }
+        return computed
+    }
+
+    fun prewarm(items: List<WordHistoryEntity>, maxItems: Int = 120) {
+        val limit = minOf(items.size, maxItems)
+        for (i in 0 until limit) {
+            val item = items[i]
+            val isVerb = com.example.util.HistoryFilterHelper.isVerbItem(item)
+            val isAdjektiv = com.example.util.HistoryFilterHelper.isAdjektivItem(item)
+            val isNomenList = com.example.util.HistoryFilterHelper.isNomenListItem(item)
+            val isSentence = com.example.util.HistoryFilterHelper.isSentenceItem(item)
+            HistoryFormatterCache.formatDate(item.timestamp)
+            HistoryFormatterCache.formatShortDate(item.timestamp)
+            if (isVerb) {
+                getVerbDetails(item)
+            } else if (!isAdjektiv && !isSentence && !isNomenList) {
+                getNounDetails(item)
+                getPluralForm(item)
+            }
+        }
     }
 }
 
@@ -747,19 +811,8 @@ fun LazyListScope.historySectionItems(
             )
         }
     } else {
-        val cleanFilteredList = filteredList.mapNotNull { item ->
-            val sanitized = com.example.data.model.sanitizeHistoryWord(item.word, item.data.ifBlank { item.rawJsonResult }, item.type)
-            if (sanitized.isBlank() || sanitized.equals("null", ignoreCase = true)) null
-            else {
-                var repaired = item
-                if (sanitized != item.word) repaired = repaired.copy(word = sanitized)
-                if (repaired.genderArticle.equals("null", ignoreCase = true)) repaired = repaired.copy(genderArticle = "")
-                if (repaired.gender.equals("null", ignoreCase = true)) repaired = repaired.copy(gender = "")
-                repaired
-            }
-        }
         items(
-            items = cleanFilteredList,
+            items = filteredList,
             key = { it.id },
             contentType = { "history_item_card" }
         ) { item ->
@@ -773,162 +826,6 @@ fun LazyListScope.historySectionItems(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
             )
         }
-    }
-}
-
-@Composable
-fun HistorySection(
-    historyList: List<WordHistoryEntity>,
-    onSelectWord: (WordHistoryEntity) -> Unit,
-    onDeleteItem: (Long) -> Unit,
-    onClearAll: () -> Unit,
-    onSpeak: (String, String) -> Unit = { _, _ -> },
-    onExportAll: () -> Unit = {},
-    selectedFilterIndex: Int = 0,
-    onFilterChanged: (Int) -> Unit = {},
-    currentlySpokenText: String? = null,
-    currentlySpokenId: String? = null,
-    modifier: Modifier = Modifier
-) {
-    var showClearConfirmDialog by remember { mutableStateOf(false) }
-    var itemToDeleteId by remember { mutableStateOf<Long?>(null) }
-    var historySearchQuery by rememberSaveable { mutableStateOf("") }
-    var isSortSheetOpen by rememberSaveable { mutableStateOf(false) }
-    var sortOptionsMap by rememberSaveable {
-        mutableStateOf(
-            mapOf(
-                0 to com.example.util.HistorySortOption(),
-                1 to com.example.util.HistorySortOption(),
-                2 to com.example.util.HistorySortOption(),
-                3 to com.example.util.HistorySortOption(),
-                4 to com.example.util.HistorySortOption()
-            )
-        )
-    }
-
-    val currentSortOption = sortOptionsMap[selectedFilterIndex] ?: com.example.util.HistorySortOption()
-    val isSortActive = !currentSortOption.isDefault
-
-    BackHandler(enabled = showClearConfirmDialog || itemToDeleteId != null || isSortSheetOpen) {
-        if (isSortSheetOpen) {
-            isSortSheetOpen = false
-        } else {
-            showClearConfirmDialog = false
-            itemToDeleteId = null
-        }
-    }
-
-    val filteredList by produceState(
-        initialValue = historyList,
-        keys = arrayOf(historyList, selectedFilterIndex, historySearchQuery, currentSortOption)
-    ) {
-        withContext(Dispatchers.Default) {
-            value = com.example.util.HistoryFilterHelper.filterAndSortHistory(
-                items = historyList,
-                filterIndex = selectedFilterIndex,
-                query = historySearchQuery,
-                sortOption = currentSortOption
-            )
-        }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
-        HistoryHeaderRow(
-            filteredCount = filteredList.size,
-            hasItems = historyList.isNotEmpty(),
-            onRequestClear = { showClearConfirmDialog = true }
-        )
-
-        HistorySearchBar(
-            searchQuery = historySearchQuery,
-            onQueryChange = { historySearchQuery = it },
-            onOpenSortSheet = { isSortSheetOpen = true },
-            isSortActive = isSortActive
-        )
-
-        if (historyList.isNotEmpty()) {
-            HistoryFilterPills(
-                selectedFilterIndex = selectedFilterIndex,
-                onFilterChanged = onFilterChanged
-            )
-        }
-
-        if (filteredList.isEmpty()) {
-            HistoryEmptyCard(
-                searchQuery = historySearchQuery,
-                onResetSearch = { historySearchQuery = "" }
-            )
-        } else {
-            val cleanFilteredList = remember(filteredList) {
-                filteredList.mapNotNull { item ->
-                    val sanitized = com.example.data.model.sanitizeHistoryWord(item.word, item.data.ifBlank { item.rawJsonResult }, item.type)
-                    if (sanitized.isBlank() || sanitized.equals("null", ignoreCase = true)) null
-                    else {
-                        var repaired = item
-                        if (sanitized != item.word) repaired = repaired.copy(word = sanitized)
-                        if (repaired.genderArticle.equals("null", ignoreCase = true)) repaired = repaired.copy(genderArticle = "")
-                        if (repaired.gender.equals("null", ignoreCase = true)) repaired = repaired.copy(gender = "")
-                        repaired
-                    }
-                }
-            }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                cleanFilteredList.forEach { item ->
-                    key(item.id) {
-                        HistoryItemCard(
-                            item = item,
-                            onClick = { onSelectWord(item) },
-                            onDelete = { itemToDeleteId = item.id },
-                            onSpeak = onSpeak,
-                            currentlySpokenText = currentlySpokenText,
-                            currentlySpokenId = currentlySpokenId
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    if (isSortSheetOpen) {
-        HistorySortBottomSheet(
-            currentSortOption = currentSortOption,
-            selectedCategoryIndex = selectedFilterIndex,
-            onSortOptionChanged = { newOption ->
-                val newMap = sortOptionsMap.toMutableMap()
-                newMap[selectedFilterIndex] = newOption
-                sortOptionsMap = newMap
-            },
-            onDismissRequest = { isSortSheetOpen = false }
-        )
-    }
-
-    if (showClearConfirmDialog) {
-        ClearHistoryConfirmDialog(
-            onConfirm = {
-                onClearAll()
-                showClearConfirmDialog = false
-            },
-            onDismiss = { showClearConfirmDialog = false }
-        )
-    }
-
-    itemToDeleteId?.let { id ->
-        DeleteHistoryItemConfirmDialog(
-            onConfirm = {
-                onDeleteItem(id)
-                itemToDeleteId = null
-            },
-            onDismiss = { itemToDeleteId = null }
-        )
     }
 }
 
@@ -969,16 +866,16 @@ fun HistoryItemCard(
     val badge = getBadgeInfo(isVerb, item.gender)
     val formattedDate = remember(item.timestamp) { HistoryFormatterCache.formatDate(item.timestamp) }
 
-    val verbDetails = remember(item, isVerb) {
-        if (isVerb) extractVerbQuickDetails(item) else null
+    val verbDetails = remember(item.id, item.timestamp, item.rawJsonResult, isVerb) {
+        if (isVerb) HistoryQuickDetailsCache.getVerbDetails(item) else null
     }
 
-    val nounDetails = remember(item, isVerb, isSentence, isNomenList) {
-        if (!isVerb && !isSentence && !isNomenList) extractNounQuickDetails(item) else null
+    val nounDetails = remember(item.id, item.timestamp, item.rawJsonResult, isVerb, isSentence, isNomenList) {
+        if (!isVerb && !isSentence && !isNomenList) HistoryQuickDetailsCache.getNounDetails(item) else null
     }
 
-    val pluralText = remember(item.rawJsonResult, isVerb, isSentence, isNomenList) {
-        if (isVerb || isSentence || isNomenList) "" else extractPluralForm(item.rawJsonResult)
+    val pluralText = remember(item.id, item.timestamp, item.rawJsonResult, isVerb, isSentence, isNomenList) {
+        if (isVerb || isSentence || isNomenList) "" else HistoryQuickDetailsCache.getPluralForm(item)
     }
 
     val singularDisplay = remember(isVerb, isSentence, isNomenList, item.genderArticle, item.word) {

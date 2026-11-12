@@ -126,6 +126,7 @@ import com.example.ui.theme.GeoPrimary
 import com.example.ui.theme.GeoPrimaryContainer
 import com.example.ui.theme.GeoSurface
 import com.example.ui.theme.GeoSurfaceVariant
+import com.example.ui.theme.LocalIsDarkTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -741,87 +742,167 @@ fun NotebookManagerDialog(
                             }
                         }
 
-                        // Actions: 2 Full-width Rows (Neues Notizbuch & Aus JSON laden)
+                        // Actions: 2 Full-width Unified 72.dp Cards (Neues Notizbuch & Aus JSON laden)
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Row 1: Neues Notizbuch
-                            Surface(
-                                onClick = onCreateNotebook,
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                modifier = Modifier.fillMaxWidth()
+                            // Card 1: Neues Notizbuch (Unified 72.dp Card Blueprint)
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 72.dp)
+                                    .clickable { onCreateNotebook() },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 14.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    AutoSizingText(
-                                        text = strings.newNotebookButton,
-                                        modifier = Modifier.weight(1f),
-                                        maxFontSize = 16.sp,
-                                        minFontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
+                                    // Leading 40.dp Icon Badge (Tier 2 Container + Tier 1 Primary Icon/Border)
                                     Box(
                                         modifier = Modifier
                                             .size(40.dp)
                                             .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primary),
+                                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Add,
                                             contentDescription = strings.newNotebookButton,
-                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(20.dp)
                                         )
+                                    }
+
+                                    // Center 2-Line Column (Title + Subtitle)
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        AutoSizingText(
+                                            text = strings.newNotebookButton,
+                                            maxFontSize = 15.5.sp,
+                                            minFontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = strings.newNotebookSubtitle,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+
+                                    // Trailing Outline-Only Action Pill (matching Notebook Card Öffnen Pill)
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color.Transparent,
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                contentDescription = strings.newNotebookButton,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
 
-                            // Row 2: Aus JSON laden
-                            Surface(
-                                onClick = { jsonPickerLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                modifier = Modifier.fillMaxWidth()
+                            // Card 2: Aus JSON laden (Unified 72.dp Card Blueprint)
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 72.dp)
+                                    .clickable { jsonPickerLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(horizontal = 14.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    AutoSizingText(
-                                        text = strings.loadFromJsonButton,
-                                        modifier = Modifier.weight(1f),
-                                        maxFontSize = 16.sp,
-                                        minFontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
+                                    // Leading 40.dp Icon Badge (Tier 2 Container + Tier 1 Primary Icon/Border)
                                     Box(
                                         modifier = Modifier
                                             .size(40.dp)
                                             .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.primary),
+                                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.FileDownload,
                                             contentDescription = strings.loadFromJsonButton,
-                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(20.dp)
                                         )
+                                    }
+
+                                    // Center 2-Line Column (Title + Subtitle)
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        AutoSizingText(
+                                            text = strings.loadFromJsonButton,
+                                            maxFontSize = 15.5.sp,
+                                            minFontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = strings.loadFromJsonSubtitle,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+
+                                    // Trailing Outline-Only Action Pill (matching Notebook Card Öffnen Pill)
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color.Transparent,
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                                contentDescription = strings.loadFromJsonButton,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1395,10 +1476,11 @@ fun NotebookManagerDialog(
                             }
                         }
 
-                        // Notebooks list - Unified scroll with no fixed height or crammed area
+                        // Notebooks list - Unified 72.dp Card Blueprint matching Neues Notizbuch & Aus JSON laden
+                        val isDark = LocalIsDarkTheme.current
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             notebooks.forEach { notebook ->
                                 val isActive = notebook.id == activeNotebookId
@@ -1412,8 +1494,12 @@ fun NotebookManagerDialog(
                                 val boldGradColors = remember(theme) {
                                     listOf(Color(theme.bannerGradientStartLightHex), Color(theme.bannerGradientEndLightHex))
                                 }
-                                val ribbonCol = remember(theme) {
-                                    Color(theme.cardAccentRibbonLightHex)
+                                val notebookAccent = remember(theme, isDark) {
+                                    if (theme.isBoldTheme) Color(theme.cardAccentRibbonLightHex)
+                                    else theme.tier1Primary(isDark)
+                                }
+                                val badgeContainer = remember(theme, isDark) {
+                                    theme.tier2Container(isDark)
                                 }
 
                                 Card(
@@ -1429,12 +1515,8 @@ fun NotebookManagerDialog(
                                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                                     ),
                                     border = BorderStroke(
-                                        if (isActive) (if (theme.isBoldTheme) 2.dp else 1.5.dp) else 1.dp,
-                                        if (isActive) {
-                                            if (theme.isBoldTheme) ribbonCol else MaterialTheme.colorScheme.primary
-                                        } else {
-                                            if (theme.isBoldTheme) ribbonCol.copy(alpha = 0.35f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                                        }
+                                        if (isActive) 2.dp else 1.dp,
+                                        if (isActive) notebookAccent else MaterialTheme.colorScheme.outlineVariant
                                     )
                                 ) {
                                     if (theme.isBoldTheme) {
@@ -1445,67 +1527,84 @@ fun NotebookManagerDialog(
                                                 .background(Brush.horizontalGradient(boldGradColors))
                                         )
                                     }
-                                    Column(
+                                    Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
-                                        // Top Row: [Color Dot] [Notebook Name]  [Attractive Aktiv/Öffnen Pill Badge]
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        // Leading 40.dp Icon Badge (matching Neues Notizbuch & Aus JSON laden)
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .clip(CircleShape)
+                                                .background(badgeContainer)
+                                                .border(
+                                                    width = if (isActive) 1.5.dp else 1.dp,
+                                                    color = notebookAccent.copy(alpha = if (isActive) 0.9f else 0.55f),
+                                                    shape = CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            Row(
-                                                modifier = Modifier.weight(1f),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(if (theme.isBoldTheme) 11.dp else 9.dp)
-                                                        .clip(CircleShape)
-                                                        .then(
-                                                            if (theme.isBoldTheme) Modifier.background(Brush.horizontalGradient(boldGradColors))
-                                                            else Modifier.background(theme.primary)
-                                                        )
-                                                )
+                                            Icon(
+                                                imageVector = Icons.Default.MenuBook,
+                                                contentDescription = null,
+                                                tint = notebookAccent,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
 
-                                                Text(
-                                                    text = notebook.name,
-                                                    fontSize = 16.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface,
-                                                    maxLines = 1,
-                                                    softWrap = false,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f)
-                                                )
-                                            }
+                                        // Center 2-Line Column (Notebook Name + Word Count & Date)
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = notebook.name,
+                                                fontSize = 15.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "📚 ${strings.wordsCount(notebook.wordCount)}  ·  📅 $formattedDate",
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                softWrap = false,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
 
-                                            Spacer(modifier = Modifier.width(6.dp))
-
-                                            // Mutually exclusive: Outline-only Pill badge for Aktiv vs. Öffnen
+                                        // Trailing Action Slot: [Outline-only Aktiv / Öffnen Pill] + [3-dot Menu]
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
                                             if (isActive) {
                                                 Surface(
                                                     shape = RoundedCornerShape(12.dp),
                                                     color = Color.Transparent,
-                                                    border = BorderStroke(1.5.dp, if (theme.isBoldTheme) ribbonCol else MaterialTheme.colorScheme.primary)
+                                                    border = BorderStroke(1.5.dp, notebookAccent)
                                                 ) {
                                                     Row(
                                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                     ) {
-                                                        Text(
-                                                            text = "✅",
-                                                            fontSize = 11.sp
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = null,
+                                                            tint = notebookAccent,
+                                                            modifier = Modifier.size(12.dp)
                                                         )
                                                         Text(
                                                             text = strings.activeNotebookBadge,
-                                                            color = if (theme.isBoldTheme) ribbonCol else MaterialTheme.colorScheme.primary,
-                                                            fontSize = 12.sp,
+                                                            color = notebookAccent,
+                                                            fontSize = 11.5.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             maxLines = 1,
                                                             softWrap = false
@@ -1527,7 +1626,7 @@ fun NotebookManagerDialog(
                                                         Text(
                                                             text = strings.activateNotebookAction,
                                                             color = MaterialTheme.colorScheme.primary,
-                                                            fontSize = 12.sp,
+                                                            fontSize = 11.5.sp,
                                                             fontWeight = FontWeight.SemiBold,
                                                             maxLines = 1,
                                                             softWrap = false
@@ -1541,23 +1640,6 @@ fun NotebookManagerDialog(
                                                     }
                                                 }
                                             }
-                                        }
-
-                                        // Bottom Row: [📚 Word Count  ·  📅 Date]  [Options 3-dot menu]
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                text = "📚 ${strings.wordsCount(notebook.wordCount)}  ·  📅 $formattedDate",
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f)
-                                            )
 
                                             Box {
                                                 IconButton(

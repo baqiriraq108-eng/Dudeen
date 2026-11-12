@@ -701,7 +701,7 @@ object DeclensionHistoryExportHelper {
   xmlns:dcterms="http://purl.org/dc/terms/"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <dc:title>${escapeXml(cleanTitle)}</dc:title>
-  <dc:creator>Deklination &amp; Konjugation App</dc:creator>
+  <dc:creator>Deklo App</dc:creator>
 </cp:coreProperties>"""
             )
 
@@ -711,7 +711,7 @@ object DeclensionHistoryExportHelper {
                 "docProps/app.xml",
                 """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
-  <Application>Deklination &amp; Konjugation Android</Application>
+  <Application>Deklo Android</Application>
 </Properties>"""
             )
 
@@ -944,12 +944,12 @@ $contentTypesOverrideAdj
   xmlns:dcterms="http://purl.org/dc/terms/"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <dc:title>${escapeXml(cleanTitle)}</dc:title>
-  <dc:creator>Deklination &amp; Konjugation App</dc:creator>
+  <dc:creator>Deklo App</dc:creator>
 </cp:coreProperties>""")
 
             addZipEntry(zos, "docProps/app.xml", """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
-  <Application>Deklination &amp; Konjugation Android</Application>
+  <Application>Deklo Android</Application>
 </Properties>""")
 
             val workbookRelsAdj = if (hasAdjSheet) {

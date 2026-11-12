@@ -20,19 +20,19 @@ import androidx.core.view.WindowCompat
 val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 private fun buildLightColorScheme(theme: AppThemePackage) = lightColorScheme(
-    primary = Color(theme.primaryHex),
+    primary = theme.tier1Primary(isDark = false),
     onPrimary = Color(theme.onPrimaryLightHex),
-    primaryContainer = Color(theme.primaryHex),
-    onPrimaryContainer = Color(theme.onPrimaryLightHex),
-    secondary = Color(theme.secondaryHex),
+    primaryContainer = theme.tier1Container(isDark = false),
+    onPrimaryContainer = theme.onTier1Container(isDark = false),
+    secondary = theme.tier2Secondary(isDark = false),
     onSecondary = Color.White,
-    secondaryContainer = Color(theme.surfaceVariantLightHex),
-    onSecondaryContainer = Color(theme.onSurfaceLightHex),
-    tertiary = Color(theme.accentHex),
+    secondaryContainer = theme.tier2Container(isDark = false),
+    onSecondaryContainer = theme.onTier2Container(isDark = false),
+    tertiary = theme.tier3Tertiary(isDark = false),
     onTertiary = Color.White,
-    tertiaryContainer = Color(theme.surfaceVariantLightHex),
-    onTertiaryContainer = Color(theme.onSurfaceVariantLightHex),
-    error = Color(0xFFFF0000), // True Red
+    tertiaryContainer = theme.tier3Container(isDark = false),
+    onTertiaryContainer = theme.onTier3Container(isDark = false),
+    error = Color(0xFFC0392B),
     onError = Color.White,
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
@@ -40,26 +40,31 @@ private fun buildLightColorScheme(theme: AppThemePackage) = lightColorScheme(
     onBackground = Color(theme.onSurfaceLightHex),
     surface = Color(theme.surfaceLightHex),
     onSurface = Color(theme.onSurfaceLightHex),
-    surfaceVariant = Color(theme.surfaceVariantLightHex),
+    surfaceVariant = theme.tier4Quaternary(isDark = false),
     onSurfaceVariant = Color(theme.onSurfaceVariantLightHex),
+    surfaceContainerLowest = theme.tier4SurfaceLowest(isDark = false),
+    surfaceContainerLow = theme.tier4SurfaceLow(isDark = false),
+    surfaceContainer = theme.tier4SurfaceContainer(isDark = false),
+    surfaceContainerHigh = theme.tier4SurfaceHigh(isDark = false),
+    surfaceContainerHighest = theme.tier4SurfaceHighest(isDark = false),
     outline = Color(theme.outlineLightHex),
-    outlineVariant = Color(theme.borderHex)
+    outlineVariant = theme.tier4Border(isDark = false)
 )
 
 private fun buildDarkColorScheme(theme: AppThemePackage) = darkColorScheme(
-    primary = Color(theme.primaryDarkHex),
+    primary = theme.tier1Primary(isDark = true),
     onPrimary = Color(theme.onPrimaryDarkHex),
-    primaryContainer = Color(theme.primaryDarkHex),
-    onPrimaryContainer = Color(theme.onPrimaryDarkHex),
-    secondary = Color(theme.secondaryHex),
+    primaryContainer = theme.tier1Container(isDark = true),
+    onPrimaryContainer = theme.onTier1Container(isDark = true),
+    secondary = theme.tier2Secondary(isDark = true),
     onSecondary = Color.White,
-    secondaryContainer = Color(theme.surfaceVariantDarkHex),
-    onSecondaryContainer = Color(theme.onSurfaceDarkHex),
-    tertiary = Color(theme.accentHex),
+    secondaryContainer = theme.tier2Container(isDark = true),
+    onSecondaryContainer = theme.onTier2Container(isDark = true),
+    tertiary = theme.tier3Tertiary(isDark = true),
     onTertiary = Color.White,
-    tertiaryContainer = Color(theme.surfaceVariantDarkHex),
-    onTertiaryContainer = Color(theme.onSurfaceVariantDarkHex),
-    error = Color(0xFFFF4444), // Error Dark
+    tertiaryContainer = theme.tier3Container(isDark = true),
+    onTertiaryContainer = theme.onTier3Container(isDark = true),
+    error = Color(0xFFE74C3C),
     onError = Color.White,
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
@@ -67,10 +72,15 @@ private fun buildDarkColorScheme(theme: AppThemePackage) = darkColorScheme(
     onBackground = Color(theme.onSurfaceDarkHex),
     surface = Color(theme.surfaceDarkHex),
     onSurface = Color(theme.onSurfaceDarkHex),
-    surfaceVariant = Color(theme.surfaceVariantDarkHex),
+    surfaceVariant = theme.tier4Quaternary(isDark = true),
     onSurfaceVariant = Color(theme.onSurfaceVariantDarkHex),
+    surfaceContainerLowest = theme.tier4SurfaceLowest(isDark = true),
+    surfaceContainerLow = theme.tier4SurfaceLow(isDark = true),
+    surfaceContainer = theme.tier4SurfaceContainer(isDark = true),
+    surfaceContainerHigh = theme.tier4SurfaceHigh(isDark = true),
+    surfaceContainerHighest = theme.tier4SurfaceHighest(isDark = true),
     outline = Color(theme.outlineDarkHex),
-    outlineVariant = Color(theme.borderHex)
+    outlineVariant = theme.tier4Border(isDark = true)
 )
 
 @Composable

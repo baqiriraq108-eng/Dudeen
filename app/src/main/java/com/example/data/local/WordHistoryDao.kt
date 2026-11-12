@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -22,6 +23,14 @@ interface WordHistoryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(entities: List<WordHistoryEntity>)
+
+    @Transaction
+    suspend fun replaceAllHistory(entities: List<WordHistoryEntity>) {
+        clearAll()
+        if (entities.isNotEmpty()) {
+            insertAll(entities)
+        }
+    }
 
     @Query("DELETE FROM search_history WHERE id = :id")
     suspend fun deleteById(id: Long)

@@ -5,8 +5,96 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
-// Dynamic Theme Accessors matching the current active theme package
-// Automatically adjusts for Light and Dark modes via MaterialTheme.colorScheme.
+// =============================================================================
+// CENTRALIZED 4-TIER COLOR HIERARCHY & OBJECT MAPPING SYSTEM
+// =============================================================================
+// Tier 1 (Primary): Dominant brand & high-emphasis interactive accent
+//   -> Confirm buttons, active selection outlines (1.5-2dp), top header banner,
+//      active slider track/thumb, result card top accent bar (2dp), primary audio icons.
+// Tier 2 (Secondary): Supporting structural tone & deep/tonal interactive accent
+//   -> Secondary action buttons, leading icon badges, grammar category/table headers,
+//      dark-mode header surface, secondary interactive pills.
+// Tier 3 (Tertiary): Soft harmonic highlight, badge & subtle interactive accent
+//   -> Metadata pills, secondary utility/copy/share icons, inactive slider track dots,
+//      focused input labels/accents.
+// Tier 4 (Quaternary): Ambient surface container, card elevation & structural border layer
+//   -> Elevated card/container backgrounds, search field idle background,
+//      unselected card/button borders (1dp), section dividers, table row alternation.
+// =============================================================================
+
+val GeoTierPrimary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier1Primary(LocalIsDarkTheme.current)
+
+val GeoTierSecondary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier2Secondary(LocalIsDarkTheme.current)
+
+val GeoTierTertiary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier3Tertiary(LocalIsDarkTheme.current)
+
+val GeoTierQuaternary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier4Quaternary(LocalIsDarkTheme.current)
+
+val GeoTier1Container: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier1Container(LocalIsDarkTheme.current)
+
+val GeoOnTier1Container: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.onTier1Container(LocalIsDarkTheme.current)
+
+val GeoTier2Container: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier2Container(LocalIsDarkTheme.current)
+
+val GeoOnTier2Container: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.onTier2Container(LocalIsDarkTheme.current)
+
+val GeoTier3Container: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier3Container(LocalIsDarkTheme.current)
+
+val GeoOnTier3Container: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.onTier3Container(LocalIsDarkTheme.current)
+
+val GeoTier4SurfaceLow: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier4SurfaceLow(LocalIsDarkTheme.current)
+
+val GeoTier4SurfaceContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier4SurfaceContainer(LocalIsDarkTheme.current)
+
+val GeoTier4SurfaceHigh: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier4SurfaceHigh(LocalIsDarkTheme.current)
+
+val GeoTier4Border: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = LocalAppThemePackage.current.tier4Border(LocalIsDarkTheme.current)
+
+// =============================================================================
+// Dynamic Material 3 & Geo Theme Accessors (Mapped to the 4-Tier System)
+// =============================================================================
 val GeoPrimary: Color
     @Composable
     @ReadOnlyComposable
@@ -101,7 +189,7 @@ val GeoHeaderKasus: Color
         return if (theme.isBoldTheme) {
             Color(if (isDark) theme.headerKasusDarkHex else theme.headerKasusLightHex)
         } else {
-            MaterialTheme.colorScheme.surfaceVariant
+            theme.tier2Container(isDark)
         }
     }
 
@@ -144,7 +232,7 @@ val GeoBannerGradient: List<Color>
 val GeoAccentColor: Color
     @Composable
     @ReadOnlyComposable
-    get() = LocalAppThemePackage.current.accent
+    get() = GeoTierTertiary
 
 val GeoError: Color
     @Composable
@@ -179,14 +267,16 @@ val GeoSatzBg = Color(0xFFE8F5E9)
 val GeoWortText = Color(0xFFF57F17)
 val GeoWortBg = Color(0xFFFFF9C4)
 
-// Section 3: Element Application Specific Accessors
+// =============================================================================
+// Element-Specific Accessors Mapped Strictly to the 4-Tier Color System
+// =============================================================================
 val GeoHeaderBackground: Color
     @Composable
     @ReadOnlyComposable
     get() {
         val theme = LocalAppThemePackage.current
         val isDark = LocalIsDarkTheme.current
-        return if (isDark) theme.darkVariant else theme.primary
+        return if (isDark) theme.tier2Secondary(isDark = false) else theme.tier1Primary(isDark = false)
     }
 
 val GeoHeaderContent: Color = Color.White
@@ -194,106 +284,77 @@ val GeoHeaderContent: Color = Color.White
 val GeoMainBackground: Color
     @Composable
     @ReadOnlyComposable
-    get() {
-        val theme = LocalAppThemePackage.current
-        val isDark = LocalIsDarkTheme.current
-        return if (isDark) {
-            Color(theme.darkVariantHex).copy(alpha = 0.05f)
-        } else {
-            Color(theme.primaryLightHex).copy(alpha = 0.05f)
-        }
-    }
+    get() = MaterialTheme.colorScheme.background
 
 val GeoCardBackground: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (LocalIsDarkTheme.current) Color(0xFF1F1F1F) else Color(0xFFFFFFFF)
+    get() = LocalAppThemePackage.current.tier4SurfaceContainer(LocalIsDarkTheme.current)
 
 val GeoMainTitle: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (LocalIsDarkTheme.current) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
+    get() = MaterialTheme.colorScheme.onSurface
 
 val GeoCardTitle: Color
     @Composable
     @ReadOnlyComposable
-    get() {
-        val theme = LocalAppThemePackage.current
-        val isDark = LocalIsDarkTheme.current
-        return if (isDark) theme.lightVariant else theme.primary
-    }
+    get() = GeoTierPrimary
 
 val GeoBodyText: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (LocalIsDarkTheme.current) Color(0xFFE0E0E0) else Color(0xFF2A2A2A)
+    get() = MaterialTheme.colorScheme.onSurface
 
 val GeoSecondaryText: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (LocalIsDarkTheme.current) Color(0xFFAAAAAA) else Color(0xFF6B6B6B)
+    get() = MaterialTheme.colorScheme.onSurfaceVariant
 
 val GeoAudioIconColor: Color
     @Composable
     @ReadOnlyComposable
-    get() {
-        val theme = LocalAppThemePackage.current
-        val isDark = LocalIsDarkTheme.current
-        return if (isDark) theme.lightVariant else theme.primary
-    }
+    get() = GeoTierPrimary
 
 val GeoDeleteIconColor: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (LocalIsDarkTheme.current) Color(0xFFE74C3C) else Color(0xFFC0392B)
+    get() = MaterialTheme.colorScheme.error
 
 val GeoDividerColor: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (LocalIsDarkTheme.current) Color(0xFF3F3F3F) else Color(0xFFE5E5E5)
+    get() = GeoTier4Border
 
 val GeoSearchFieldIdleBg: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (LocalIsDarkTheme.current) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+    get() = LocalAppThemePackage.current.tier4SurfaceHigh(LocalIsDarkTheme.current)
 
 val GeoSearchFieldFocusBorder: Color
     @Composable
     @ReadOnlyComposable
-    get() {
-        val theme = LocalAppThemePackage.current
-        val isDark = LocalIsDarkTheme.current
-        return if (isDark) theme.lightVariant else theme.primary
-    }
+    get() = GeoTierPrimary
 
 val GeoAccentBar: Color
     @Composable
     @ReadOnlyComposable
-    get() {
-        val theme = LocalAppThemePackage.current
-        val isDark = LocalIsDarkTheme.current
-        return if (isDark) theme.lightVariant else theme.primary
-    }
+    get() = GeoTierPrimary
 
 val GeoGrammarTableHeaderBg: Color
     @Composable
     @ReadOnlyComposable
-    get() {
-        val theme = LocalAppThemePackage.current
-        val isDark = LocalIsDarkTheme.current
-        return if (isDark) theme.primary.copy(alpha = 0.15f) else theme.primary.copy(alpha = 0.10f)
-    }
+    get() = GeoTier2Container
 
 fun getGrammarTableRowBg(rowIndex: Int, isDark: Boolean): Color {
     return if (isDark) {
-        if (rowIndex % 2 == 0) Color(0xFF1F1F1F) else Color(0xFF252525)
+        if (rowIndex % 2 == 0) Color(0xFF1A1C20) else Color(0xFF22252B)
     } else {
-        if (rowIndex % 2 == 0) Color(0xFFFFFFFF) else Color(0xFFF9F9F9)
+        if (rowIndex % 2 == 0) Color(0xFFFFFFFF) else Color(0xFFF5F7FA)
     }
 }
 
 val GeoModalWindowBg: Color
     @Composable
     @ReadOnlyComposable
-    get() = if (LocalIsDarkTheme.current) Color(0xFF1F1F1F) else Color(0xFFFFFFFF)
-
+    get() = LocalAppThemePackage.current.tier4SurfaceLow(LocalIsDarkTheme.current)

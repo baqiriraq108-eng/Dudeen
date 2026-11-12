@@ -38,6 +38,11 @@ class NotebookRepository(private val context: Context) {
 
     var backupManager: NotebookBackupManager? = null
 
+    @Volatile
+    private var cachedRootDir: File? = null
+
+    private val wordCountCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Int>>()
+
     init {
         ensureInitialized()
     }
@@ -50,11 +55,15 @@ class NotebookRepository(private val context: Context) {
             if (!dir.exists()) {
                 if (!dir.mkdirs()) return false
             }
-            val testProbe = File(dir, ".probe_${System.currentTimeMillis()}")
-            testProbe.writeText("ok")
-            val readOk = testProbe.readText() == "ok"
-            testProbe.delete()
-            readOk
+            if (dir.isDirectory && dir.canRead() && dir.canWrite()) {
+                val testProbe = File(dir, ".probe_${System.nanoTime()}")
+                testProbe.writeText("ok")
+                val readOk = testProbe.readText() == "ok"
+                testProbe.delete()
+                readOk
+            } else {
+                false
+            }
         } catch (_: Throwable) {
             false
         }
@@ -66,10 +75,17 @@ class NotebookRepository(private val context: Context) {
      * if public external storage is not readable/writable (scoped storage on Android 10+).
      */
     fun getRootDirectory(): File {
+        cachedRootDir?.let { cached ->
+            if (cached.exists() && cached.isDirectory) {
+                return cached
+            }
+        }
+
         try {
             val publicDocs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
             val primaryDir = File(publicDocs, ROOT_FOLDER_NAME)
             if (isDirWritableAndReadable(primaryDir)) {
+                cachedRootDir = primaryDir
                 return primaryDir
             }
         } catch (_: Throwable) {}
@@ -79,6 +95,7 @@ class NotebookRepository(private val context: Context) {
             if (appExtDocs != null) {
                 val fallbackDir = File(appExtDocs, ROOT_FOLDER_NAME)
                 if (isDirWritableAndReadable(fallbackDir)) {
+                    cachedRootDir = fallbackDir
                     return fallbackDir
                 }
             }
@@ -88,6 +105,7 @@ class NotebookRepository(private val context: Context) {
         try {
             internalDir.mkdirs()
         } catch (_: Throwable) {}
+        cachedRootDir = internalDir
         return internalDir
     }
 
@@ -195,14 +213,23 @@ class NotebookRepository(private val context: Context) {
 
                 val historyFile = File(dir, HISTORY_FILE_NAME)
                 val wordCount = if (historyFile.exists()) {
-                    val content = historyFile.readText().trim()
-                    if (content.isNotEmpty() && content != "[]") {
-                        try {
-                            JSONArray(content).length()
-                        } catch (e: Exception) {
-                            0
-                        }
-                    } else 0
+                    val stamp = historyFile.lastModified() xor (historyFile.length() shl 16)
+                    val cacheKey = historyFile.absolutePath
+                    val cachedEntry = wordCountCache[cacheKey]
+                    if (cachedEntry != null && cachedEntry.first == stamp) {
+                        cachedEntry.second
+                    } else {
+                        val content = historyFile.readText().trim()
+                        val count = if (content.isNotEmpty() && content != "[]") {
+                            try {
+                                JSONArray(content).length()
+                            } catch (e: Exception) {
+                                0
+                            }
+                        } else 0
+                        wordCountCache[cacheKey] = stamp to count
+                        count
+                    }
                 } else 0
 
                 Notebook(
@@ -501,6 +528,8 @@ class NotebookRepository(private val context: Context) {
         return try {
             val jsonArray = serializeHistoryToJson(items)
             file.writeText(jsonArray.toString(2))
+            val stamp = file.lastModified() xor (file.length() shl 16)
+            wordCountCache[file.absolutePath] = stamp to items.size
             if (triggerBackup && items.isNotEmpty()) {
                 backupManager?.scheduleBackup(activeId)
             }

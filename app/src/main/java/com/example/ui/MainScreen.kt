@@ -147,9 +147,8 @@ import com.example.ui.components.ClearHistoryConfirmDialog
 import com.example.ui.components.CreateNotebookDialog
 import com.example.ui.components.DeclensionResultView
 import com.example.ui.components.DeleteHistoryItemConfirmDialog
-import com.example.ui.components.FolderSelectionOverlay
 import com.example.ui.components.GrammarTablesSheet
-import com.example.ui.components.HistorySection
+import com.example.ui.components.HistoryQuickDetailsCache
 import com.example.ui.components.ImportMultiChoiceDialog
 import com.example.ui.components.ImportSingleChoiceDialog
 import com.example.ui.components.JsonExportActionDialog
@@ -273,12 +272,29 @@ fun MainScreen(
         keys = arrayOf(historyList, uiState.selectedHistoryFilter, historySearchQuery, currentSortOption)
     ) {
         withContext(Dispatchers.Default) {
-            value = com.example.util.HistoryFilterHelper.filterAndSortHistory(
+            val filtered = com.example.util.HistoryFilterHelper.filterAndSortHistory(
                 items = historyList,
                 filterIndex = uiState.selectedHistoryFilter,
                 query = historySearchQuery,
                 sortOption = currentSortOption
             )
+            val sanitized = filtered.mapNotNull { item ->
+                val cleanWord = com.example.data.model.sanitizeHistoryWord(
+                    item.word,
+                    item.data.ifBlank { item.rawJsonResult },
+                    item.type
+                )
+                if (cleanWord.isBlank() || cleanWord.equals("null", ignoreCase = true)) null
+                else {
+                    var repaired = item
+                    if (cleanWord != item.word) repaired = repaired.copy(word = cleanWord)
+                    if (repaired.genderArticle.equals("null", ignoreCase = true)) repaired = repaired.copy(genderArticle = "")
+                    if (repaired.gender.equals("null", ignoreCase = true)) repaired = repaired.copy(gender = "")
+                    repaired
+                }
+            }
+            HistoryQuickDetailsCache.prewarm(sanitized)
+            value = sanitized
         }
     }
 
@@ -1277,15 +1293,6 @@ fun MainScreen(
             notebookName = uiState.activeNotebook?.name ?: "",
             appLanguage = uiState.appLanguage,
             onDismiss = { viewModel.onCloseExportDialog() }
-        )
-    }
-
-    // Mandatory Folder Selection Overlay (on first install or after clear app data)
-    if (uiState.isFolderSelectionRequired) {
-        FolderSelectionOverlay(
-            onFolderSelected = { uri ->
-                viewModel.onSelectHistoryFolder(uri)
-            }
         )
     }
 
