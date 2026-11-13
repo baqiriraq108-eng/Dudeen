@@ -1,10 +1,6 @@
 package com.example.ui.components
 
-import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,7 +17,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,7 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -38,20 +32,15 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.FormatPaint
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -62,27 +51,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -91,7 +80,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,8 +87,16 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.ui.i18n.AppStrings
 import com.example.ui.i18n.LocalAppLanguage
+import com.example.ui.theme.GeoBorder
+import com.example.ui.theme.GeoOnSurface
+import com.example.ui.theme.GeoOnSurfaceVariant
+import com.example.ui.theme.GeoPrimary
+import com.example.ui.theme.GeoSurface
+import com.example.ui.theme.GeoSurfaceVariant
 import com.example.util.CustomColorManager
+import com.example.util.DeclensionHistoryExportHelper
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -108,33 +104,37 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * Real Color Engine for the Nature-Inspired Gradient Sphere System.
- * Implements precise bidirectional conversions between HEX, RGB, HSL, and CMYK.
+ * Bidirectional Color Engine supporting HEX, RGB, HSL, and CMYK with full 0..1 lightness & saturation range
+ * so pure black (#000000), pure white (#FFFFFF), and neutral grays are preserved accurately.
  */
 object NatureColorEngine {
 
     data class HslColor(
-        val hue: Float, // 0..360
+        val hue: Float,        // 0..360
         val saturation: Float, // 0..1
-        val lightness: Float // 0..1
+        val lightness: Float   // 0..1
     ) {
         val rgb: Triple<Int, Int, Int> get() = hslToRgb(hue, saturation, lightness)
         val hex: String get() = hslToHex(hue, saturation, lightness)
-        val composeColor: Color get() {
-            val (r, g, b) = rgb
-            return Color(r, g, b)
-        }
-        val cmyk: List<Int> get() {
-            val (r, g, b) = rgb
-            return rgbToCmyk(r, g, b)
-        }
+        val composeColor: Color
+            get() {
+                val (r, g, b) = rgb
+                return Color(r, g, b)
+            }
+        val cmyk: List<Int>
+            get() {
+                val (r, g, b) = rgb
+                return rgbToCmyk(r, g, b)
+            }
     }
 
     fun hslToRgb(h: Float, s: Float, l: Float): Triple<Int, Int, Int> {
-        val c = (1f - kotlin.math.abs(2f * l - 1f)) * s
+        val cleanS = s.coerceIn(0f, 1f)
+        val cleanL = l.coerceIn(0f, 1f)
+        val c = (1f - abs(2f * cleanL - 1f)) * cleanS
         val hPrime = ((h % 360f + 360f) % 360f) / 60f
-        val x = c * (1f - kotlin.math.abs((hPrime % 2f) - 1f))
-        val m = l - c / 2f
+        val x = c * (1f - abs((hPrime % 2f) - 1f))
+        val m = cleanL - c / 2f
         val (rPrime, gPrime, bPrime) = when {
             hPrime < 1f -> Triple(c, x, 0f)
             hPrime < 2f -> Triple(x, c, 0f)
@@ -150,14 +150,14 @@ object NatureColorEngine {
     }
 
     fun rgbToHsl(r: Int, g: Int, b: Int): HslColor {
-        val rNorm = r / 255f
-        val gNorm = g / 255f
-        val bNorm = b / 255f
+        val rNorm = (r.coerceIn(0, 255)) / 255f
+        val gNorm = (g.coerceIn(0, 255)) / 255f
+        val bNorm = (b.coerceIn(0, 255)) / 255f
         val max = maxOf(rNorm, gNorm, bNorm)
         val min = minOf(rNorm, gNorm, bNorm)
         val delta = max - min
         val l = (max + min) / 2f
-        val s = if (delta <= 0.0001f) 0f else (delta / (1f - kotlin.math.abs(2f * l - 1f))).coerceIn(0f, 1f)
+        val s = if (delta <= 0.0001f) 0f else (delta / (1f - abs(2f * l - 1f))).coerceIn(0f, 1f)
         val h = when {
             delta <= 0.0001f -> 0f
             max == rNorm -> (((gNorm - bNorm) / delta) % 6f) * 60f
@@ -169,7 +169,21 @@ object NatureColorEngine {
 
     fun hslToHex(h: Float, s: Float, l: Float): String {
         val (r, g, b) = hslToRgb(h, s, l)
-        return String.format(Locale.ROOT, "#%02X%02X%02X", r, g, b)
+        return rgbToHex(r, g, b)
+    }
+
+    fun rgbToHex(r: Int, g: Int, b: Int): String {
+        return String.format(Locale.ROOT, "#%02X%02X%02X", r.coerceIn(0, 255), g.coerceIn(0, 255), b.coerceIn(0, 255))
+    }
+
+    fun normalizeHexCode(hex: String): String {
+        val clean = hex.trim().removePrefix("#").uppercase(Locale.ROOT)
+        return when (clean.length) {
+            3 -> "#${clean[0]}${clean[0]}${clean[1]}${clean[1]}${clean[2]}${clean[2]}"
+            6 -> "#$clean"
+            8 -> "#${clean.takeLast(6)}"
+            else -> hexToHsl(hex).hex
+        }
     }
 
     fun hexToHsl(hex: String): HslColor {
@@ -185,18 +199,18 @@ object NatureColorEngine {
                     Triple(r4 or (r4 shl 4), g4 or (g4 shl 4), b4 or (b4 shl 4))
                 }
                 8 -> Triple(((num shr 16) and 0xFF).toInt(), ((num shr 8) and 0xFF).toInt(), (num and 0xFF).toInt())
-                else -> Triple(229, 57, 53) // Default bright vivid red
+                else -> Triple(0, 0, 0)
             }
             rgbToHsl(r, g, b)
         } catch (_: Exception) {
-            HslColor(0f, 1f, 0.5f) // Default bright red
+            HslColor(0f, 0f, 0f)
         }
     }
 
     fun rgbToCmyk(r: Int, g: Int, b: Int): List<Int> {
-        val rNorm = r / 255f
-        val gNorm = g / 255f
-        val bNorm = b / 255f
+        val rNorm = r.coerceIn(0, 255) / 255f
+        val gNorm = g.coerceIn(0, 255) / 255f
+        val bNorm = b.coerceIn(0, 255) / 255f
         val k = 1f - maxOf(rNorm, gNorm, bNorm)
         if (k >= 0.999f) return listOf(0, 0, 0, 100)
         val c = ((1f - rNorm - k) / (1f - k) * 100f).roundToInt().coerceIn(0, 100)
@@ -222,47 +236,42 @@ object NatureColorEngine {
      */
     fun generateHarmonyPalettes(current: HslColor): List<List<String>> {
         val h = current.hue
-        val s = current.saturation.coerceIn(0.4f, 1.0f)
-        val l = current.lightness.coerceIn(0.35f, 0.65f)
+        val s = current.saturation.coerceIn(0.45f, 1.0f)
+        val l = current.lightness.coerceIn(0.32f, 0.68f)
 
-        // 1. Analogous Flora Harmony
         val g1 = listOf(
-            hslToHex((h - 30f + 360f) % 360f, (s * 1.05f).coerceIn(0.4f, 1f), (l * 0.95f).coerceIn(0.3f, 0.65f)),
+            hslToHex((h - 30f + 360f) % 360f, (s * 1.05f).coerceIn(0.4f, 1f), (l * 0.9f).coerceIn(0.25f, 0.65f)),
             hslToHex(h, s, l),
-            hslToHex((h + 30f) % 360f, (s * 0.95f).coerceIn(0.4f, 1f), (l * 1.05f).coerceIn(0.35f, 0.7f)),
-            hslToHex((h + 60f) % 360f, s, (l * 1.15f).coerceIn(0.4f, 0.75f))
+            hslToHex((h + 30f) % 360f, (s * 0.95f).coerceIn(0.4f, 1f), (l * 1.05f).coerceIn(0.35f, 0.72f)),
+            hslToHex((h + 60f) % 360f, s, (l * 1.15f).coerceIn(0.4f, 0.78f))
         )
 
-        // 2. Complementary / Vibrant Violet-Pink Accents
         val g2 = listOf(
-            hslToHex((h + 135f) % 360f, 0.85f, 0.52f),
-            hslToHex((h + 160f) % 360f, 0.90f, 0.58f),
-            hslToHex((h + 180f) % 360f, 0.95f, 0.50f),
-            hslToHex((h + 205f) % 360f, 0.80f, 0.62f)
+            hslToHex((h + 150f) % 360f, 0.85f, 0.45f),
+            hslToHex((h + 180f) % 360f, 0.92f, 0.50f),
+            hslToHex((h + 210f) % 360f, 0.85f, 0.58f),
+            hslToHex(h, (s * 0.8f).coerceIn(0.3f, 1f), 0.30f)
         )
 
-        // 3. Triadic Fresh Blue & Cyan Harmonies
         val g3 = listOf(
             hslToHex(h, s, l),
-            hslToHex((h + 120f) % 360f, 0.88f, 0.52f),
-            hslToHex((h + 240f) % 360f, 0.90f, 0.52f),
-            hslToHex((h + 180f) % 360f, 0.85f, 0.56f)
+            hslToHex((h + 120f) % 360f, 0.88f, 0.48f),
+            hslToHex((h + 240f) % 360f, 0.90f, 0.48f),
+            hslToHex((h + 180f) % 360f, 0.80f, 0.56f)
         )
 
-        // 4. Warm Sun & Terracotta Complementary Harmonies
         val g4 = listOf(
-            hslToHex(35f, 0.95f, 0.52f),
-            hslToHex(15f, 0.92f, 0.55f),
-            hslToHex((h + 220f) % 360f, 0.85f, 0.58f),
-            hslToHex((h + 260f) % 360f, 0.80f, 0.52f)
+            "#000000",
+            "#1E293B",
+            "#475569",
+            "#94A3B8"
         )
 
-        // 5. Earthy Fresh & Sage Accents
         val g5 = listOf(
-            hslToHex(145f, 0.65f, 0.42f),
-            hslToHex(165f, 0.70f, 0.48f),
-            hslToHex(195f, 0.75f, 0.52f),
-            hslToHex(215f, 0.80f, 0.55f)
+            "#1565C0",
+            "#C2185B",
+            "#2E7D32",
+            "#EA580C"
         )
 
         return listOf(g1, g2, g3, g4, g5)
@@ -270,12 +279,8 @@ object NatureColorEngine {
 }
 
 /**
- * 3D Luminous Gradient Sphere Canvas Component.
- * Changes appearance dynamically according to the selected color system (RGB, HSL, HEX, CMYK):
- * - RGB: Additive color model with Red, Green, Blue key corner radiance.
- * - HSL: Vivid organic spectrum with saturation and lightness gradient mapping.
- * - HEX: Crisp pure hue chroma wheel without dark vignettes.
- * - CMYK: Subtractive model highlighting Cyan, Magenta, Yellow, Key interactions.
+ * Interactive 2D Spectrum Wheel Canvas Component.
+ * Uses rememberUpdatedState to avoid stale gesture closures when dragging or tapping.
  */
 @Composable
 fun GradientSphereCanvas(
@@ -284,6 +289,10 @@ fun GradientSphereCanvas(
     onColorChanged: (hue: Float, saturation: Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val latestOnColorChanged by rememberUpdatedState(onColorChanged)
+    val borderColor = GeoBorder
+    val primaryColor = GeoPrimary
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
@@ -292,10 +301,12 @@ fun GradientSphereCanvas(
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) {
-                    fun updateFromOffset(offset: Offset, sizePx: Float) {
-                        val cx = sizePx / 2f
-                        val cy = sizePx / 2f
-                        val radius = (sizePx / 2f) * 0.84f
+                    fun updateFromOffset(offset: Offset) {
+                        val sizePx = minOf(size.width, size.height).toFloat()
+                        if (sizePx <= 0f) return
+                        val cx = size.width / 2f
+                        val cy = size.height / 2f
+                        val radius = (sizePx / 2f) * 0.86f
                         val dx = offset.x - cx
                         val dy = offset.y - cy
                         val dist = hypot(dx, dy).coerceIn(0f, radius)
@@ -303,173 +314,113 @@ fun GradientSphereCanvas(
                         val angleDeg = Math.toDegrees(angleRad.toDouble()).toFloat().let {
                             if (it < 0f) it + 360f else it
                         }
-                        val sat = (dist / radius).coerceIn(0.01f, 1f)
-                        onColorChanged(angleDeg, sat)
+                        val sat = (dist / radius).coerceIn(0f, 1f)
+                        latestOnColorChanged(angleDeg, sat)
                     }
 
                     detectTapGestures(
-                        onTap = { offset ->
-                            updateFromOffset(offset, size.width.toFloat())
-                        }
+                        onTap = { offset -> updateFromOffset(offset) }
                     )
                 }
                 .pointerInput(Unit) {
+                    fun updateFromOffset(offset: Offset) {
+                        val sizePx = minOf(size.width, size.height).toFloat()
+                        if (sizePx <= 0f) return
+                        val cx = size.width / 2f
+                        val cy = size.height / 2f
+                        val radius = (sizePx / 2f) * 0.86f
+                        val dx = offset.x - cx
+                        val dy = offset.y - cy
+                        val dist = hypot(dx, dy).coerceIn(0f, radius)
+                        val angleRad = atan2(dy, dx)
+                        val angleDeg = Math.toDegrees(angleRad.toDouble()).toFloat().let {
+                            if (it < 0f) it + 360f else it
+                        }
+                        val sat = (dist / radius).coerceIn(0f, 1f)
+                        latestOnColorChanged(angleDeg, sat)
+                    }
+
                     detectDragGestures(
-                        onDragStart = { offset ->
-                            val sizePx = size.width.toFloat()
-                            val cx = sizePx / 2f
-                            val cy = sizePx / 2f
-                            val radius = (sizePx / 2f) * 0.84f
-                            val dx = offset.x - cx
-                            val dy = offset.y - cy
-                            val dist = hypot(dx, dy).coerceIn(0f, radius)
-                            val angleRad = atan2(dy, dx)
-                            val angleDeg = Math.toDegrees(angleRad.toDouble()).toFloat().let {
-                                if (it < 0f) it + 360f else it
-                            }
-                            val sat = (dist / radius).coerceIn(0.01f, 1f)
-                            onColorChanged(angleDeg, sat)
-                        },
+                        onDragStart = { offset -> updateFromOffset(offset) },
                         onDrag = { change, _ ->
                             change.consume()
-                            val sizePx = size.width.toFloat()
-                            val cx = sizePx / 2f
-                            val cy = sizePx / 2f
-                            val radius = (sizePx / 2f) * 0.84f
-                            val dx = change.position.x - cx
-                            val dy = change.position.y - cy
-                            val dist = hypot(dx, dy).coerceIn(0f, radius)
-                            val angleRad = atan2(dy, dx)
-                            val angleDeg = Math.toDegrees(angleRad.toDouble()).toFloat().let {
-                                if (it < 0f) it + 360f else it
-                            }
-                            val sat = (dist / radius).coerceIn(0.01f, 1f)
-                            onColorChanged(angleDeg, sat)
+                            updateFromOffset(change.position)
                         }
                     )
                 }
         ) {
             val center = Offset(size.width / 2f, size.height / 2f)
-            val sphereRadius = (size.minDimension / 2f) * 0.84f
-            val orbitalRadius = (size.minDimension / 2f) * 0.94f
+            val sphereRadius = (size.minDimension / 2f) * 0.86f
+            val orbitalRadius = (size.minDimension / 2f) * 0.95f
 
-            // 1. Soft Ambient Outer Glow
             val glowColor = when (modeIndex) {
-                0 -> Color(0x30E53935) // RGB reddish/additive glow
-                1 -> Color(0x304CAF50) // HSL fresh green glow
-                2 -> Color(0x301E88E5) // HEX blue crisp glow
-                3 -> Color(0x3000ACC1) // CMYK cyan/subtractive glow
-                else -> Color(0x304CAF50)
+                0 -> Color(0x28E53935)
+                1 -> primaryColor.copy(alpha = 0.18f)
+                2 -> Color(0x281E88E5)
+                3 -> Color(0x2800ACC1)
+                else -> primaryColor.copy(alpha = 0.18f)
             }
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(
-                        glowColor,
-                        Color(0x108BC34A),
-                        Color.Transparent
-                    ),
+                    colors = listOf(glowColor, Color.Transparent),
                     center = center,
-                    radius = orbitalRadius * 1.08f
+                    radius = orbitalRadius * 1.05f
                 ),
-                radius = orbitalRadius * 1.08f,
+                radius = orbitalRadius * 1.05f,
                 center = center
             )
 
-            // 2. Delicate Orbital Ring with Mode-Specific Nodes
             drawCircle(
-                color = Color(0x38557A60),
+                color = borderColor,
                 radius = orbitalRadius,
                 center = center,
-                style = Stroke(width = 1.2f)
+                style = Stroke(width = 1.2.dp.toPx())
             )
 
-            // Orbital Accent Nodes depending on mode
             when (modeIndex) {
                 0 -> {
-                    // RGB nodes at 0° (Red), 120° (Green), 240° (Blue)
                     listOf(0.0 to Color(0xFFE53935), 120.0 to Color(0xFF43A047), 240.0 to Color(0xFF1E88E5)).forEach { (deg, col) ->
                         val rad = Math.toRadians(deg)
                         val pos = Offset(
                             center.x + orbitalRadius * cos(rad).toFloat(),
                             center.y + orbitalRadius * sin(rad).toFloat()
                         )
-                        drawCircle(color = col, radius = 4f, center = pos)
+                        drawCircle(color = col, radius = 4.dp.toPx(), center = pos)
                     }
                 }
                 3 -> {
-                    // CMYK nodes at 180° (Cyan), 300° (Magenta), 60° (Yellow)
                     listOf(180.0 to Color(0xFF00ACC1), 300.0 to Color(0xFFD81B60), 60.0 to Color(0xFFFDD835)).forEach { (deg, col) ->
                         val rad = Math.toRadians(deg)
                         val pos = Offset(
                             center.x + orbitalRadius * cos(rad).toFloat(),
                             center.y + orbitalRadius * sin(rad).toFloat()
                         )
-                        drawCircle(color = col, radius = 4f, center = pos)
+                        drawCircle(color = col, radius = 4.dp.toPx(), center = pos)
                     }
                 }
                 else -> {
-                    // Standard botanical nodes at 180° and 90°
-                    listOf(180.0 to Color(0xFF2E633F), 90.0 to Color(0xFF2E633F)).forEach { (deg, col) ->
+                    listOf(0.0, 90.0, 180.0, 270.0).forEach { deg ->
                         val rad = Math.toRadians(deg)
                         val pos = Offset(
                             center.x + orbitalRadius * cos(rad).toFloat(),
                             center.y + orbitalRadius * sin(rad).toFloat()
                         )
-                        drawCircle(color = col, radius = 3.5f, center = pos)
+                        drawCircle(color = primaryColor.copy(alpha = 0.6f), radius = 3.dp.toPx(), center = pos)
                     }
                 }
             }
 
-            // 3. Mode-Specific Wheel Body Rendering (Bright, Vibrant, Vivid!)
-            val spectrumColors = when (modeIndex) {
-                0 -> listOf(
-                    // RGB Additive Spectrum
-                    Color(0xFFFF1744), // Pure Red (0°)
-                    Color(0xFFFF9100), // Orange (30°)
-                    Color(0xFFFFEA00), // Yellow (60°)
-                    Color(0xFF00E676), // Pure Green (120°)
-                    Color(0xFF00E5FF), // Cyan (180°)
-                    Color(0xFF2979FF), // Pure Blue (240°)
-                    Color(0xFFD500F9), // Magenta (300°)
-                    Color(0xFFFF1744)  // Pure Red (360°)
-                )
-                3 -> listOf(
-                    // CMYK Subtractive Spectrum
-                    Color(0xFFFF5252), // Red
-                    Color(0xFFFFD600), // Pure Process Yellow (60°)
-                    Color(0xFF00E676), // Green
-                    Color(0xFF00E5FF), // Pure Process Cyan (180°)
-                    Color(0xFF2979FF), // Blue
-                    Color(0xFFFF4081), // Pure Process Magenta (300°)
-                    Color(0xFFFF5252)  // Red
-                )
-                2 -> listOf(
-                    // HEX Crisp Clean Full Spectrum
-                    Color(0xFFFF0000),
-                    Color(0xFFFF8000),
-                    Color(0xFFFFFF00),
-                    Color(0xFF00FF00),
-                    Color(0xFF00FFFF),
-                    Color(0xFF0000FF),
-                    Color(0xFF8000FF),
-                    Color(0xFFFF0080),
-                    Color(0xFFFF0000)
-                )
-                else -> listOf(
-                    // HSL Nature Swept Spectrum (Bright & Luminous)
-                    Color(0xFFE53935), // Red (0°)
-                    Color(0xFFFB8C00), // Orange (30°)
-                    Color(0xFFFDD835), // Yellow (60°)
-                    Color(0xFF7CB342), // Lime (90°)
-                    Color(0xFF43A047), // Green (120°)
-                    Color(0xFF00ACC1), // Turquoise / Cyan (180°)
-                    Color(0xFF1E88E5), // Blue (220°)
-                    Color(0xFF3949AB), // Deep Indigo (240°)
-                    Color(0xFF8E24AA), // Violet (280°)
-                    Color(0xFFD81B60), // Magenta (320°)
-                    Color(0xFFE53935)  // Red (360°)
-                )
-            }
+            val spectrumColors = listOf(
+                Color(0xFFFF0000),
+                Color(0xFFFF8000),
+                Color(0xFFFFFF00),
+                Color(0xFF00E676),
+                Color(0xFF00E5FF),
+                Color(0xFF2979FF),
+                Color(0xFF8E24AA),
+                Color(0xFFFF0080),
+                Color(0xFFFF0000)
+            )
 
             drawCircle(
                 brush = Brush.sweepGradient(spectrumColors, center),
@@ -477,15 +428,13 @@ fun GradientSphereCanvas(
                 center = center
             )
 
-            // 4. Center Brightness / Saturation Core
-            // White core at center fading out to full saturation at circumference
+            // White core fading to pure saturation at circumference
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFFFFFFF),
-                        Color(0xE6FFFFFF),
-                        Color(0x73FFFFFF),
-                        Color(0x1AFFFFFF),
+                        Color.White,
+                        Color(0xD9FFFFFF),
+                        Color(0x59FFFFFF),
                         Color.Transparent
                     ),
                     center = center,
@@ -495,78 +444,52 @@ fun GradientSphereCanvas(
                 center = center
             )
 
-            // 5. Subtle 3D Spherical Edge Shadow (Gentle curvature without dimming brightness)
-            if (modeIndex != 2) {
+            // Reflect current lightness dark/light overlay subtly so wheel reflects dark/light selections
+            val lightnessOverlayAlpha = ((0.5f - currentHsl.lightness) * 1.1f).coerceIn(-0.55f, 0.65f)
+            if (lightnessOverlayAlpha > 0.02f) {
                 drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Transparent,
-                            Color(0x08000000),
-                            Color(0x20000000),
-                            Color(0x381A3826)
-                        ),
-                        center = center,
-                        radius = sphereRadius
-                    ),
+                    color = Color.Black.copy(alpha = lightnessOverlayAlpha),
                     radius = sphereRadius,
                     center = center
                 )
-
-                // 6. Gentle Specular Gloss Highlight (upper-left luminous reflection)
-                val highlightCenter = Offset(
-                    center.x - sphereRadius * 0.32f,
-                    center.y - sphereRadius * 0.32f
-                )
+            } else if (lightnessOverlayAlpha < -0.02f) {
                 drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color(0x80FFFFFF),
-                            Color(0x30FFFFFF),
-                            Color.Transparent
-                        ),
-                        center = highlightCenter,
-                        radius = sphereRadius * 0.65f
-                    ),
-                    radius = sphereRadius * 0.65f,
-                    center = highlightCenter
+                    color = Color.White.copy(alpha = -lightnessOverlayAlpha * 0.7f),
+                    radius = sphereRadius,
+                    center = center
                 )
             }
 
-            // 7. Sphere Outer Border Ring
             drawCircle(
-                color = Color(0x332E633F),
+                color = borderColor,
                 radius = sphereRadius,
                 center = center,
-                style = Stroke(width = 1.5f)
+                style = Stroke(width = 1.5.dp.toPx())
             )
 
-            // 8. Interactive Live Selection Indicator (Instantly in sync with current color)
+            // Live selection indicator
             val indicatorAngleRad = Math.toRadians(currentHsl.hue.toDouble())
-            val indicatorDist = currentHsl.saturation.coerceIn(0.01f, 1f) * sphereRadius
+            val indicatorDist = currentHsl.saturation.coerceIn(0f, 1f) * sphereRadius
             val indicatorCenter = Offset(
                 center.x + (indicatorDist * cos(indicatorAngleRad)).toFloat(),
                 center.y + (indicatorDist * sin(indicatorAngleRad)).toFloat()
             )
 
-            // Outer white ring
             drawCircle(
                 color = Color.White,
-                radius = 9.dp.toPx(),
+                radius = 9.5.dp.toPx(),
                 center = indicatorCenter,
                 style = Stroke(width = 2.5.dp.toPx())
             )
-            // Dark green subtle outline
             drawCircle(
-                color = Color(0xFF1B3B2B),
-                radius = 10.5.dp.toPx(),
+                color = Color(0xFF0F172A),
+                radius = 11.dp.toPx(),
                 center = indicatorCenter,
-                style = Stroke(width = 1.dp.toPx())
+                style = Stroke(width = 1.2.dp.toPx())
             )
-            // Filled center with live selected color
             drawCircle(
                 color = currentHsl.composeColor,
-                radius = 5.dp.toPx(),
+                radius = 6.dp.toPx(),
                 center = indicatorCenter
             )
         }
@@ -574,14 +497,14 @@ fun GradientSphereCanvas(
 }
 
 /**
- * Botanical Leaf Silhouette Decorative Background.
+ * Subtle decorative corner accents adapting to current theme.
  */
 @Composable
 fun BotanicalAtmosphereBackground(modifier: Modifier = Modifier) {
+    val accentTint = GeoPrimary.copy(alpha = 0.05f)
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
-        val leafTint = Color(0x182E633F)
 
         fun drawLeaf(cx: Float, cy: Float, radius: Float, angleDeg: Float) {
             val path = Path().apply {
@@ -599,32 +522,25 @@ fun BotanicalAtmosphereBackground(modifier: Modifier = Modifier) {
                 quadraticTo(cp2.x, cp2.y, p0.x, p0.y)
                 close()
             }
-            drawPath(path, color = leafTint)
+            drawPath(path, color = accentTint)
         }
 
-        // Top-left foliage
-        drawLeaf(16f, 16f, 28f, 35f)
-        drawLeaf(36f, 12f, 20f, 65f)
-        drawLeaf(14f, 42f, 22f, 15f)
-
-        // Top-right foliage
-        drawLeaf(w - 20f, 18f, 26f, -40f)
-        drawLeaf(w - 42f, 14f, 18f, -70f)
-        drawLeaf(w - 16f, 44f, 20f, -20f)
-
-        // Bottom-left foliage
-        drawLeaf(20f, h - 20f, 26f, -45f)
-        drawLeaf(42f, h - 14f, 18f, -15f)
-
-        // Bottom-right foliage
-        drawLeaf(w - 24f, h - 22f, 28f, 40f)
-        drawLeaf(w - 46f, h - 16f, 20f, 75f)
+        drawLeaf(18f, 18f, 26f, 35f)
+        drawLeaf(w - 20f, 18f, 24f, -40f)
+        drawLeaf(20f, h - 20f, 24f, -45f)
+        drawLeaf(w - 22f, h - 22f, 26f, 40f)
     }
 }
 
 /**
- * Nature-Inspired Gradient Sphere System - Complete Color Picker Component.
- * Clean, organic, calm, modern, and production-ready with full bidirectional synchronization.
+ * Unified Color Studio Dialog.
+ * Features:
+ * - Interactive 2D spectrum wheel with live lightness feedback
+ * - Live swatch preview with contrast-aware hex readout, copy button, and RGB/HSL/CMYK metrics
+ * - Synchronized HSL, RGB, HEX, and CMYK channel controls using rememberUpdatedState (zero stale closures)
+ * - Non-interrupting live hex input (never overwrites 3-char partial input mid-typing)
+ * - Quick preset colors row + dynamic harmony palettes + saved custom colors manager
+ * - Theme-aware surfaces and standardized outlined buttons
  */
 @Composable
 fun NatureGradientSphereColorPicker(
@@ -639,21 +555,17 @@ fun NatureGradientSphereColorPicker(
     val configuration = LocalConfiguration.current
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
 
-    // Initialize with vibrant, bright default if not provided
     val initialHsl = remember(initialColorHex) {
         if (initialColorHex.isNotBlank() && CustomColorManager.isValidHex(initialColorHex)) {
-            val parsed = NatureColorEngine.hexToHsl(initialColorHex)
-            // Ensure bright and vibrant default
-            parsed
+            NatureColorEngine.hexToHsl(initialColorHex)
         } else {
-            NatureColorEngine.HslColor(0f, 1.0f, 0.5f) // Default bright vivid Red
+            NatureColorEngine.HslColor(0f, 0f, 0f)
         }
     }
 
-    // Single source of truth for color state
     var currentHue by remember { mutableFloatStateOf(initialHsl.hue) }
-    var currentSaturation by remember { mutableFloatStateOf(initialHsl.saturation.coerceIn(0.01f, 1.0f)) }
-    var currentLightness by remember { mutableFloatStateOf(initialHsl.lightness.coerceIn(0.05f, 0.95f)) }
+    var currentSaturation by remember { mutableFloatStateOf(initialHsl.saturation.coerceIn(0f, 1f)) }
+    var currentLightness by remember { mutableFloatStateOf(initialHsl.lightness.coerceIn(0f, 1f)) }
 
     val currentHslColor = NatureColorEngine.HslColor(currentHue, currentSaturation, currentLightness)
     val currentHex = currentHslColor.hex
@@ -664,11 +576,30 @@ fun NatureGradientSphereColorPicker(
     var hexInputText by remember { mutableStateOf(currentHex) }
     var hexInputError by remember { mutableStateOf(false) }
 
-    // Synchronize hex text field with live color changes
-    LaunchedEffect(currentHex) {
-        if (!hexInputText.equals(currentHex, ignoreCase = true)) {
-            hexInputText = currentHex
-            hexInputError = false
+    // Helper to update color from non-text controls (wheel, sliders, swatches) and keep hexInputText in sync
+    val updateHslFromControl: (Float, Float, Float) -> Unit = { h, s, l ->
+        val cleanH = h.coerceIn(0f, 360f)
+        val cleanS = s.coerceIn(0f, 1f)
+        val cleanL = l.coerceIn(0f, 1f)
+        currentHue = cleanH
+        currentSaturation = cleanS
+        currentLightness = cleanL
+        hexInputText = NatureColorEngine.hslToHex(cleanH, cleanS, cleanL)
+        hexInputError = false
+    }
+
+    // Handler for typing in hex text fields without overwriting partial 3-digit input mid-keystroke
+    val handleHexTextEdited: (String) -> Unit = { rawInput ->
+        hexInputError = false
+        val filtered = rawInput.uppercase(Locale.ROOT)
+            .filter { it in '0'..'9' || it in 'A'..'F' }
+            .take(6)
+        hexInputText = "#$filtered"
+        if (filtered.length == 6) {
+            val hsl = NatureColorEngine.hexToHsl("#$filtered")
+            currentHue = hsl.hue
+            currentSaturation = hsl.saturation
+            currentLightness = hsl.lightness
         }
     }
 
@@ -686,47 +617,50 @@ fun NatureGradientSphereColorPicker(
         (configuration.screenHeightDp * 0.92f).dp
     }
 
-    // Palette Colors (Nature Design Theme)
-    val natureBackground = Color(0xFFF9FBF6)
-    val natureCardBg = Color(0xFFFCFDF9)
-    val natureBorder = Color(0xFFDCEAD4)
-    val natureTextDark = Color(0xFF1B3B2B)
-    val natureTextMuted = Color(0xFF557A60)
-    val naturePrimaryGreen = Color(0xFF1B3B2B)
-    val natureSurfaceLight = Color(0xFFEDF4E8)
-    val natureSurfaceActive = Color(0xFF1B3B2B)
+    val cardBg = GeoSurface
+    val containerBg = MaterialTheme.colorScheme.surfaceContainer
+    val surfaceVariantBg = GeoSurfaceVariant
+    val borderColor = GeoBorder
+    val textDark = GeoOnSurface
+    val textMuted = GeoOnSurfaceVariant
+    val primaryAccent = GeoPrimary
+
+    val copiedToastText = when (appLanguage) {
+        "ar" -> "تم نسخ $currentHex"
+        "en" -> "$currentHex copied"
+        else -> "$currentHex kopiert"
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = natureCardBg),
-            border = BorderStroke(1.2.dp, natureBorder),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = BorderStroke(1.2.dp, borderColor),
             modifier = modifier
                 .fillMaxWidth(0.95f)
                 .widthIn(max = 520.dp)
                 .heightIn(max = maxDialogHeight)
-                .shadow(12.dp, RoundedCornerShape(24.dp), ambientColor = Color(0x202E633F), spotColor = Color(0x302E633F))
+                .shadow(12.dp, RoundedCornerShape(22.dp))
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
-                // Subtle botanical foliage background
                 BotanicalAtmosphereBackground(
                     modifier = Modifier
                         .matchParentSize()
-                        .clip(RoundedCornerShape(24.dp))
+                        .clip(RoundedCornerShape(22.dp))
                 )
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // ==========================================
-                    // 1. HEADER: Leaf Icon + Title + Subtitle
+                    // 1. HEADER: Icon + Title + Subtitle + Close
                     // ==========================================
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -735,15 +669,15 @@ fun NatureGradientSphereColorPicker(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(36.dp)
                                 .clip(CircleShape)
-                                .background(natureSurfaceLight),
+                                .background(primaryAccent.copy(alpha = 0.14f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Spa,
+                                imageVector = Icons.Default.Palette,
                                 contentDescription = null,
-                                tint = Color(0xFF2E633F),
+                                tint = primaryAccent,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -751,69 +685,70 @@ fun NatureGradientSphereColorPicker(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = strings.naturePickerTitle,
-                                fontSize = 16.sp,
+                                fontSize = 15.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = natureTextDark,
+                                color = textDark,
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = strings.naturePickerSubtitle,
-                                fontSize = 12.sp,
+                                fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = natureTextMuted,
+                                color = textMuted,
                                 maxLines = 1,
-                                softWrap = false
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
                         IconButton(
                             onClick = onDismiss,
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = strings.close,
-                                tint = natureTextMuted,
+                                tint = textMuted,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                     }
 
                     // =========================================================================
-                    // 2. MAIN CONTAINER: Gradient Sphere + Color Preview Panel + Modes
+                    // 2. MAIN STUDIO CONTAINER: Spectrum Wheel + Preview + Mode Controls
                     // =========================================================================
                     Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = natureBackground,
-                        border = BorderStroke(1.dp, natureBorder),
+                        shape = RoundedCornerShape(18.dp),
+                        color = containerBg,
+                        border = BorderStroke(1.dp, borderColor),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Responsive top row: Sphere + Preview
                             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                                val isNarrow = maxWidth < 340.dp
+                                val isNarrow = maxWidth < 330.dp
                                 if (isNarrow) {
                                     Column(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
                                         GradientSphereCanvas(
                                             currentHsl = currentHslColor,
                                             modeIndex = selectedModeIndex,
                                             onColorChanged = { h, s ->
-                                                currentHue = h
-                                                currentSaturation = s
+                                                // If lightness was at 0 (black) or 1 (white), bring to 0.5f so wheel selection is visible
+                                                val effectiveL = if (currentLightness <= 0.03f || currentLightness >= 0.97f) 0.5f else currentLightness
+                                                updateHslFromControl(h, s, effectiveL)
                                             },
                                             modifier = Modifier
-                                                .size(160.dp)
+                                                .size(156.dp)
                                                 .testTag("gradient_sphere_canvas")
                                         )
 
@@ -823,35 +758,36 @@ fun NatureGradientSphereColorPicker(
                                             currentHue = currentHue,
                                             currentSaturation = currentSaturation,
                                             currentLightness = currentLightness,
-                                            currentCmyk = currentCmyk,
                                             currentHslColor = currentHslColor,
                                             selectedModeIndex = selectedModeIndex,
                                             onModeSelected = { selectedModeIndex = it },
                                             onCopyHex = {
                                                 clipboardManager.setText(AnnotatedString(currentHex))
-                                                Toast.makeText(context, "$currentHex kopiert", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, copiedToastText, Toast.LENGTH_SHORT).show()
                                             },
-                                            natureTextDark = natureTextDark,
-                                            natureTextMuted = natureTextMuted,
-                                            natureSurfaceActive = natureSurfaceActive,
+                                            textDark = textDark,
+                                            textMuted = textMuted,
+                                            primaryAccent = primaryAccent,
+                                            surfaceVariantBg = surfaceVariantBg,
+                                            borderColor = borderColor,
                                             modifier = Modifier.fillMaxWidth()
                                         )
                                     }
                                 } else {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         GradientSphereCanvas(
                                             currentHsl = currentHslColor,
                                             modeIndex = selectedModeIndex,
                                             onColorChanged = { h, s ->
-                                                currentHue = h
-                                                currentSaturation = s
+                                                val effectiveL = if (currentLightness <= 0.03f || currentLightness >= 0.97f) 0.5f else currentLightness
+                                                updateHslFromControl(h, s, effectiveL)
                                             },
                                             modifier = Modifier
-                                                .size(160.dp)
+                                                .size(156.dp)
                                                 .testTag("gradient_sphere_canvas")
                                         )
 
@@ -861,17 +797,18 @@ fun NatureGradientSphereColorPicker(
                                             currentHue = currentHue,
                                             currentSaturation = currentSaturation,
                                             currentLightness = currentLightness,
-                                            currentCmyk = currentCmyk,
                                             currentHslColor = currentHslColor,
                                             selectedModeIndex = selectedModeIndex,
                                             onModeSelected = { selectedModeIndex = it },
                                             onCopyHex = {
                                                 clipboardManager.setText(AnnotatedString(currentHex))
-                                                Toast.makeText(context, "$currentHex kopiert", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, copiedToastText, Toast.LENGTH_SHORT).show()
                                             },
-                                            natureTextDark = natureTextDark,
-                                            natureTextMuted = natureTextMuted,
-                                            natureSurfaceActive = natureSurfaceActive,
+                                            textDark = textDark,
+                                            textMuted = textMuted,
+                                            primaryAccent = primaryAccent,
+                                            surfaceVariantBg = surfaceVariantBg,
+                                            borderColor = borderColor,
                                             modifier = Modifier.weight(1f)
                                         )
                                     }
@@ -883,65 +820,45 @@ fun NatureGradientSphereColorPicker(
                             // =========================================================================
                             when (selectedModeIndex) {
                                 0 -> {
-                                    // --------------------------------------------------
-                                    // RGB SYSTEM: 3 Sliders (R, G, B: 0..255)
-                                    // --------------------------------------------------
                                     RgbControlPanel(
                                         r = currentRgb.first,
                                         g = currentRgb.second,
                                         b = currentRgb.third,
                                         onRgbChanged = { newR, newG, newB ->
                                             val newHsl = NatureColorEngine.rgbToHsl(newR, newG, newB)
-                                            currentHue = newHsl.hue
-                                            currentSaturation = newHsl.saturation
-                                            currentLightness = newHsl.lightness
+                                            updateHslFromControl(newHsl.hue, newHsl.saturation, newHsl.lightness)
                                         },
-                                        natureTextDark = natureTextDark
+                                        textDark = textDark,
+                                        appLanguage = appLanguage
                                     )
                                 }
                                 1 -> {
-                                    // --------------------------------------------------
-                                    // HSL SYSTEM: 3 Sliders (Hue, Saturation, Lightness)
-                                    // --------------------------------------------------
                                     HslControlPanel(
                                         hue = currentHue,
                                         saturation = currentSaturation,
                                         lightness = currentLightness,
                                         currentHslColor = currentHslColor,
-                                        onHueChanged = { currentHue = it },
-                                        onSaturationChanged = { currentSaturation = it },
-                                        onLightnessChanged = { currentLightness = it },
-                                        natureTextDark = natureTextDark
+                                        onHueChanged = { updateHslFromControl(it, currentSaturation, currentLightness) },
+                                        onSaturationChanged = { updateHslFromControl(currentHue, it, currentLightness) },
+                                        onLightnessChanged = { updateHslFromControl(currentHue, currentSaturation, it) },
+                                        textDark = textDark,
+                                        appLanguage = appLanguage
                                     )
                                 }
                                 2 -> {
-                                    // --------------------------------------------------
-                                    // HEX SYSTEM: Direct Hex Input + Value Breakdown
-                                    // --------------------------------------------------
                                     HexControlPanel(
                                         hexText = hexInputText,
-                                        onHexChange = { input ->
-                                            hexInputError = false
-                                            val sanitized = if (input.startsWith("#")) input else "#$input"
-                                            hexInputText = sanitized.take(7)
-                                            if (CustomColorManager.isValidHex(sanitized)) {
-                                                val hsl = NatureColorEngine.hexToHsl(sanitized)
-                                                currentHue = hsl.hue
-                                                currentSaturation = hsl.saturation
-                                                currentLightness = hsl.lightness
-                                            }
-                                        },
+                                        onHexChange = handleHexTextEdited,
                                         hasError = hexInputError,
                                         currentHslColor = currentHslColor,
-                                        natureTextDark = natureTextDark,
-                                        natureTextMuted = natureTextMuted,
-                                        naturePrimaryGreen = naturePrimaryGreen
+                                        textDark = textDark,
+                                        textMuted = textMuted,
+                                        primaryAccent = primaryAccent,
+                                        surfaceBg = cardBg,
+                                        borderColor = borderColor
                                     )
                                 }
                                 3 -> {
-                                    // --------------------------------------------------
-                                    // CMYK SYSTEM: 4 Sliders (C, M, Y, K: 0%..100%)
-                                    // --------------------------------------------------
                                     CmykControlPanel(
                                         c = currentCmyk[0],
                                         m = currentCmyk[1],
@@ -955,11 +872,9 @@ fun NatureGradientSphereColorPicker(
                                                 newK.toFloat()
                                             )
                                             val newHsl = NatureColorEngine.rgbToHsl(newR, newG, newB)
-                                            currentHue = newHsl.hue
-                                            currentSaturation = newHsl.saturation
-                                            currentLightness = newHsl.lightness
+                                            updateHslFromControl(newHsl.hue, newHsl.saturation, newHsl.lightness)
                                         },
-                                        natureTextDark = natureTextDark
+                                        textDark = textDark
                                     )
                                 }
                             }
@@ -967,7 +882,7 @@ fun NatureGradientSphereColorPicker(
                     }
 
                     // ==========================================
-                    // 4. HARMONY SUGGESTIONS
+                    // 4. QUICK PRESETS & HARMONY SUGGESTIONS
                     // ==========================================
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -985,26 +900,65 @@ fun NatureGradientSphereColorPicker(
                                 Icon(
                                     imageVector = Icons.Default.Eco,
                                     contentDescription = null,
-                                    tint = Color(0xFF2E633F),
+                                    tint = primaryAccent,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
                                     text = strings.harmonySuggestionsTitle,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = natureTextDark
+                                    color = textDark
                                 )
                             }
 
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
-                                tint = natureTextMuted,
-                                modifier = Modifier.size(16.dp)
+                                tint = textMuted,
+                                modifier = Modifier.size(15.dp)
                             )
                         }
 
-                        // Palettes horizontal scroll row
+                        // Standard document & theme preset swatches row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            DeclensionHistoryExportHelper.PREDEFINED_COLORS.forEach { (_, presetHex) ->
+                                val swatchColor = NatureColorEngine.hexToHsl(presetHex).composeColor
+                                val isSelected = presetHex.equals(currentHex, ignoreCase = true)
+                                Box(
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                        .background(swatchColor)
+                                        .border(
+                                            width = if (isSelected) 2.5.dp else 1.dp,
+                                            color = if (isSelected) primaryAccent else borderColor,
+                                            shape = CircleShape
+                                        )
+                                        .clickable {
+                                            val hsl = NatureColorEngine.hexToHsl(presetHex)
+                                            updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = if (swatchColor.luminance() > 0.55f) Color.Black else Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Harmony Palettes horizontal scroll row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1014,13 +968,13 @@ fun NatureGradientSphereColorPicker(
                         ) {
                             harmonyPalettes.forEach { paletteGroup ->
                                 Surface(
-                                    shape = RoundedCornerShape(20.dp),
-                                    color = Color(0xFFEDF4E8),
-                                    border = BorderStroke(1.dp, Color(0xFFDCEAD4)),
+                                    shape = RoundedCornerShape(18.dp),
+                                    color = surfaceVariantBg,
+                                    border = BorderStroke(1.dp, borderColor),
                                     modifier = Modifier.padding(vertical = 2.dp)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -1034,14 +988,12 @@ fun NatureGradientSphereColorPicker(
                                                     .background(swatchColor)
                                                     .border(
                                                         width = if (isSelected) 2.5.dp else 1.dp,
-                                                        color = if (isSelected) natureTextDark else Color(0x33000000),
+                                                        color = if (isSelected) primaryAccent else borderColor,
                                                         shape = CircleShape
                                                     )
                                                     .clickable {
                                                         val hsl = NatureColorEngine.hexToHsl(hex)
-                                                        currentHue = hsl.hue
-                                                        currentSaturation = hsl.saturation
-                                                        currentLightness = hsl.lightness
+                                                        updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
                                                     }
                                                     .testTag("harmony_swatch_$hex")
                                             )
@@ -1056,9 +1008,9 @@ fun NatureGradientSphereColorPicker(
                     // 5. SAVED COLORS (Clickable -> Opens Full Modal)
                     // ==========================================
                     Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color(0xFFEDF4E8),
-                        border = BorderStroke(1.dp, Color(0xFFDCEAD4)),
+                        shape = RoundedCornerShape(12.dp),
+                        color = surfaceVariantBg,
+                        border = BorderStroke(1.dp, borderColor),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { showSavedColorsDialog = true }
@@ -1067,7 +1019,7 @@ fun NatureGradientSphereColorPicker(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -1078,24 +1030,23 @@ fun NatureGradientSphereColorPicker(
                                 Icon(
                                     imageVector = Icons.Default.Star,
                                     contentDescription = null,
-                                    tint = Color(0xFF2E633F),
+                                    tint = primaryAccent,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
                                     text = strings.savedColorsTitle,
-                                    fontSize = 13.5.sp,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = natureTextDark
+                                    color = textDark
                                 )
                                 Text(
                                     text = "(${customColors.size})",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = natureTextMuted
+                                    color = textMuted
                                 )
                             }
 
-                            // Saved swatches pill on the right
                             val displaySaved = if (customColors.isNotEmpty()) {
                                 customColors.take(6)
                             } else {
@@ -1103,7 +1054,7 @@ fun NatureGradientSphereColorPicker(
                             }
 
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 displaySaved.forEach { hex ->
@@ -1116,7 +1067,7 @@ fun NatureGradientSphereColorPicker(
                                             .background(color)
                                             .border(
                                                 width = if (isSelected) 2.dp else 1.dp,
-                                                color = if (isSelected) natureTextDark else Color(0x33000000),
+                                                color = if (isSelected) primaryAccent else borderColor,
                                                 shape = CircleShape
                                             )
                                     )
@@ -1124,20 +1075,20 @@ fun NatureGradientSphereColorPicker(
 
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = "Open Saved Colors",
-                                    tint = natureTextMuted,
-                                    modifier = Modifier.size(16.dp)
+                                    contentDescription = strings.savedColorsTitle,
+                                    tint = textMuted,
+                                    modifier = Modifier.size(15.dp)
                                 )
                             }
                         }
                     }
 
                     // ==========================================
-                    // 6. ADD CUSTOM COLOR (Input + Add Button)
+                    // 6. LIVE HEX INPUT & ADD CUSTOM COLOR
                     // ==========================================
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -1146,14 +1097,14 @@ fun NatureGradientSphereColorPicker(
                             Icon(
                                 imageVector = Icons.Default.AddCircleOutline,
                                 contentDescription = null,
-                                tint = Color(0xFF2E633F),
+                                tint = primaryAccent,
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 text = strings.colorPickerAddCustomColor,
-                                fontSize = 13.5.sp,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = natureTextDark
+                                color = textDark
                             )
                         }
 
@@ -1162,17 +1113,16 @@ fun NatureGradientSphereColorPicker(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Rounded input field
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
+                                shape = RoundedCornerShape(10.dp),
+                                color = containerBg,
                                 border = BorderStroke(
                                     1.2.dp,
-                                    if (hexInputError) MaterialTheme.colorScheme.error else Color(0xFFDCEAD4)
+                                    if (hexInputError) MaterialTheme.colorScheme.error else borderColor
                                 ),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(44.dp)
+                                    .height(42.dp)
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -1183,86 +1133,74 @@ fun NatureGradientSphereColorPicker(
                                 ) {
                                     BasicTextField(
                                         value = hexInputText,
-                                        onValueChange = { input ->
-                                            hexInputError = false
-                                            val sanitized = if (input.startsWith("#")) input else "#$input"
-                                            hexInputText = sanitized.take(7)
-                                            if (CustomColorManager.isValidHex(sanitized)) {
-                                                val hsl = NatureColorEngine.hexToHsl(sanitized)
-                                                currentHue = hsl.hue
-                                                currentSaturation = hsl.saturation
-                                                currentLightness = hsl.lightness
-                                            }
-                                        },
+                                        onValueChange = handleHexTextEdited,
                                         singleLine = true,
                                         textStyle = TextStyle(
-                                            color = natureTextDark,
+                                            color = textDark,
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold
                                         ),
-                                        cursorBrush = SolidColor(naturePrimaryGreen),
+                                        cursorBrush = SolidColor(primaryAccent),
                                         modifier = Modifier
                                             .weight(1f)
                                             .testTag("add_custom_hex_input")
                                     )
 
-                                    if (hexInputText.isNotEmpty()) {
+                                    if (hexInputText.length > 1) {
                                         IconButton(
                                             onClick = { hexInputText = "#" },
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(22.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.Close,
-                                                contentDescription = "Clear",
-                                                tint = natureTextMuted,
+                                                contentDescription = strings.close,
+                                                tint = textMuted,
                                                 modifier = Modifier.size(14.dp)
                                             )
                                         }
                                     }
 
-                                    // Preview circle swatch inside input
                                     Box(
                                         modifier = Modifier
                                             .size(22.dp)
                                             .clip(CircleShape)
                                             .background(currentHslColor.composeColor)
-                                            .border(1.dp, Color(0x33000000), CircleShape)
+                                            .border(1.dp, borderColor, CircleShape)
                                     )
                                 }
                             }
 
-                            // Add Button
-                            Button(
+                            OutlinedButton(
                                 onClick = {
                                     if (CustomColorManager.isValidHex(hexInputText)) {
                                         val formatted = CustomColorManager.normalizeHex(hexInputText)
                                         CustomColorManager.addCustomColor(context, formatted)
                                         customColors = CustomColorManager.getCustomColors(context)
                                         val hsl = NatureColorEngine.hexToHsl(formatted)
-                                        currentHue = hsl.hue
-                                        currentSaturation = hsl.saturation
-                                        currentLightness = hsl.lightness
-                                        hexInputError = false
-                                        Toast.makeText(context, "$formatted", Toast.LENGTH_SHORT).show()
+                                        updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
+                                        Toast.makeText(context, formatted, Toast.LENGTH_SHORT).show()
                                     } else {
                                         hexInputError = true
                                     }
                                 },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = naturePrimaryGreen,
-                                    contentColor = Color.White
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, borderColor),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = surfaceVariantBg,
+                                    contentColor = textDark
                                 ),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                                 modifier = Modifier
-                                    .width(100.dp)
-                                    .height(44.dp)
+                                    .widthIn(min = 96.dp)
+                                    .height(42.dp)
                                     .testTag("add_custom_color_button")
                             ) {
-                                Text(
+                                AutoSizingText(
                                     text = strings.colorPickerAddButton,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    maxFontSize = 13.sp,
+                                    minFontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = textDark
                                 )
                             }
                         }
@@ -1274,56 +1212,60 @@ fun NatureGradientSphereColorPicker(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 4.dp),
+                            .padding(top = 2.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Cancel Button
                         OutlinedButton(
                             onClick = onDismiss,
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, Color(0xFFCCDDC4)),
+                            border = BorderStroke(1.dp, borderColor),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color(0xFFF7F9F3),
-                                contentColor = natureTextDark
+                                containerColor = Color.Transparent,
+                                contentColor = textDark
                             ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             modifier = Modifier
                                 .weight(1f)
                                 .height(42.dp)
                                 .testTag("color_picker_cancel_button")
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.cancel,
-                                fontSize = 13.sp,
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = natureTextDark,
-                                maxLines = 1,
-                                softWrap = false
+                                color = textDark
                             )
                         }
 
-                        // Confirm Button
-                        Button(
+                        OutlinedButton(
                             onClick = {
-                                onColorChosen(currentHex)
+                                val finalHex = if (CustomColorManager.isValidHex(hexInputText)) {
+                                    CustomColorManager.normalizeHex(hexInputText)
+                                } else {
+                                    currentHex
+                                }
+                                onColorChosen(finalHex)
                             },
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = naturePrimaryGreen,
-                                contentColor = Color.White
+                            border = BorderStroke(1.dp, borderColor),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = textDark
                             ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             modifier = Modifier
                                 .weight(1f)
                                 .height(42.dp)
                                 .testTag("color_picker_apply_button")
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.confirm,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 1,
-                                softWrap = false
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textDark
                             )
                         }
                     }
@@ -1332,18 +1274,13 @@ fun NatureGradientSphereColorPicker(
         }
     }
 
-    // ==========================================
-    // SAVED COLORS FULL MANAGEMENT MODAL
-    // ==========================================
     if (showSavedColorsDialog) {
         SavedColorsManagementDialog(
             customColors = customColors,
             selectedHex = currentHex,
             onSelectColor = { chosenHex ->
                 val hsl = NatureColorEngine.hexToHsl(chosenHex)
-                currentHue = hsl.hue
-                currentSaturation = hsl.saturation
-                currentLightness = hsl.lightness
+                updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
                 showSavedColorsDialog = false
             },
             onDeleteColor = { hexToDelete ->
@@ -1357,25 +1294,26 @@ fun NatureGradientSphereColorPicker(
                 }
             },
             onDismiss = { showSavedColorsDialog = false },
-            natureBackground = natureBackground,
-            natureBorder = natureBorder,
-            natureTextDark = natureTextDark,
-            natureTextMuted = natureTextMuted,
-            naturePrimaryGreen = naturePrimaryGreen
+            cardBg = cardBg,
+            containerBg = containerBg,
+            borderColor = borderColor,
+            textDark = textDark,
+            textMuted = textMuted,
+            primaryAccent = primaryAccent
         )
     }
 
-    // Delete custom color dialog
     if (colorToDelete != null) {
         val targetHex = colorToDelete!!
         AlertDialog(
             onDismissRequest = { colorToDelete = null },
+            containerColor = cardBg,
             title = {
                 Text(
                     text = strings.colorPickerDeleteTitle,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = natureTextDark
+                    color = textDark
                 )
             },
             text = {
@@ -1388,12 +1326,12 @@ fun NatureGradientSphereColorPicker(
                             .size(28.dp)
                             .clip(CircleShape)
                             .background(NatureColorEngine.hexToHsl(targetHex).composeColor)
-                            .border(1.dp, natureBorder, CircleShape)
+                            .border(1.dp, borderColor, CircleShape)
                     )
                     Text(
                         text = strings.deleteColorPrompt(targetHex),
                         fontSize = 13.sp,
-                        color = natureTextMuted
+                        color = textMuted
                     )
                 }
             },
@@ -1409,17 +1347,19 @@ fun NatureGradientSphereColorPicker(
                             .weight(1f)
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, natureBorder)
+                        border = BorderStroke(1.dp, borderColor),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textDark),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
-                            color = natureTextDark,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            color = textDark,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = {
                             CustomColorManager.removeCustomColor(context, targetHex)
                             customColors = CustomColorManager.getCustomColors(context)
@@ -1428,20 +1368,129 @@ fun NatureGradientSphereColorPicker(
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = naturePrimaryGreen),
+                        border = BorderStroke(1.dp, borderColor),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textDark),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.confirm,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            color = textDark,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
         )
+    }
+}
+
+/**
+ * Reusable Gradient Track Slider with rememberUpdatedState so sequential channel drags never use stale closures.
+ */
+@Composable
+private fun ColorGradientTrackSlider(
+    label: String,
+    valueText: String,
+    fraction: Float,
+    gradientColors: List<Color>,
+    thumbFillColor: Color,
+    textDark: Color,
+    onFractionChanged: (Float) -> Unit
+) {
+    val latestOnFractionChanged by rememberUpdatedState(onFractionChanged)
+    val cleanFraction = fraction.coerceIn(0f, 1f)
+
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = textDark
+            )
+            Text(
+                text = valueText,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = textDark
+            )
+        }
+
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(26.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = { offset ->
+                            if (size.width > 0) {
+                                latestOnFractionChanged((offset.x / size.width).coerceIn(0f, 1f))
+                            }
+                        }
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            if (size.width > 0) {
+                                latestOnFractionChanged((offset.x / size.width).coerceIn(0f, 1f))
+                            }
+                        },
+                        onDrag = { change, _ ->
+                            change.consume()
+                            if (size.width > 0) {
+                                latestOnFractionChanged((change.position.x / size.width).coerceIn(0f, 1f))
+                            }
+                        }
+                    )
+                }
+        ) {
+            val trackHeight = 10.dp.toPx()
+            val cy = size.height / 2f
+            val trackY = cy - trackHeight / 2f
+            val thumbRadius = 8.5.dp.toPx()
+
+            drawRoundRect(
+                brush = Brush.horizontalGradient(gradientColors),
+                topLeft = Offset(0f, trackY),
+                size = Size(size.width, trackHeight),
+                cornerRadius = CornerRadius(trackHeight / 2f)
+            )
+            drawRoundRect(
+                color = Color(0x33000000),
+                topLeft = Offset(0f, trackY),
+                size = Size(size.width, trackHeight),
+                cornerRadius = CornerRadius(trackHeight / 2f),
+                style = Stroke(width = 1.dp.toPx())
+            )
+
+            val usableWidth = (size.width - thumbRadius * 2f).coerceAtLeast(1f)
+            val thumbX = thumbRadius + cleanFraction * usableWidth
+
+            drawCircle(
+                color = Color.White,
+                radius = thumbRadius,
+                center = Offset(thumbX, cy)
+            )
+            drawCircle(
+                color = Color(0xFF0F172A),
+                radius = thumbRadius,
+                center = Offset(thumbX, cy),
+                style = Stroke(width = 1.5.dp.toPx())
+            )
+            drawCircle(
+                color = thumbFillColor,
+                radius = 4.8.dp.toPx(),
+                center = Offset(thumbX, cy)
+            )
+        }
     }
 }
 
@@ -1454,133 +1503,60 @@ private fun RgbControlPanel(
     g: Int,
     b: Int,
     onRgbChanged: (Int, Int, Int) -> Unit,
-    natureTextDark: Color
+    textDark: Color,
+    appLanguage: String
 ) {
+    val latestR by rememberUpdatedState(r)
+    val latestG by rememberUpdatedState(g)
+    val latestB by rememberUpdatedState(b)
+    val latestOnRgbChanged by rememberUpdatedState(onRgbChanged)
+
+    val rLabel = when (appLanguage) { "ar" -> "أحمر (R)"; "en" -> "Red (R)"; else -> "Rot (R)" }
+    val gLabel = when (appLanguage) { "ar" -> "أخضر (G)"; "en" -> "Green (G)"; else -> "Grün (G)" }
+    val bLabel = when (appLanguage) { "ar" -> "أزرق (B)"; "en" -> "Blue (B)"; else -> "Blau (B)" }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Red Slider
-        RgbSingleSlider(
-            label = "R",
-            value = r,
-            onValueChanged = { onRgbChanged(it, g, b) },
-            startColor = Color(0, g, b),
-            endColor = Color(255, g, b),
-            activeColor = Color(r, g, b),
-            natureTextDark = natureTextDark
+        ColorGradientTrackSlider(
+            label = rLabel,
+            valueText = "$r",
+            fraction = r / 255f,
+            gradientColors = listOf(Color(0, g, b), Color(255, g, b)),
+            thumbFillColor = Color(r, g, b),
+            textDark = textDark,
+            onFractionChanged = { pct ->
+                latestOnRgbChanged((pct * 255f).roundToInt().coerceIn(0, 255), latestG, latestB)
+            }
         )
-
-        // Green Slider
-        RgbSingleSlider(
-            label = "G",
-            value = g,
-            onValueChanged = { onRgbChanged(r, it, b) },
-            startColor = Color(r, 0, b),
-            endColor = Color(r, 255, b),
-            activeColor = Color(r, g, b),
-            natureTextDark = natureTextDark
+        ColorGradientTrackSlider(
+            label = gLabel,
+            valueText = "$g",
+            fraction = g / 255f,
+            gradientColors = listOf(Color(r, 0, b), Color(r, 255, b)),
+            thumbFillColor = Color(r, g, b),
+            textDark = textDark,
+            onFractionChanged = { pct ->
+                latestOnRgbChanged(latestR, (pct * 255f).roundToInt().coerceIn(0, 255), latestB)
+            }
         )
-
-        // Blue Slider
-        RgbSingleSlider(
-            label = "B",
-            value = b,
-            onValueChanged = { onRgbChanged(r, g, it) },
-            startColor = Color(r, g, 0),
-            endColor = Color(r, g, 255),
-            activeColor = Color(r, g, b),
-            natureTextDark = natureTextDark
+        ColorGradientTrackSlider(
+            label = bLabel,
+            valueText = "$b",
+            fraction = b / 255f,
+            gradientColors = listOf(Color(r, g, 0), Color(r, g, 255)),
+            thumbFillColor = Color(r, g, b),
+            textDark = textDark,
+            onFractionChanged = { pct ->
+                latestOnRgbChanged(latestR, latestG, (pct * 255f).roundToInt().coerceIn(0, 255))
+            }
         )
-    }
-}
-
-@Composable
-private fun RgbSingleSlider(
-    label: String,
-    value: Int,
-    onValueChanged: (Int) -> Unit,
-    startColor: Color,
-    endColor: Color,
-    activeColor: Color,
-    natureTextDark: Color
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "$label ($label-Wert)",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = natureTextDark
-            )
-            Text(
-                text = "$value",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = natureTextDark
-            )
-        }
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(24.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { offset ->
-                            val pct = (offset.x / size.width).coerceIn(0f, 1f)
-                            onValueChanged((pct * 255f).roundToInt().coerceIn(0, 255))
-                        }
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDrag = { change, _ ->
-                            change.consume()
-                            val pct = (change.position.x / size.width).coerceIn(0f, 1f)
-                            onValueChanged((pct * 255f).roundToInt().coerceIn(0, 255))
-                        }
-                    )
-                }
-        ) {
-            val trackHeight = 10.dp.toPx()
-            val cy = size.height / 2f
-            val trackY = cy - trackHeight / 2f
-
-            drawRoundRect(
-                brush = Brush.horizontalGradient(listOf(startColor, endColor)),
-                topLeft = Offset(0f, trackY),
-                size = Size(size.width, trackHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f)
-            )
-
-            val thumbX = (value / 255f) * size.width
-            drawCircle(
-                color = Color.White,
-                radius = 8.dp.toPx(),
-                center = Offset(thumbX, cy)
-            )
-            drawCircle(
-                color = Color(0xFF1B3B2B),
-                radius = 8.dp.toPx(),
-                center = Offset(thumbX, cy),
-                style = Stroke(width = 1.5.dp.toPx())
-            )
-            drawCircle(
-                color = activeColor,
-                radius = 4.5.dp.toPx(),
-                center = Offset(thumbX, cy)
-            )
-        }
     }
 }
 
 /**
- * Functional HSL Slider Control Panel (Hue, Saturation, Lightness).
+ * Functional HSL Slider Control Panel (Hue 0..360, Saturation 0..100%, Lightness 0..100%).
  */
 @Composable
 private fun HslControlPanel(
@@ -1591,248 +1567,63 @@ private fun HslControlPanel(
     onHueChanged: (Float) -> Unit,
     onSaturationChanged: (Float) -> Unit,
     onLightnessChanged: (Float) -> Unit,
-    natureTextDark: Color
+    textDark: Color,
+    appLanguage: String
 ) {
+    val hLabel = when (appLanguage) { "ar" -> "درجة اللون (H)"; "en" -> "Hue (H)"; else -> "Farbton (H)" }
+    val sLabel = when (appLanguage) { "ar" -> "التشبع (S)"; "en" -> "Saturation (S)"; else -> "Sättigung (S)" }
+    val lLabel = when (appLanguage) { "ar" -> "الإضاءة (L)"; "en" -> "Lightness (L)"; else -> "Helligkeit (L)" }
+
+    val rainbowColors = remember {
+        listOf(
+            Color(0xFFE53935),
+            Color(0xFFFDD835),
+            Color(0xFF43A047),
+            Color(0xFF00ACC1),
+            Color(0xFF1E88E5),
+            Color(0xFF8E24AA),
+            Color(0xFFD81B60),
+            Color(0xFFE53935)
+        )
+    }
+
+    val minSatColor = NatureColorEngine.HslColor(hue, 0f, lightness.coerceIn(0.15f, 0.85f)).composeColor
+    val maxSatColor = NatureColorEngine.HslColor(hue, 1f, lightness.coerceIn(0.15f, 0.85f)).composeColor
+    val midLightColor = NatureColorEngine.HslColor(hue, saturation.coerceAtLeast(0.5f), 0.5f).composeColor
+
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // 1. Hue Slider
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Hue (Farbton)",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = natureTextDark
-                )
-                Text(
-                    text = "${hue.roundToInt()}°",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = natureTextDark
-                )
-            }
+        ColorGradientTrackSlider(
+            label = hLabel,
+            valueText = "${hue.roundToInt()}°",
+            fraction = hue / 360f,
+            gradientColors = rainbowColors,
+            thumbFillColor = currentHslColor.composeColor,
+            textDark = textDark,
+            onFractionChanged = { pct -> onHueChanged(pct * 360f) }
+        )
 
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(24.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { offset ->
-                                val pct = (offset.x / size.width).coerceIn(0f, 1f)
-                                onHueChanged(pct * 360f)
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDrag = { change, _ ->
-                                change.consume()
-                                val pct = (change.position.x / size.width).coerceIn(0f, 1f)
-                                onHueChanged(pct * 360f)
-                            }
-                        )
-                    }
-            ) {
-                val trackHeight = 10.dp.toPx()
-                val cy = size.height / 2f
-                val trackY = cy - trackHeight / 2f
+        ColorGradientTrackSlider(
+            label = sLabel,
+            valueText = "${(saturation * 100).roundToInt()}%",
+            fraction = saturation,
+            gradientColors = listOf(minSatColor, maxSatColor),
+            thumbFillColor = currentHslColor.composeColor,
+            textDark = textDark,
+            onFractionChanged = { pct -> onSaturationChanged(pct.coerceIn(0f, 1f)) }
+        )
 
-                val rainbow = Brush.horizontalGradient(
-                    listOf(
-                        Color(0xFFE53935),
-                        Color(0xFFFDD835),
-                        Color(0xFF43A047),
-                        Color(0xFF00ACC1),
-                        Color(0xFF1E88E5),
-                        Color(0xFF8E24AA),
-                        Color(0xFFD81B60),
-                        Color(0xFFE53935)
-                    )
-                )
-                drawRoundRect(
-                    brush = rainbow,
-                    topLeft = Offset(0f, trackY),
-                    size = Size(size.width, trackHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f)
-                )
-
-                val thumbX = (hue / 360f) * size.width
-                drawCircle(
-                    color = Color.White,
-                    radius = 8.dp.toPx(),
-                    center = Offset(thumbX, cy)
-                )
-                drawCircle(
-                    color = Color(0xFF1B3B2B),
-                    radius = 8.dp.toPx(),
-                    center = Offset(thumbX, cy),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-                drawCircle(
-                    color = currentHslColor.composeColor,
-                    radius = 4.5.dp.toPx(),
-                    center = Offset(thumbX, cy)
-                )
-            }
-        }
-
-        // 2. Saturation Slider
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Saturation (Sättigung)",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = natureTextDark
-                )
-                Text(
-                    text = "${(saturation * 100).roundToInt()}%",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = natureTextDark
-                )
-            }
-
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(24.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { offset ->
-                                onSaturationChanged((offset.x / size.width).coerceIn(0.01f, 1f))
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDrag = { change, _ ->
-                                change.consume()
-                                onSaturationChanged((change.position.x / size.width).coerceIn(0.01f, 1f))
-                            }
-                        )
-                    }
-            ) {
-                val trackHeight = 10.dp.toPx()
-                val cy = size.height / 2f
-                val trackY = cy - trackHeight / 2f
-
-                val minColor = NatureColorEngine.HslColor(hue, 0f, lightness).composeColor
-                val maxColor = NatureColorEngine.HslColor(hue, 1f, lightness).composeColor
-
-                drawRoundRect(
-                    brush = Brush.horizontalGradient(listOf(minColor, maxColor)),
-                    topLeft = Offset(0f, trackY),
-                    size = Size(size.width, trackHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f)
-                )
-
-                val thumbX = saturation * size.width
-                drawCircle(
-                    color = Color.White,
-                    radius = 8.dp.toPx(),
-                    center = Offset(thumbX, cy)
-                )
-                drawCircle(
-                    color = Color(0xFF1B3B2B),
-                    radius = 8.dp.toPx(),
-                    center = Offset(thumbX, cy),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-                drawCircle(
-                    color = currentHslColor.composeColor,
-                    radius = 4.5.dp.toPx(),
-                    center = Offset(thumbX, cy)
-                )
-            }
-        }
-
-        // 3. Lightness Slider
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Lightness (Helligkeit)",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = natureTextDark
-                )
-                Text(
-                    text = "${(lightness * 100).roundToInt()}%",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = natureTextDark
-                )
-            }
-
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(24.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { offset ->
-                                onLightnessChanged((offset.x / size.width).coerceIn(0.05f, 0.95f))
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDrag = { change, _ ->
-                                change.consume()
-                                onLightnessChanged((change.position.x / size.width).coerceIn(0.05f, 0.95f))
-                            }
-                        )
-                    }
-            ) {
-                val trackHeight = 10.dp.toPx()
-                val cy = size.height / 2f
-                val trackY = cy - trackHeight / 2f
-
-                val blackColor = Color.Black
-                val midColor = NatureColorEngine.HslColor(hue, saturation, 0.5f).composeColor
-                val whiteColor = Color.White
-
-                drawRoundRect(
-                    brush = Brush.horizontalGradient(listOf(blackColor, midColor, whiteColor)),
-                    topLeft = Offset(0f, trackY),
-                    size = Size(size.width, trackHeight),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f)
-                )
-
-                val thumbX = lightness * size.width
-                drawCircle(
-                    color = Color.White,
-                    radius = 8.dp.toPx(),
-                    center = Offset(thumbX, cy)
-                )
-                drawCircle(
-                    color = Color(0xFF1B3B2B),
-                    radius = 8.dp.toPx(),
-                    center = Offset(thumbX, cy),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-                drawCircle(
-                    color = currentHslColor.composeColor,
-                    radius = 4.5.dp.toPx(),
-                    center = Offset(thumbX, cy)
-                )
-            }
-        }
+        ColorGradientTrackSlider(
+            label = lLabel,
+            valueText = "${(lightness * 100).roundToInt()}%",
+            fraction = lightness,
+            gradientColors = listOf(Color.Black, midLightColor, Color.White),
+            thumbFillColor = currentHslColor.composeColor,
+            textDark = textDark,
+            onFractionChanged = { pct -> onLightnessChanged(pct.coerceIn(0f, 1f)) }
+        )
     }
 }
 
@@ -1845,33 +1636,35 @@ private fun HexControlPanel(
     onHexChange: (String) -> Unit,
     hasError: Boolean,
     currentHslColor: NatureColorEngine.HslColor,
-    natureTextDark: Color,
-    natureTextMuted: Color,
-    naturePrimaryGreen: Color
+    textDark: Color,
+    textMuted: Color,
+    primaryAccent: Color,
+    surfaceBg: Color,
+    borderColor: Color
 ) {
     val appLanguage = LocalAppLanguage.current
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
             text = strings.enterHexCodeLabel,
-            fontSize = 12.5.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
-            color = natureTextDark
+            color = textDark
         )
 
         Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color.White,
+            shape = RoundedCornerShape(10.dp),
+            color = surfaceBg,
             border = BorderStroke(
                 1.2.dp,
-                if (hasError) MaterialTheme.colorScheme.error else Color(0xFFDCEAD4)
+                if (hasError) MaterialTheme.colorScheme.error else borderColor
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(46.dp)
+                .height(44.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -1882,9 +1675,9 @@ private fun HexControlPanel(
             ) {
                 Text(
                     text = "#",
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = natureTextDark
+                    color = primaryAccent
                 )
 
                 BasicTextField(
@@ -1892,11 +1685,11 @@ private fun HexControlPanel(
                     onValueChange = { onHexChange(it) },
                     singleLine = true,
                     textStyle = TextStyle(
-                        color = natureTextDark,
-                        fontSize = 15.sp,
+                        color = textDark,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold
                     ),
-                    cursorBrush = SolidColor(naturePrimaryGreen),
+                    cursorBrush = SolidColor(primaryAccent),
                     modifier = Modifier
                         .weight(1f)
                         .testTag("hex_mode_input")
@@ -1907,15 +1700,15 @@ private fun HexControlPanel(
                         .size(24.dp)
                         .clip(CircleShape)
                         .background(currentHslColor.composeColor)
-                        .border(1.dp, Color(0x33000000), CircleShape)
+                        .border(1.dp, borderColor, CircleShape)
                 )
             }
         }
 
         Text(
             text = strings.hexInputHelperText,
-            fontSize = 11.5.sp,
-            color = natureTextMuted
+            fontSize = 11.sp,
+            color = textMuted
         )
     }
 }
@@ -1930,144 +1723,67 @@ private fun CmykControlPanel(
     y: Int,
     k: Int,
     onCmykChanged: (Int, Int, Int, Int) -> Unit,
-    natureTextDark: Color
+    textDark: Color
 ) {
+    val latestC by rememberUpdatedState(c)
+    val latestM by rememberUpdatedState(m)
+    val latestY by rememberUpdatedState(y)
+    val latestK by rememberUpdatedState(k)
+    val latestOnCmykChanged by rememberUpdatedState(onCmykChanged)
+
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Cyan Slider
-        CmykSingleSlider(
+        ColorGradientTrackSlider(
             label = "Cyan (C)",
-            value = c,
-            onValueChanged = { onCmykChanged(it, m, y, k) },
-            startColor = Color(0xFFFFFFFF),
-            endColor = Color(0xFF00ACC1),
-            activeColor = Color(0xFF00ACC1),
-            natureTextDark = natureTextDark
+            valueText = "$c%",
+            fraction = c / 100f,
+            gradientColors = listOf(Color.White, Color(0xFF00ACC1)),
+            thumbFillColor = Color(0xFF00ACC1),
+            textDark = textDark,
+            onFractionChanged = { pct ->
+                latestOnCmykChanged((pct * 100f).roundToInt().coerceIn(0, 100), latestM, latestY, latestK)
+            }
         )
-
-        // Magenta Slider
-        CmykSingleSlider(
+        ColorGradientTrackSlider(
             label = "Magenta (M)",
-            value = m,
-            onValueChanged = { onCmykChanged(c, it, y, k) },
-            startColor = Color(0xFFFFFFFF),
-            endColor = Color(0xFFD81B60),
-            activeColor = Color(0xFFD81B60),
-            natureTextDark = natureTextDark
+            valueText = "$m%",
+            fraction = m / 100f,
+            gradientColors = listOf(Color.White, Color(0xFFD81B60)),
+            thumbFillColor = Color(0xFFD81B60),
+            textDark = textDark,
+            onFractionChanged = { pct ->
+                latestOnCmykChanged(latestC, (pct * 100f).roundToInt().coerceIn(0, 100), latestY, latestK)
+            }
         )
-
-        // Yellow Slider
-        CmykSingleSlider(
+        ColorGradientTrackSlider(
             label = "Yellow (Y)",
-            value = y,
-            onValueChanged = { onCmykChanged(c, m, it, k) },
-            startColor = Color(0xFFFFFFFF),
-            endColor = Color(0xFFFDD835),
-            activeColor = Color(0xFFFDD835),
-            natureTextDark = natureTextDark
+            valueText = "$y%",
+            fraction = y / 100f,
+            gradientColors = listOf(Color.White, Color(0xFFFDD835)),
+            thumbFillColor = Color(0xFFFDD835),
+            textDark = textDark,
+            onFractionChanged = { pct ->
+                latestOnCmykChanged(latestC, latestM, (pct * 100f).roundToInt().coerceIn(0, 100), latestK)
+            }
         )
-
-        // Key / Black Slider
-        CmykSingleSlider(
+        ColorGradientTrackSlider(
             label = "Key / Black (K)",
-            value = k,
-            onValueChanged = { onCmykChanged(c, m, y, it) },
-            startColor = Color(0xFFFFFFFF),
-            endColor = Color(0xFF212121),
-            activeColor = Color(0xFF212121),
-            natureTextDark = natureTextDark
+            valueText = "$k%",
+            fraction = k / 100f,
+            gradientColors = listOf(Color.White, Color(0xFF212121)),
+            thumbFillColor = Color(0xFF212121),
+            textDark = textDark,
+            onFractionChanged = { pct ->
+                latestOnCmykChanged(latestC, latestM, latestY, (pct * 100f).roundToInt().coerceIn(0, 100))
+            }
         )
-    }
-}
-
-@Composable
-private fun CmykSingleSlider(
-    label: String,
-    value: Int,
-    onValueChanged: (Int) -> Unit,
-    startColor: Color,
-    endColor: Color,
-    activeColor: Color,
-    natureTextDark: Color
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = natureTextDark
-            )
-            Text(
-                text = "$value%",
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = natureTextDark
-            )
-        }
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(22.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = { offset ->
-                            val pct = (offset.x / size.width).coerceIn(0f, 1f)
-                            onValueChanged((pct * 100f).roundToInt().coerceIn(0, 100))
-                        }
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDrag = { change, _ ->
-                            change.consume()
-                            val pct = (change.position.x / size.width).coerceIn(0f, 1f)
-                            onValueChanged((pct * 100f).roundToInt().coerceIn(0, 100))
-                        }
-                    )
-                }
-        ) {
-            val trackHeight = 9.dp.toPx()
-            val cy = size.height / 2f
-            val trackY = cy - trackHeight / 2f
-
-            drawRoundRect(
-                brush = Brush.horizontalGradient(listOf(startColor, endColor)),
-                topLeft = Offset(0f, trackY),
-                size = Size(size.width, trackHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f)
-            )
-
-            val thumbX = (value / 100f) * size.width
-            drawCircle(
-                color = Color.White,
-                radius = 7.5.dp.toPx(),
-                center = Offset(thumbX, cy)
-            )
-            drawCircle(
-                color = Color(0xFF1B3B2B),
-                radius = 7.5.dp.toPx(),
-                center = Offset(thumbX, cy),
-                style = Stroke(width = 1.5.dp.toPx())
-            )
-            drawCircle(
-                color = activeColor,
-                radius = 4.dp.toPx(),
-                center = Offset(thumbX, cy)
-            )
-        }
     }
 }
 
 /**
- * Preview Panel displaying large live swatch, values (HEX, RGB, HSL, CMYK), and mode selector buttons.
+ * Preview Panel displaying live swatch, values (HEX, RGB, HSL), and mode selector buttons.
  */
 @Composable
 private fun ColorPreviewAndModesPanel(
@@ -2076,27 +1792,30 @@ private fun ColorPreviewAndModesPanel(
     currentHue: Float,
     currentSaturation: Float,
     currentLightness: Float,
-    currentCmyk: List<Int>,
     currentHslColor: NatureColorEngine.HslColor,
     selectedModeIndex: Int,
     onModeSelected: (Int) -> Unit,
     onCopyHex: () -> Unit,
-    natureTextDark: Color,
-    natureTextMuted: Color,
-    natureSurfaceActive: Color,
+    textDark: Color,
+    textMuted: Color,
+    primaryAccent: Color,
+    surfaceVariantBg: Color,
+    borderColor: Color,
     modifier: Modifier = Modifier
 ) {
     val appLanguage = LocalAppLanguage.current
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
+    val previewColor = currentHslColor.composeColor
+    val onPreviewColor = if (previewColor.luminance() > 0.55f) Color(0xFF0F172A) else Color.White
+
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Preview Card
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFF3F7EE),
-            border = BorderStroke(1.dp, Color(0xFFDCEAD4)),
+            shape = RoundedCornerShape(14.dp),
+            color = surfaceVariantBg,
+            border = BorderStroke(1.dp, borderColor),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -2107,9 +1826,9 @@ private fun ColorPreviewAndModesPanel(
             ) {
                 Text(
                     text = strings.colorPreviewLabel,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = natureTextDark
+                    color = textDark
                 )
 
                 Row(
@@ -2117,75 +1836,79 @@ private fun ColorPreviewAndModesPanel(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Large color square
                     Box(
                         modifier = Modifier
                             .size(54.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(currentHslColor.composeColor)
-                            .border(1.5.dp, Color(0x22000000), RoundedCornerShape(12.dp))
-                            .testTag("color_preview_swatch")
-                    )
+                            .background(previewColor)
+                            .border(1.2.dp, borderColor, RoundedCornerShape(12.dp))
+                            .testTag("color_preview_swatch"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Aa",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = onPreviewColor
+                        )
+                    }
 
-                    // Color values
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        // HEX with copy icon
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
                                 text = currentHex,
-                                fontSize = 14.5.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = natureTextDark
+                                color = textDark
                             )
                             IconButton(
                                 onClick = onCopyHex,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(22.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ContentCopy,
                                     contentDescription = "Copy HEX",
-                                    tint = natureTextMuted,
+                                    tint = textMuted,
                                     modifier = Modifier.size(13.dp)
                                 )
                             }
                         }
 
-                        // RGB
                         Text(
-                            text = "RGB   ${currentRgb.first}  ${currentRgb.second}  ${currentRgb.third}",
-                            fontSize = 11.sp,
+                            text = "RGB  ${currentRgb.first}, ${currentRgb.second}, ${currentRgb.third}",
+                            fontSize = 10.5.sp,
                             fontWeight = FontWeight.Medium,
-                            color = natureTextMuted
+                            color = textMuted,
+                            maxLines = 1
                         )
 
-                        // HSL
                         Text(
-                            text = "HSL   ${currentHue.roundToInt()}°  ${(currentSaturation * 100).roundToInt()}%  ${(currentLightness * 100).roundToInt()}%",
-                            fontSize = 11.sp,
+                            text = "HSL  ${currentHue.roundToInt()}°, ${(currentSaturation * 100).roundToInt()}%, ${(currentLightness * 100).roundToInt()}%",
+                            fontSize = 10.5.sp,
                             fontWeight = FontWeight.Medium,
-                            color = natureTextMuted
+                            color = textMuted,
+                            maxLines = 1
                         )
                     }
                 }
             }
         }
 
-        // Color Modes Selector
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = strings.colorModesLabel,
-                fontSize = 12.sp,
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.Bold,
-                color = natureTextDark
+                color = textDark
             )
 
             Row(
@@ -2200,12 +1923,12 @@ private fun ColorPreviewAndModesPanel(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFFE4EEE0))
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isSelected) primaryAccent.copy(alpha = 0.14f) else surfaceVariantBg)
                             .border(
                                 width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) natureSurfaceActive else Color.Transparent,
-                                shape = RoundedCornerShape(16.dp)
+                                color = if (isSelected) primaryAccent else borderColor,
+                                shape = RoundedCornerShape(8.dp)
                             )
                             .clickable { onModeSelected(index) }
                             .testTag("color_mode_$modeName"),
@@ -2215,7 +1938,7 @@ private fun ColorPreviewAndModesPanel(
                             text = modeName,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                            color = if (isSelected) natureSurfaceActive else natureTextDark
+                            color = if (isSelected) primaryAccent else textDark
                         )
                     }
                 }
@@ -2236,11 +1959,12 @@ private fun SavedColorsManagementDialog(
     onDeleteColor: (String) -> Unit,
     onAddNewColor: (String) -> Unit,
     onDismiss: () -> Unit,
-    natureBackground: Color,
-    natureBorder: Color,
-    natureTextDark: Color,
-    natureTextMuted: Color,
-    naturePrimaryGreen: Color
+    cardBg: Color,
+    containerBg: Color,
+    borderColor: Color,
+    textDark: Color,
+    textMuted: Color,
+    primaryAccent: Color
 ) {
     val appLanguage = LocalAppLanguage.current
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
@@ -2253,8 +1977,8 @@ private fun SavedColorsManagementDialog(
     ) {
         Card(
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFCFDF9)),
-            border = BorderStroke(1.2.dp, natureBorder),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = BorderStroke(1.2.dp, borderColor),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .widthIn(max = 460.dp)
@@ -2268,7 +1992,6 @@ private fun SavedColorsManagementDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -2281,14 +2004,14 @@ private fun SavedColorsManagementDialog(
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
-                            tint = Color(0xFF2E633F),
+                            tint = primaryAccent,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
                             text = strings.savedColorsTitle,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = natureTextDark
+                            color = textDark
                         )
                     }
 
@@ -2299,7 +2022,7 @@ private fun SavedColorsManagementDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = strings.close,
-                            tint = natureTextMuted,
+                            tint = textMuted,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -2308,10 +2031,9 @@ private fun SavedColorsManagementDialog(
                 Text(
                     text = strings.savedColorsSubtitle,
                     fontSize = 12.sp,
-                    color = natureTextMuted
+                    color = textMuted
                 )
 
-                // Saved Colors Grid / List
                 if (customColors.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -2322,7 +2044,7 @@ private fun SavedColorsManagementDialog(
                         Text(
                             text = strings.noSavedColorsText,
                             fontSize = 13.sp,
-                            color = natureTextMuted
+                            color = textMuted
                         )
                     }
                 } else {
@@ -2337,10 +2059,10 @@ private fun SavedColorsManagementDialog(
 
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFF5F8F2),
+                                color = containerBg,
                                 border = BorderStroke(
                                     if (isSelected) 1.8.dp else 1.dp,
-                                    if (isSelected) natureTextDark else Color(0xFFDCEAD4)
+                                    if (isSelected) primaryAccent else borderColor
                                 ),
                                 modifier = Modifier
                                     .clickable { onSelectColor(hex) }
@@ -2356,24 +2078,24 @@ private fun SavedColorsManagementDialog(
                                             .size(24.dp)
                                             .clip(CircleShape)
                                             .background(color)
-                                            .border(1.dp, Color(0x33000000), CircleShape)
+                                            .border(1.dp, borderColor, CircleShape)
                                     )
 
                                     Text(
                                         text = hex,
                                         fontSize = 13.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = natureTextDark
+                                        color = textDark
                                     )
 
                                     IconButton(
                                         onClick = { onDeleteColor(hex) },
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(22.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Delete,
                                             contentDescription = strings.delete,
-                                            tint = Color(0xFFE53935),
+                                            tint = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.size(15.dp)
                                         )
                                     }
@@ -2383,15 +2105,14 @@ private fun SavedColorsManagementDialog(
                     }
                 }
 
-                HorizontalDivider(color = Color(0xFFDCEAD4), thickness = 1.dp)
+                HorizontalDivider(color = borderColor, thickness = 1.dp)
 
-                // Add new color row inside modal
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = strings.addNewColorLabel,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = natureTextDark
+                        color = textDark
                     )
 
                     Row(
@@ -2401,10 +2122,10 @@ private fun SavedColorsManagementDialog(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = Color.White,
+                            color = containerBg,
                             border = BorderStroke(
                                 1.dp,
-                                if (inputError) MaterialTheme.colorScheme.error else Color(0xFFDCEAD4)
+                                if (inputError) MaterialTheme.colorScheme.error else borderColor
                             ),
                             modifier = Modifier
                                 .weight(1f)
@@ -2412,25 +2133,27 @@ private fun SavedColorsManagementDialog(
                         ) {
                             BasicTextField(
                                 value = newHexInput,
-                                onValueChange = {
+                                onValueChange = { raw ->
                                     inputError = false
-                                    val formatted = if (it.startsWith("#")) it else "#$it"
-                                    newHexInput = formatted.take(7)
+                                    val filtered = raw.uppercase(Locale.ROOT)
+                                        .filter { it in '0'..'9' || it in 'A'..'F' }
+                                        .take(6)
+                                    newHexInput = "#$filtered"
                                 },
                                 singleLine = true,
                                 textStyle = TextStyle(
-                                    color = natureTextDark,
+                                    color = textDark,
                                     fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
-                                cursorBrush = SolidColor(naturePrimaryGreen),
+                                cursorBrush = SolidColor(primaryAccent),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 10.dp, vertical = 10.dp)
                             )
                         }
 
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 if (CustomColorManager.isValidHex(newHexInput)) {
                                     onAddNewColor(newHexInput)
@@ -2441,15 +2164,22 @@ private fun SavedColorsManagementDialog(
                                 }
                             },
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = naturePrimaryGreen),
+                            border = BorderStroke(1.dp, borderColor),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = textDark),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                             modifier = Modifier.height(40.dp)
                         ) {
-                            Text(strings.colorPickerAddButton, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            AutoSizingText(
+                                text = strings.colorPickerAddButton,
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textDark
+                            )
                         }
                     }
                 }
 
-                // Action Buttons: Cancel & Confirm
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -2458,22 +2188,38 @@ private fun SavedColorsManagementDialog(
                     OutlinedButton(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, natureBorder),
+                        border = BorderStroke(1.dp, borderColor),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textDark),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp)
                     ) {
-                        Text(strings.cancel, color = natureTextDark, fontWeight = FontWeight.SemiBold)
+                        AutoSizingText(
+                            text = strings.cancel,
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            color = textDark,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = naturePrimaryGreen),
+                        border = BorderStroke(1.dp, borderColor),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textDark),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp)
                     ) {
-                        Text(strings.confirm, color = Color.White, fontWeight = FontWeight.Bold)
+                        AutoSizingText(
+                            text = strings.confirm,
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            color = textDark,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }

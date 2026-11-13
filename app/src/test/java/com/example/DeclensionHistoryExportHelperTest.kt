@@ -511,4 +511,103 @@ class DeclensionHistoryExportHelperTest {
         assertEquals("–", rows[1].genitiv)
         assertEquals("–", rows[1].dativ)
     }
+
+    @Test
+    fun testBundledTrueTypeFonts_resolveEveryAvailableFontAndArabicCairo() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        DeclensionHistoryExportHelper.initFonts(context)
+
+        val expectedFonts = DeclensionHistoryExportHelper.AVAILABLE_FONTS + listOf("Cairo")
+        val resourceIds = mutableSetOf<Int>()
+        for (fontName in expectedFonts) {
+            val resId = DeclensionHistoryExportHelper.getFontResourceId(fontName)
+            assertTrue("Font $fontName must map to a valid R.font resource id", resId != 0)
+            resourceIds.add(resId)
+
+            val tfNormal = DeclensionHistoryExportHelper.createSafeTypeface(fontName, android.graphics.Typeface.NORMAL)
+            val tfBold = DeclensionHistoryExportHelper.createSafeTypeface(fontName, android.graphics.Typeface.BOLD)
+            org.junit.Assert.assertNotNull("Normal Typeface for $fontName must not be null", tfNormal)
+            org.junit.Assert.assertNotNull("Bold Typeface for $fontName must not be null", tfBold)
+        }
+        // All 11 fonts (10 selectable + Cairo) have distinct bundled TrueType font resources
+        assertEquals(11, resourceIds.size)
+    }
+
+    @Test
+    fun testExcelExport_embedsInlineRichTextFontRunsInCells() {
+        val word = createSampleWord("Haus", "das", "die Häuser", "house")
+        val file = tempFolder.newFile("test_inline_rfont.xlsx")
+        val customTypography = DeclensionHistoryExportHelper.ExportTypographyOptions(
+            bodyFontSize = 13f,
+            bodyFontFamily = "JetBrains Mono",
+            bodyFontColorHex = "#1B5E20",
+            headerFontSize = 16f,
+            headerFontFamily = "Playfair Display",
+            headerFontColorHex = "#4A148C"
+        )
+
+        DeclensionHistoryExportHelper.createUnifiedXlsxFile(
+            file = file,
+            nouns = listOf(word),
+            verbs = emptyList(),
+            scope = DeclensionHistoryExportHelper.ExportScope.NOMEN,
+            documentTitle = "FontRunTest",
+            typography = customTypography
+        )
+
+        ZipFile(file).use { zip ->
+            val sheetXml = zip.getInputStream(zip.getEntry("xl/worksheets/sheet1.xml")).bufferedReader().readText()
+            assertTrue("Worksheet cells must embed inline header rFont Playfair Display", sheetXml.contains("<rFont val=\"Playfair Display\"/>"))
+            assertTrue("Worksheet cells must embed inline body rFont JetBrains Mono", sheetXml.contains("<rFont val=\"JetBrains Mono\"/>"))
+            assertTrue("Worksheet cells must embed inline header color FF4A148C", sheetXml.contains("<color rgb=\"FF4A148C\"/>"))
+            assertTrue("Worksheet cells must embed inline body color FF1B5E20", sheetXml.contains("<color rgb=\"FF1B5E20\"/>"))
+        }
+    }
+
+    @Test
+    fun testSpeechSpeedStepping_quarterStepsAndFormatting() {
+        assertEquals("1.00x", com.example.ui.components.formatSpeechSpeed(1.0f))
+        assertEquals("2.00x", com.example.ui.components.formatSpeechSpeed(2.0f))
+
+        // Stepping down by 0.25x from 1.00x
+        val s1 = com.example.ui.components.stepSpeechSpeed(1.0f, -0.25f)
+        assertEquals(0.75f, s1, 0.001f)
+        assertEquals("0.75x", com.example.ui.components.formatSpeechSpeed(s1))
+
+        val s2 = com.example.ui.components.stepSpeechSpeed(s1, -0.25f)
+        assertEquals(0.50f, s2, 0.001f)
+        assertEquals("0.50x", com.example.ui.components.formatSpeechSpeed(s2))
+
+        val s3 = com.example.ui.components.stepSpeechSpeed(s2, -0.25f)
+        assertEquals(0.25f, s3, 0.001f)
+        assertEquals("0.25x", com.example.ui.components.formatSpeechSpeed(s3))
+
+        // Stepping up by 0.25x from 1.00x
+        val u1 = com.example.ui.components.stepSpeechSpeed(1.0f, +0.25f)
+        assertEquals(1.25f, u1, 0.001f)
+        assertEquals("1.25x", com.example.ui.components.formatSpeechSpeed(u1))
+
+        val u2 = com.example.ui.components.stepSpeechSpeed(u1, +0.25f)
+        assertEquals(1.50f, u2, 0.001f)
+        assertEquals("1.50x", com.example.ui.components.formatSpeechSpeed(u2))
+    }
+
+    @Test
+    fun testColorPickerHexNormalizationAndBlackWhitePreservation() {
+        assertEquals("#FF00AA", com.example.ui.components.NatureColorEngine.normalizeHexCode("#F0A"))
+        assertEquals("#000000", com.example.ui.components.NatureColorEngine.normalizeHexCode("#000"))
+        assertEquals("#FFFFFF", com.example.ui.components.NatureColorEngine.normalizeHexCode("#FFF"))
+        assertEquals("#1E3A8A", com.example.ui.components.NatureColorEngine.normalizeHexCode("1e3a8a"))
+
+        // Pure black and pure white round-trip via HSL without clamping corruption
+        val blackHsl = com.example.ui.components.NatureColorEngine.rgbToHsl(0, 0, 0)
+        assertEquals(0f, blackHsl.lightness, 0.001f)
+        val blackRgb = com.example.ui.components.NatureColorEngine.hslToRgb(blackHsl.hue, blackHsl.saturation, blackHsl.lightness)
+        assertEquals("#000000", com.example.ui.components.NatureColorEngine.rgbToHex(blackRgb.first, blackRgb.second, blackRgb.third))
+
+        val whiteHsl = com.example.ui.components.NatureColorEngine.rgbToHsl(255, 255, 255)
+        assertEquals(1f, whiteHsl.lightness, 0.001f)
+        val whiteRgb = com.example.ui.components.NatureColorEngine.hslToRgb(whiteHsl.hue, whiteHsl.saturation, whiteHsl.lightness)
+        assertEquals("#FFFFFF", com.example.ui.components.NatureColorEngine.rgbToHex(whiteRgb.first, whiteRgb.second, whiteRgb.third))
+    }
 }

@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.example.data.local.WordHistoryEntity
 import com.example.data.model.VerbConjugationResult
 import com.example.data.model.VerbImperativ
@@ -146,5 +147,54 @@ class VerbViewAndNounCardTest {
         composeTestRule.onNodeWithText("Kasus").assertDoesNotExist()
         composeTestRule.onNodeWithText("Singular").assertDoesNotExist()
         composeTestRule.onNodeWithText("Beiden").assertDoesNotExist()
+    }
+
+    @Test
+    fun test_noun_result_card_audio_buttons_for_plural_genitiv_and_translation() {
+        val spokenCalls = mutableListOf<Triple<String, String, String>>()
+        val nounResult = com.example.data.model.WordDeclensionResult(
+            word = "Haus",
+            gender = "Neutrum",
+            genderArticle = "das",
+            pluralNoun = "die Häuser",
+            meaningEnglish = "house",
+            singular = com.example.data.model.DeclensionTableGroup(
+                "Singular",
+                listOf(
+                    com.example.data.model.DeclensionCaseRow("nominativ", "Nominativ", "Wer?", "das Haus", "ein Haus", "Haus"),
+                    com.example.data.model.DeclensionCaseRow("genitiv", "Genitiv", "Wessen?", "des Hauses", "eines Hauses", "Hauses")
+                )
+            ),
+            plural = com.example.data.model.DeclensionTableGroup(
+                "Plural",
+                listOf(
+                    com.example.data.model.DeclensionCaseRow("nominativ", "Nominativ", "Wer?", "die Häuser", "Häuser", "Häuser")
+                )
+            )
+        )
+
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                com.example.ui.components.DeclensionResultView(
+                    result = nounResult,
+                    selectedTab = 0,
+                    onTabSelected = {},
+                    onSpeak = { text, id -> spokenCalls.add(Triple(text, id, "de")) },
+                    onSpeakTranslation = { text, id, lang -> spokenCalls.add(Triple(text, id, lang)) }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("pronounce_plural_button").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("pronounce_genitiv_button").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("pronounce_noun_translation_button").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("pronounce_plural_button").performClick()
+        composeTestRule.onNodeWithTag("pronounce_genitiv_button").performClick()
+        composeTestRule.onNodeWithTag("pronounce_noun_translation_button").performClick()
+
+        org.junit.Assert.assertTrue(spokenCalls.any { it.first == "die Häuser" && it.third == "de" })
+        org.junit.Assert.assertTrue(spokenCalls.any { it.first == "des Hauses" && it.third == "de" })
+        org.junit.Assert.assertTrue(spokenCalls.any { it.first == "house" && it.third == "en" })
     }
 }

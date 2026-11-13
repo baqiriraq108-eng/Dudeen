@@ -86,6 +86,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -209,6 +210,10 @@ fun PrintExportDialog(
     // Dialogs for color picker & font size bottom sheet
     var activeColorTarget by remember { mutableStateOf<String?>(null) } // "body" or "header"
     var activeFontSizeTarget by remember { mutableStateOf<String?>(null) } // "body" or "header"
+
+    LaunchedEffect(Unit) {
+        DeclensionHistoryExportHelper.initFonts(context)
+    }
 
     val currentTypography = remember(
         bodyFontSize, bodyFontFamily, bodyFontColorHex,
@@ -701,7 +706,7 @@ fun PrintExportDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Share Button (Secondary Outline)
+                        // Share Button (Standardized Decline-Style Outline)
                         OutlinedButton(
                             onClick = {
                                 val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
@@ -723,12 +728,12 @@ fun PrintExportDialog(
                                 .weight(1f)
                                 .height(42.dp)
                                 .testTag("export_share_button"),
-                            border = BorderStroke(1.dp, GeoPrimary.copy(alpha = 0.7f)),
+                            border = BorderStroke(1.dp, GeoBorder),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = GeoPrimary
+                                contentColor = GeoOnSurface
                             ),
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -737,23 +742,22 @@ fun PrintExportDialog(
                                 Icon(
                                     imageVector = Icons.Default.Share,
                                     contentDescription = null,
-                                    tint = GeoPrimary,
+                                    tint = GeoOnSurface,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(
+                                AutoSizingText(
                                     text = strings.share,
-                                    fontSize = 12.5.sp,
+                                    maxFontSize = 12.5.sp,
+                                    minFontSize = 9.5.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = GeoPrimary,
-                                    maxLines = 1,
-                                    softWrap = false
+                                    color = GeoOnSurface
                                 )
                             }
                         }
 
-                        // Confirm / Save Button (Primary)
-                        Button(
+                        // Confirm / Save Button (Standardized Decline-Style Outline)
+                        OutlinedButton(
                             onClick = {
                                 val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
                                 val targetFileName = ExportSharingManager.buildFileName(sanitizedBase, selectedFormat, effectiveNotebookName)
@@ -780,12 +784,12 @@ fun PrintExportDialog(
                                 .weight(1f)
                                 .height(42.dp)
                                 .testTag("export_save_button"),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = GeoPrimary,
-                                contentColor = Color.White
+                            border = BorderStroke(1.dp, GeoBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = GeoOnSurface
                             ),
                             shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -794,17 +798,16 @@ fun PrintExportDialog(
                                 Icon(
                                     imageVector = Icons.Default.Save,
                                     contentDescription = null,
-                                    tint = Color.White,
+                                    tint = GeoOnSurface,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(
+                                AutoSizingText(
                                     text = strings.confirm,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    softWrap = false
+                                    maxFontSize = 12.5.sp,
+                                    minFontSize = 9.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GeoOnSurface
                                 )
                             }
                         }
@@ -817,15 +820,16 @@ fun PrintExportDialog(
                             .fillMaxWidth()
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
-                            fontSize = 12.5.sp,
+                            maxFontSize = 12.5.sp,
+                            minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoOnSurface,
-                            maxLines = 1,
-                            softWrap = false
+                            color = GeoOnSurface
                         )
                     }
                 }
@@ -895,6 +899,10 @@ private fun TypographyConfigCard(
         if (found != null) "${found.first} ($currentColorHex)" else currentColorHex
     }
 
+    val selectedComposeFont = remember(currentFont) {
+        DeclensionHistoryExportHelper.getComposeFontFamily(currentFont)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -903,14 +911,29 @@ private fun TypographyConfigCard(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(
-            text = title,
-            fontSize = 11.5.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = GeoOnSurface,
-            maxLines = 1,
-            softWrap = false
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = GeoOnSurface,
+                maxLines = 1,
+                softWrap = false
+            )
+            Text(
+                text = "Aa Bb Ää العربية",
+                fontFamily = selectedComposeFont,
+                fontSize = currentSize.coerceIn(9f, 15f).sp,
+                fontWeight = if (testTagPrefix == "header") FontWeight.Bold else FontWeight.Normal,
+                color = Color(colorInt),
+                maxLines = 1,
+                softWrap = false
+            )
+        }
 
         // Row 1: Font Type & Font Size side by side
         Row(
@@ -935,6 +958,7 @@ private fun TypographyConfigCard(
                 ) {
                     Text(
                         text = currentFont,
+                        fontFamily = selectedComposeFont,
                         fontSize = 11.5.sp,
                         color = GeoOnSurface,
                         maxLines = 1,
@@ -953,13 +977,30 @@ private fun TypographyConfigCard(
                     onDismissRequest = { fontDropdownExpanded = false }
                 ) {
                     DeclensionHistoryExportHelper.AVAILABLE_FONTS.forEach { font ->
+                        val itemComposeFont = remember(font) {
+                            DeclensionHistoryExportHelper.getComposeFontFamily(font)
+                        }
                         DropdownMenuItem(
                             text = {
-                                Text(
-                                    text = font,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (font == currentFont) FontWeight.Bold else FontWeight.Normal
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = font,
+                                        fontFamily = itemComposeFont,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = if (font == currentFont) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (font == currentFont) GeoPrimary else GeoOnSurface
+                                    )
+                                    Text(
+                                        text = "Aa Ää",
+                                        fontFamily = itemComposeFont,
+                                        fontSize = 11.sp,
+                                        color = GeoOnSurfaceVariant
+                                    )
+                                }
                             },
                             onClick = {
                                 onFontSelected(font)
@@ -1242,26 +1283,26 @@ private fun FontSizePickerDialog(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // [-] Button
-                        FilledTonalIconButton(
-                            onClick = {
+                        // [-] Button (with Hold-to-Repeat)
+                        HoldRepeatStepButton(
+                            onStep = {
                                 val current = customInputText.replace(',', '.').toFloatOrNull() ?: selectedSize
                                 val newSz = maxOf(1f, current - 1f)
                                 selectedSize = newSz
                                 customInputText = if (newSz % 1f == 0f) newSz.toInt().toString() else newSz.toString()
                             },
+                            shape = RoundedCornerShape(8.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
                             modifier = Modifier
-                                .size(36.dp)
-                                .testTag("font_size_minus"),
-                            shape = RoundedCornerShape(6.dp),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                                .size(38.dp)
+                                .testTag("font_size_minus")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Remove,
                                 contentDescription = strings.decreaseFontSizeDesc,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -1342,26 +1383,26 @@ private fun FontSizePickerDialog(
 
                         Spacer(modifier = Modifier.width(10.dp))
 
-                        // [+] Button
-                        FilledTonalIconButton(
-                            onClick = {
+                        // [+] Button (with Hold-to-Repeat)
+                        HoldRepeatStepButton(
+                            onStep = {
                                 val current = customInputText.replace(',', '.').toFloatOrNull() ?: selectedSize
                                 val newSz = minOf(1638f, current + 1f)
                                 selectedSize = newSz
                                 customInputText = if (newSz % 1f == 0f) newSz.toInt().toString() else newSz.toString()
                             },
+                            shape = RoundedCornerShape(8.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
                             modifier = Modifier
-                                .size(36.dp)
-                                .testTag("font_size_plus"),
-                            shape = RoundedCornerShape(6.dp),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                                .size(38.dp)
+                                .testTag("font_size_plus")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = strings.increaseFontSizeDesc,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -1385,19 +1426,19 @@ private fun FontSizePickerDialog(
                                 .testTag("font_size_cancel_button"),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.cancel,
-                                fontSize = 13.sp,
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                softWrap = false
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 val parsed = customInputText.replace(',', '.').toFloatOrNull()
                                 val finalSz = if (parsed != null && parsed >= 1f && parsed <= 1638f) {
@@ -1414,17 +1455,15 @@ private fun FontSizePickerDialog(
                                 .testTag("font_size_confirm_button"),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.confirm,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                maxLines = 1,
-                                softWrap = false
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }

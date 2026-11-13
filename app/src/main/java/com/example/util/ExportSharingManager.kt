@@ -118,6 +118,7 @@ object ExportSharingManager {
         typography: DeclensionHistoryExportHelper.ExportTypographyOptions = DeclensionHistoryExportHelper.ExportTypographyOptions.DEFAULT,
         notebookName: String = ""
     ) {
+        DeclensionHistoryExportHelper.initFonts(context)
         val tempFile = File.createTempFile("export_", ".tmp", context.cacheDir)
         val safeBaseName = sanitizeFileName(customBaseName)
         try {
@@ -205,6 +206,7 @@ object ExportSharingManager {
                 exportDir.mkdirs()
             }
 
+            DeclensionHistoryExportHelper.initFonts(context)
             val safeBaseName = sanitizeFileName(customBaseName)
             val fileName = buildFileName(safeBaseName, format, notebookName)
             val file = File(exportDir, fileName)
@@ -305,6 +307,7 @@ object ExportSharingManager {
                 exportDir.mkdirs()
             }
 
+            DeclensionHistoryExportHelper.initFonts(context)
             val safeBaseName = sanitizeFileName(customBaseName)
             val fileName = buildFileName(safeBaseName, format, notebookName)
             val file = File(exportDir, fileName)

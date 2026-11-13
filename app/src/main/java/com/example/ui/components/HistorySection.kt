@@ -294,23 +294,29 @@ fun HistoryHeaderRow(
         }
 
         if (hasItems) {
-            TextButton(
+            OutlinedButton(
                 onClick = onRequestClear,
-                modifier = Modifier.testTag("clear_history_button")
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, GeoBorder),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .height(34.dp)
+                    .testTag("clear_history_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.DeleteOutline,
                     contentDescription = strings.clearHistoryDesc,
-                    modifier = Modifier.size(16.dp),
-                    tint = GeoOnSurfaceVariant
+                    modifier = Modifier.size(15.dp),
+                    tint = GeoOnSurface
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(
+                AutoSizingText(
                     text = strings.clearButton,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = GeoOnSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false
+                    maxFontSize = 12.sp,
+                    minFontSize = 9.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GeoOnSurface
                 )
             }
         }
@@ -582,27 +588,27 @@ fun HistoryEmptyCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = onResetSearch,
-                    shape = RoundedCornerShape(6.dp),
-                    border = BorderStroke(1.dp, GeoPrimary),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, GeoBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     modifier = Modifier
-                        .height(28.dp)
+                        .height(34.dp)
                         .testTag("reset_history_search_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = null,
-                        modifier = Modifier.size(12.dp),
-                        tint = GeoPrimary
+                        modifier = Modifier.size(13.dp),
+                        tint = GeoOnSurface
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(
+                    AutoSizingText(
                         text = strings.resetSearchButton,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = GeoPrimary,
-                        maxLines = 1,
-                        softWrap = false
+                        maxFontSize = 12.sp,
+                        minFontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GeoOnSurface
                     )
                 }
             }
@@ -652,31 +658,35 @@ fun ClearHistoryConfirmDialog(
                         .weight(1f)
                         .height(42.dp),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, GeoBorder)
+                    border = BorderStroke(1.dp, GeoBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Text(
+                    AutoSizingText(
                         text = strings.cancel,
+                        maxFontSize = 13.sp,
+                        minFontSize = 9.5.sp,
                         color = GeoOnSurface,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        softWrap = false
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-                Button(
+                OutlinedButton(
                     onClick = onConfirm,
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
                         .testTag("confirm_clear_history"),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                    border = BorderStroke(1.dp, GeoBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Text(
+                    AutoSizingText(
                         text = strings.confirm,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false
+                        maxFontSize = 13.sp,
+                        minFontSize = 9.5.sp,
+                        color = GeoOnSurface,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -726,31 +736,35 @@ fun DeleteHistoryItemConfirmDialog(
                         .weight(1f)
                         .height(42.dp),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, GeoBorder)
+                    border = BorderStroke(1.dp, GeoBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Text(
+                    AutoSizingText(
                         text = strings.cancel,
+                        maxFontSize = 13.sp,
+                        minFontSize = 9.5.sp,
                         color = GeoOnSurface,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        softWrap = false
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-                Button(
+                OutlinedButton(
                     onClick = onConfirm,
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
                         .testTag("confirm_delete_history_item"),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                    border = BorderStroke(1.dp, GeoBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Text(
+                    AutoSizingText(
                         text = strings.confirm,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false
+                        maxFontSize = 13.sp,
+                        minFontSize = 9.5.sp,
+                        color = GeoOnSurface,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -1415,16 +1429,7 @@ fun HistoryItemCard(
                     )
                 }
 
-                // Thin horizontal divider: 2dp top margin, 1dp height
-                Spacer(modifier = Modifier.height(2.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(if (GeoIsBoldTheme) GeoGlowColor.copy(alpha = 0.35f) else GeoBorder.copy(alpha = 0.5f))
-                )
-
-                // Element 3: Divider
+                // Thin horizontal divider separating translation from date/metadata row
                 Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier

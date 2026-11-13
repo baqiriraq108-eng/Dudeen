@@ -62,6 +62,7 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Psychology
@@ -73,9 +74,9 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Translate
 import com.example.data.local.WordHistoryEntity
+import com.example.ui.components.AutoSizingText
 import com.example.ui.components.HistoryFormatterCache
 import com.example.ui.components.HistorySortBottomSheet
-import com.example.ui.components.GermanFlagGIcon
 import com.example.util.HistorySortOption
 import com.example.ui.components.NomenListResultView
 import androidx.compose.material.icons.filled.WarningAmber
@@ -93,6 +94,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -408,14 +410,17 @@ fun MainScreen(
 
                         Spacer(modifier = Modifier.width(2.dp))
 
-                        // Grammar Tables Button (Flat German Flag 'G' Button between ✨ and ⬆️)
+                        // Grammar Button (Monochrome MenuBook icon matching AI, Color, and Export buttons)
                         IconButton(
                             onClick = { viewModel.onOpenGrammarTables() },
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(40.dp)
                                 .testTag("grammar_tables_button")
                         ) {
-                            GermanFlagGIcon(
+                            Icon(
+                                imageVector = Icons.Default.MenuBook,
+                                contentDescription = "Grammatik",
+                                tint = GeoPrimary,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -475,8 +480,8 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                // Warning Banner if API Key is not configured (in English for settings)
-                if (!uiState.hasApiKey) {
+                // Warning Banner if API Key is genuinely not configured after startup settings load
+                if (uiState.isStartupSettingsLoaded && !uiState.hasApiKey) {
                     item(key = "api_key_warning_banner") {
                         Card(
                             modifier = Modifier
@@ -521,15 +526,26 @@ fun MainScreen(
                                         )
                                     }
                                 }
-                                Button(
+                                OutlinedButton(
                                     onClick = { viewModel.onOpenApiKeyDialog() },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.error
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = GeoSurface,
+                                        contentColor = GeoOnSurface
                                     ),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.testTag("setup_api_key_banner_button")
+                                    border = BorderStroke(1.dp, GeoBorder),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .testTag("setup_api_key_banner_button")
                                 ) {
-                                    Text(strings.settingsButtonLabel, fontSize = 12.sp)
+                                    AutoSizingText(
+                                        text = strings.settingsButtonLabel,
+                                        maxFontSize = 12.sp,
+                                        minFontSize = 9.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GeoOnSurface
+                                    )
                                 }
                             }
                         }
@@ -705,19 +721,23 @@ fun MainScreen(
                         // Margin between elements: 8dp between the search field and the search button
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Search Submit Button (Changes shape and triggers cancellation when a search is running)
-                        Button(
+                        // Search Submit Button (Standardized decline-button outlined style with fully visible label)
+                        OutlinedButton(
                             onClick = { viewModel.onSearch() },
                             enabled = true,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (uiState.isSearching) MaterialTheme.colorScheme.error else (if (GeoIsBoldTheme) GeoCardRibbonColor else GeoPrimary),
-                                contentColor = Color.White
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = GeoSurfaceVariant,
+                                contentColor = GeoOnSurface
+                            ),
+                            border = BorderStroke(
+                                width = if (GeoIsBoldTheme) 1.5.dp else 1.dp,
+                                color = if (GeoIsBoldTheme) GeoGlowColor.copy(alpha = 0.5f) else GeoBorder
                             ),
                             shape = if (uiState.isSearching) RoundedCornerShape(24.dp) else RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .height(48.dp)
                                 .testTag("search_submit_button"),
-                            contentPadding = PaddingValues(horizontal = if (uiState.isSearching) 12.dp else 14.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                         ) {
                             if (uiState.isSearching) {
                                 Row(
@@ -726,26 +746,30 @@ fun MainScreen(
                                 ) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
-                                        color = Color.White,
+                                        color = GeoOnSurface,
                                         strokeWidth = 2.dp
                                     )
                                     Icon(
                                         imageVector = Icons.Default.Stop,
                                         contentDescription = strings.cancelSearchDesc,
-                                        tint = Color.White,
+                                        tint = GeoOnSurface,
                                         modifier = Modifier.size(16.dp)
                                     )
-                                    Text(
+                                    AutoSizingText(
                                         text = strings.stopButton,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
+                                        maxFontSize = 13.5.sp,
+                                        minFontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GeoOnSurface
                                     )
                                 }
                             } else {
-                                Text(
+                                AutoSizingText(
                                     text = strings.searchButton,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
+                                    maxFontSize = 13.5.sp,
+                                    minFontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = GeoOnSurface
                                 )
                             }
                         }
@@ -851,6 +875,7 @@ fun MainScreen(
                                     selectedTab = uiState.selectedNumberTab,
                                     onTabSelected = { viewModel.onSelectTab(it) },
                                     onSpeak = { text, id -> viewModel.speakGerman(text, id) },
+                                    onSpeakTranslation = { text, id, lang -> viewModel.speakText(text, id, lang) },
                                     onExport = { viewModel.onOpenExportDialog() },
                                     ttsSpeed = ttsSpeed,
                                     onTtsSpeedChange = { viewModel.setTtsSpeed(it) },

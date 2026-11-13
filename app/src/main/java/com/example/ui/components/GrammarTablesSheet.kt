@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
@@ -87,7 +88,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.geometry.Offset
+import com.example.R
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -113,6 +116,7 @@ import com.example.ui.theme.GeoOnSurface
 import com.example.ui.theme.GeoOnSurfaceVariant
 import com.example.ui.theme.GeoOutline
 import com.example.ui.theme.GeoPrimary
+import com.example.ui.theme.GeoSecondary
 import com.example.ui.theme.GeoSurface
 import com.example.ui.theme.GeoSurfaceVariant
 import com.example.ui.theme.LocalIsDarkTheme
@@ -271,23 +275,31 @@ fun GrammarTablesSheet(
                     .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Letter G with German flag colors (black, red, gold) - No container
-                Text(
-                    text = "G",
-                    style = TextStyle(
-                        brush = Brush.verticalGradient(
-                            0.0f to Color(0xFF1A1A1A),
-                            0.333f to Color(0xFF1A1A1A),
-                            0.334f to Color(0xFFD50000),
-                            0.666f to Color(0xFFD50000),
-                            0.667f to Color(0xFFFFC400),
-                            1.0f to Color(0xFFFFC400)
-                        ),
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Black
-                    ),
-                    modifier = Modifier.padding(end = 12.dp)
-                )
+                // Open Grammar Book Emblem (MenuBook matching the Grammar button app-wide)
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    GeoPrimary.copy(alpha = 0.16f),
+                                    GeoSecondary.copy(alpha = 0.08f)
+                                )
+                            )
+                        )
+                        .border(1.dp, GeoPrimary.copy(alpha = 0.30f), RoundedCornerShape(12.dp))
+                        .testTag("grammar_header_book_icon")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MenuBook,
+                        contentDescription = null,
+                        tint = GeoPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
 
                 Column(
                     modifier = Modifier
@@ -318,33 +330,69 @@ fun GrammarTablesSheet(
                     )
                 }
 
-                // Compact Pill Button for Speech Rate (height: 36dp, cornerRadius: 20dp, padding: 6dp horiz / 4dp vert)
-                Surface(
-                    onClick = { showSpeedDialog = true },
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                // Polished Dual-Tone Gradient Capsule for Speech Rate with Circular Speedometer Badge
+                Box(
                     modifier = Modifier
-                        .height(36.dp)
-                        .testTag("speech_rate_button")
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    GeoPrimary.copy(alpha = 0.14f),
+                                    GeoSecondary.copy(alpha = 0.08f)
+                                )
+                            )
+                        )
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    GeoPrimary.copy(alpha = 0.45f),
+                                    GeoSecondary.copy(alpha = 0.28f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                        .clickable { showSpeedDialog = true }
+                        .padding(start = 5.dp, end = 9.dp)
+                        .testTag("speech_rate_button"),
+                    contentAlignment = Alignment.Center
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.RecordVoiceOver,
-                            contentDescription = "Sprechtempo",
-                            tint = GeoPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = String.format(Locale.US, "%.1fx", ttsSpeed),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GeoPrimary
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(GeoPrimary, GeoSecondary)
+                                    )
+                                )
+                                .border(1.2.dp, Color.White.copy(alpha = 0.72f), CircleShape)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_playback_speed),
+                                contentDescription = "Sprechtempo",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.width(44.dp)
+                        ) {
+                            FixedTabularSpeedText(
+                                speedText = formatSpeechSpeed(ttsSpeed),
+                                color = GeoPrimary,
+                                maxFontSize = 11.5.sp,
+                                minFontSize = 8.5.sp,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }
@@ -386,16 +434,12 @@ fun GrammarTablesSheet(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
 
-                            // Preset buttons grid: 0.3x, 0.5x, 0.7x | 1.0x, 1.3x, 1.5x | 2.0x
+                            // Preset buttons grid: 0.25x..2.0x in rows of 4
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                val presetRows = listOf(
-                                    listOf(0.3f, 0.5f, 0.7f),
-                                    listOf(1.0f, 1.3f, 1.5f),
-                                    listOf(2.0f)
-                                )
+                                val presetRows = PRESET_SPEECH_RATES.chunked(4)
 
                                 presetRows.forEach { rowPresets ->
                                     Row(
@@ -403,7 +447,7 @@ fun GrammarTablesSheet(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         rowPresets.forEach { preset ->
-                                            val isSelected = (round(tempSpeed * 10f) == round(preset * 10f))
+                                            val isSelected = (round(tempSpeed * 20f) == round(preset * 20f))
                                             Surface(
                                                 onClick = { tempSpeed = preset },
                                                 shape = RoundedCornerShape(10.dp),
@@ -418,18 +462,22 @@ fun GrammarTablesSheet(
                                             ) {
                                                 Box(
                                                     contentAlignment = Alignment.Center,
-                                                    modifier = Modifier.fillMaxSize()
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(horizontal = 4.dp)
                                                 ) {
-                                                    Text(
-                                                        text = String.format(Locale.US, "%.1fx", preset),
-                                                        fontSize = 13.sp,
+                                                    FixedTabularSpeedText(
+                                                        speedText = formatSpeechSpeed(preset),
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                                        maxFontSize = 12.sp,
+                                                        minFontSize = 9.sp,
                                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                        modifier = Modifier.fillMaxWidth()
                                                     )
                                                 }
                                             }
                                         }
-                                        val remaining = 3 - rowPresets.size
+                                        val remaining = 4 - rowPresets.size
                                         if (remaining > 0) {
                                             repeat(remaining) {
                                                 Spacer(modifier = Modifier.weight(1f))
@@ -444,16 +492,18 @@ fun GrammarTablesSheet(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                             )
 
-                            // Fine-tuning section: Eigene Geschwindigkeit:
+                            // Fine-tuning section: Eigene Geschwindigkeit (0.25x steps + hold-to-repeat)
+                            val canDecreaseCustom = tempSpeed > MIN_SPEECH_SPEED + 0.01f
+                            val canIncreaseCustom = tempSpeed < MAX_SPEECH_SPEED - 0.01f
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
                                     text = when (appLanguage.lowercase()) {
-                                        "en" -> "Custom speed:"
-                                        "ar" -> "سرعة مخصصة:"
-                                        else -> "Eigene Geschwindigkeit:"
+                                        "en" -> "Custom speed (±0.25x):"
+                                        "ar" -> "سرعة مخصصة (±0.25x):"
+                                        else -> "Eigene Geschwindigkeit (±0,25x):"
                                     },
                                     fontSize = 12.5.sp,
                                     fontWeight = FontWeight.Medium,
@@ -465,26 +515,26 @@ fun GrammarTablesSheet(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Surface(
-                                        onClick = {
-                                            tempSpeed = (round((tempSpeed - 0.1f) * 10f) / 10f).coerceIn(0.3f, 2.0f)
+                                    HoldRepeatStepButton(
+                                        onStep = {
+                                            tempSpeed = stepSpeechSpeed(tempSpeed, -SPEECH_SPEED_STEP)
                                         },
-                                        enabled = tempSpeed > 0.35f,
+                                        enabled = canDecreaseCustom,
                                         shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(40.dp)
+                                            .testTag("grammar_speed_minus")
                                     ) {
-                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                            Icon(
-                                                imageVector = Icons.Default.Remove,
-                                                contentDescription = "Langsamer",
-                                                tint = if (tempSpeed > 0.35f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.Remove,
+                                            contentDescription = "Langsamer",
+                                            tint = if (canDecreaseCustom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                     }
 
                                     Surface(
@@ -492,39 +542,45 @@ fun GrammarTablesSheet(
                                         color = MaterialTheme.colorScheme.surfaceContainerLowest,
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
                                         modifier = Modifier
-                                            .weight(1.5f)
+                                            .width(96.dp)
                                             .height(40.dp)
                                     ) {
-                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                            Text(
-                                                text = String.format(Locale.US, "%.1fx", tempSpeed),
-                                                fontSize = 15.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.primary
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(horizontal = 6.dp)
+                                        ) {
+                                            FixedTabularSpeedText(
+                                                speedText = formatSpeechSpeed(tempSpeed),
+                                                color = MaterialTheme.colorScheme.primary,
+                                                maxFontSize = 14.5.sp,
+                                                minFontSize = 10.sp,
+                                                modifier = Modifier.fillMaxWidth()
                                             )
                                         }
                                     }
 
-                                    Surface(
-                                        onClick = {
-                                            tempSpeed = (round((tempSpeed + 0.1f) * 10f) / 10f).coerceIn(0.3f, 2.0f)
+                                    HoldRepeatStepButton(
+                                        onStep = {
+                                            tempSpeed = stepSpeechSpeed(tempSpeed, +SPEECH_SPEED_STEP)
                                         },
-                                        enabled = tempSpeed < 1.95f,
+                                        enabled = canIncreaseCustom,
                                         shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(40.dp)
+                                            .testTag("grammar_speed_plus")
                                     ) {
-                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                            Icon(
-                                                imageVector = Icons.Default.Add,
-                                                contentDescription = "Schneller",
-                                                tint = if (tempSpeed < 1.95f) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Schneller",
+                                            tint = if (canIncreaseCustom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
                                     }
                                 }
                             }
@@ -539,50 +595,48 @@ fun GrammarTablesSheet(
                                     onClick = { showSpeedDialog = false },
                                     shape = RoundedCornerShape(10.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(42.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
-                                    Text(
+                                    AutoSizingText(
                                         text = when (appLanguage.lowercase()) {
                                             "en" -> "Cancel"
                                             "ar" -> "إلغاء"
                                             else -> "Abbrechen"
                                         },
-                                        fontSize = 13.sp,
+                                        maxFontSize = 13.sp,
+                                        minFontSize = 9.5.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        softWrap = false
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
 
-                                Button(
+                                OutlinedButton(
                                     onClick = {
                                         onTtsSpeedChange(tempSpeed)
                                         showSpeedDialog = false
                                     },
                                     shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary
-                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(42.dp),
                                     contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
-                                    Text(
+                                    AutoSizingText(
                                         text = when (appLanguage.lowercase()) {
                                             "en" -> "Confirm"
                                             "ar" -> "تأكيد"
                                             else -> "Bestätigen"
                                         },
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        softWrap = false
+                                        maxFontSize = 13.sp,
+                                        minFontSize = 9.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -518,34 +519,36 @@ fun HistorySortBottomSheet(
                         .height(42.dp)
                         .testTag("sort_reset_button"),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, GeoBorder)
+                    border = BorderStroke(1.dp, GeoBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Text(
+                    AutoSizingText(
                         text = strings.cancel,
-                        fontSize = 13.sp,
+                        maxFontSize = 13.sp,
+                        minFontSize = 9.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = GeoOnSurface,
-                        maxLines = 1,
-                        softWrap = false
+                        color = GeoOnSurface
                     )
                 }
 
-                Button(
+                OutlinedButton(
                     onClick = onDismissRequest,
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
                         .testTag("sort_apply_button"),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                    border = BorderStroke(1.dp, GeoBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
-                    Text(
+                    AutoSizingText(
                         text = strings.confirm,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        softWrap = false
+                        maxFontSize = 13.sp,
+                        minFontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GeoOnSurface
                     )
                 }
             }
@@ -576,17 +579,19 @@ fun HistorySortBottomSheet(
                             .weight(1f)
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
                             color = GeoOnSurface,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = {
                             val selectedMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
                             onSortOptionChanged(
@@ -603,14 +608,16 @@ fun HistorySortBottomSheet(
                             .height(42.dp)
                             .testTag("date_picker_confirm"),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.confirm,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            maxLines = 1,
-                            softWrap = false
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GeoOnSurface
                         )
                     }
                 }

@@ -25,6 +25,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -180,7 +181,7 @@ fun ManualTranslationInputRow(
                 )
             )
 
-            Button(
+            OutlinedButton(
                 onClick = {
                     val trimmed = textValue.trim()
                     if (trimmed.isNotBlank()) {
@@ -210,18 +211,21 @@ fun ManualTranslationInputRow(
                 modifier = Modifier
                     .heightIn(min = 48.dp)
                     .testTag("save_manual_translation_button"),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = GeoPrimary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, GeoBorder),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = GeoOnSurface
                 ),
-                contentPadding = PaddingValues(horizontal = 14.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp)
             ) {
                 if (editingIndex != null) {
-                    Text(
+                    AutoSizingText(
                         text = "OK",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        maxFontSize = 13.sp,
+                        minFontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GeoOnSurface
                     )
                 } else if (translations.isNotEmpty()) {
                     Row(
@@ -231,19 +235,24 @@ fun ManualTranslationInputRow(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = strings.colorPickerAddButton,
+                            tint = GeoOnSurface,
                             modifier = Modifier.size(16.dp)
                         )
-                        Text(
+                        AutoSizingText(
                             text = "OK",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            maxFontSize = 13.sp,
+                            minFontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GeoOnSurface
                         )
                     }
                 } else {
-                    Text(
+                    AutoSizingText(
                         text = "OK",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        maxFontSize = 13.sp,
+                        minFontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GeoOnSurface
                     )
                 }
             }

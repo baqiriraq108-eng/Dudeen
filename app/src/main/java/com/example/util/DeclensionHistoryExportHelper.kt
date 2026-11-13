@@ -124,8 +124,81 @@ object DeclensionHistoryExportHelper {
         "Georgia",
         "Tahoma",
         "Trebuchet MS",
-        "Palatino Linotype"
+        "Palatino Linotype",
+        "Roboto",
+        "Cairo"
     )
+
+    private val bundledTypefaceCache = java.util.concurrent.ConcurrentHashMap<Int, android.graphics.Typeface>()
+
+    fun getFontResourceId(fontFamily: String): Int {
+        val lower = fontFamily.trim().lowercase(java.util.Locale.US)
+        return when {
+            lower.contains("times") -> com.example.R.font.tinos
+            lower.contains("courier") || lower.contains("mono") -> com.example.R.font.jetbrains_mono
+            lower.contains("georgia") || lower.contains("merriweather") -> com.example.R.font.merriweather
+            lower.contains("palatino") || lower.contains("playfair") -> com.example.R.font.playfair_display
+            lower.contains("verdana") || lower.contains("montserrat") -> com.example.R.font.montserrat
+            lower.contains("calibri") || lower.contains("carlito") -> com.example.R.font.carlito
+            lower.contains("tahoma") || lower.contains("lato") -> com.example.R.font.lato
+            lower.contains("trebuchet") || lower.contains("fira") -> com.example.R.font.fira_sans
+            lower.contains("cairo") || lower.contains("arab") -> com.example.R.font.cairo
+            lower.contains("helvetica") || lower.contains("roboto") -> com.example.R.font.roboto
+            else -> com.example.R.font.open_sans // Arial / Open Sans default
+        }
+    }
+
+    private fun getFontFileName(fontFamily: String): String {
+        val lower = fontFamily.trim().lowercase(java.util.Locale.US)
+        return when {
+            lower.contains("times") -> "tinos.ttf"
+            lower.contains("courier") || lower.contains("mono") -> "jetbrains_mono.ttf"
+            lower.contains("georgia") || lower.contains("merriweather") -> "merriweather.ttf"
+            lower.contains("palatino") || lower.contains("playfair") -> "playfair_display.ttf"
+            lower.contains("verdana") || lower.contains("montserrat") -> "montserrat.ttf"
+            lower.contains("calibri") || lower.contains("carlito") -> "carlito.ttf"
+            lower.contains("tahoma") || lower.contains("lato") -> "lato.ttf"
+            lower.contains("trebuchet") || lower.contains("fira") -> "fira_sans.ttf"
+            lower.contains("cairo") || lower.contains("arab") -> "cairo.ttf"
+            lower.contains("helvetica") || lower.contains("roboto") -> "roboto.ttf"
+            else -> "open_sans.ttf"
+        }
+    }
+
+    fun getComposeFontFamily(fontFamily: String): androidx.compose.ui.text.font.FontFamily {
+        val resId = getFontResourceId(fontFamily)
+        return androidx.compose.ui.text.font.FontFamily(
+            androidx.compose.ui.text.font.Font(resId, androidx.compose.ui.text.font.FontWeight.Normal),
+            androidx.compose.ui.text.font.Font(resId, androidx.compose.ui.text.font.FontWeight.Bold)
+        )
+    }
+
+    fun initFonts(context: Context) {
+        val appCtx = context.applicationContext ?: context
+        val allResIds = listOf(
+            com.example.R.font.open_sans,
+            com.example.R.font.tinos,
+            com.example.R.font.roboto,
+            com.example.R.font.jetbrains_mono,
+            com.example.R.font.montserrat,
+            com.example.R.font.carlito,
+            com.example.R.font.merriweather,
+            com.example.R.font.lato,
+            com.example.R.font.fira_sans,
+            com.example.R.font.playfair_display,
+            com.example.R.font.cairo
+        )
+        for (resId in allResIds) {
+            if (!bundledTypefaceCache.containsKey(resId)) {
+                try {
+                    androidx.core.content.res.ResourcesCompat.getFont(appCtx, resId)?.let { tf ->
+                        bundledTypefaceCache[resId] = tf
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
 
     val PREDEFINED_FONT_SIZES = listOf(
         8f, 9f, 10f, 11f, 12f, 14f, 16f, 18f, 20f, 22f, 24f, 26f, 28f, 36f, 48f, 72f
@@ -199,9 +272,33 @@ object DeclensionHistoryExportHelper {
 
     fun createSafeTypeface(fontFamily: String, style: Int): android.graphics.Typeface {
         return try {
-            val clean = fontFamily.trim()
-            val lower = clean.lowercase(java.util.Locale.US)
-            val baseTypeface = when {
+            val resId = getFontResourceId(fontFamily)
+            var baseTf = bundledTypefaceCache[resId]
+            if (baseTf == null) {
+                val fileName = getFontFileName(fontFamily)
+                val candidateFiles = listOf(
+                    File("app/src/main/res/font/$fileName"),
+                    File("src/main/res/font/$fileName")
+                )
+                for (f in candidateFiles) {
+                    if (f.exists() && f.length() > 0L) {
+                        try {
+                            baseTf = android.graphics.Typeface.createFromFile(f)
+                            if (baseTf != null) {
+                                bundledTypefaceCache[resId] = baseTf
+                                break
+                            }
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+            }
+            if (baseTf != null) {
+                return android.graphics.Typeface.create(baseTf, style)
+            }
+
+            val lower = fontFamily.trim().lowercase(java.util.Locale.US)
+            when {
                 lower.contains("times") || lower.contains("georgia") || lower.contains("palatino") || lower == "serif" ->
                     android.graphics.Typeface.create(android.graphics.Typeface.SERIF, style)
                 lower.contains("courier") || lower == "monospace" ->
@@ -210,16 +307,10 @@ object DeclensionHistoryExportHelper {
                     android.graphics.Typeface.create("sans-serif-condensed", style)
                 lower.contains("calibri") || lower.contains("light") ->
                     android.graphics.Typeface.create("sans-serif-light", style)
-                lower.contains("helvetica") || lower.contains("medium") ->
+                lower.contains("helvetica") || lower.contains("medium") || lower.contains("trebuchet") ->
                     android.graphics.Typeface.create("sans-serif-medium", style)
                 else ->
                     android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF, style)
-            }
-            val tf = android.graphics.Typeface.create(clean, style)
-            if (tf != null && tf != android.graphics.Typeface.DEFAULT && tf != android.graphics.Typeface.SANS_SERIF) {
-                tf
-            } else {
-                baseTypeface
             }
         } catch (_: Exception) {
             android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF, style)
@@ -1027,6 +1118,25 @@ $workbookSheetsAdj
         return sb.reverse().toString()
     }
 
+    private fun getExcelFontFamilyId(fontFamily: String): Int {
+        val lower = fontFamily.trim().lowercase(java.util.Locale.US)
+        return when {
+            lower.contains("times") || lower.contains("georgia") || lower.contains("palatino") || lower.contains("merriweather") || lower.contains("playfair") || lower == "serif" -> 1 // Roman / Serif
+            lower.contains("courier") || lower.contains("mono") -> 3 // Modern / Monospace
+            else -> 2 // Swiss / Sans-Serif
+        }
+    }
+
+    private fun getFontWidthMultiplier(fontFamily: String): Double {
+        val lower = fontFamily.trim().lowercase(java.util.Locale.US)
+        return when {
+            lower.contains("courier") || lower.contains("mono") || lower.contains("verdana") || lower.contains("montserrat") -> 1.24
+            lower.contains("georgia") || lower.contains("palatino") || lower.contains("merriweather") || lower.contains("playfair") -> 1.16
+            lower.contains("times") || lower.contains("calibri") || lower.contains("tahoma") -> 1.02
+            else -> 1.12
+        }
+    }
+
     private fun getStandardStylesXml(typography: ExportTypographyOptions = ExportTypographyOptions.DEFAULT): String {
         val bodySz = if (typography.bodyFontSize % 1.0f == 0f) "${typography.bodyFontSize.toInt()}" else "${typography.bodyFontSize}"
         val headerSz = if (typography.headerFontSize % 1.0f == 0f) "${typography.headerFontSize.toInt()}" else "${typography.headerFontSize}"
@@ -1035,26 +1145,31 @@ $workbookSheetsAdj
         val headerColorRgb = toExcelRgbHex(typography.headerFontColorHex, "FF0F172A")
         val bodyFontName = escapeXml(typography.bodyFontFamily)
         val headerFontName = escapeXml(typography.headerFontFamily)
+        val bodyFamilyId = getExcelFontFamilyId(typography.bodyFontFamily)
+        val headerFamilyId = getExcelFontFamilyId(typography.headerFontFamily)
 
         return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="10">
+  <fonts count="11">
     <font>
       <sz val="$bodySz"/>
       <color rgb="$bodyColorRgb"/>
       <name val="$bodyFontName"/>
+      <family val="$bodyFamilyId"/>
     </font>
     <font>
       <b/>
       <sz val="$headerSz"/>
       <color rgb="$headerColorRgb"/>
       <name val="$headerFontName"/>
+      <family val="$headerFamilyId"/>
     </font>
     <font>
       <b/>
       <sz val="$titleSz"/>
       <color rgb="$headerColorRgb"/>
       <name val="$headerFontName"/>
+      <family val="$headerFamilyId"/>
     </font>
     <!-- 3: Register/Workbook Name Font (Always Black, 12pt) -->
     <font>
@@ -1062,6 +1177,7 @@ $workbookSheetsAdj
       <sz val="12"/>
       <color rgb="FF000000"/>
       <name val="$headerFontName"/>
+      <family val="$headerFamilyId"/>
     </font>
     <!-- 4: Maskulin Font (Blue #1565C0) -->
     <font>
@@ -1069,6 +1185,7 @@ $workbookSheetsAdj
       <sz val="$bodySz"/>
       <color rgb="FF1565C0"/>
       <name val="$bodyFontName"/>
+      <family val="$bodyFamilyId"/>
     </font>
     <!-- 5: Feminin Font (Pink/Magenta #C2185B) -->
     <font>
@@ -1076,6 +1193,7 @@ $workbookSheetsAdj
       <sz val="$bodySz"/>
       <color rgb="FFC2185B"/>
       <name val="$bodyFontName"/>
+      <family val="$bodyFamilyId"/>
     </font>
     <!-- 6: Neutrum Font (Lighter Beige #C5A880) -->
     <font>
@@ -1083,6 +1201,7 @@ $workbookSheetsAdj
       <sz val="$bodySz"/>
       <color rgb="FFC5A880"/>
       <name val="$bodyFontName"/>
+      <family val="$bodyFamilyId"/>
     </font>
     <!-- 7: Wort / Wörter Font (Rich Orange #EA580C) -->
     <font>
@@ -1090,6 +1209,7 @@ $workbookSheetsAdj
       <sz val="$bodySz"/>
       <color rgb="FFEA580C"/>
       <name val="$bodyFontName"/>
+      <family val="$bodyFamilyId"/>
     </font>
     <!-- 8: Satz Font (Royal Purple #5E35B1) -->
     <font>
@@ -1097,6 +1217,7 @@ $workbookSheetsAdj
       <sz val="$bodySz"/>
       <color rgb="FF5E35B1"/>
       <name val="$bodyFontName"/>
+      <family val="$bodyFamilyId"/>
     </font>
     <!-- 9: Adjektiv Font (Turquoise #00897B) -->
     <font>
@@ -1104,6 +1225,15 @@ $workbookSheetsAdj
       <sz val="$bodySz"/>
       <color rgb="FF00897B"/>
       <name val="$bodyFontName"/>
+      <family val="$bodyFamilyId"/>
+    </font>
+    <!-- 10: Bold Body Font -->
+    <font>
+      <b/>
+      <sz val="$bodySz"/>
+      <color rgb="$bodyColorRgb"/>
+      <name val="$bodyFontName"/>
+      <family val="$bodyFamilyId"/>
     </font>
   </fonts>
   <fills count="5">
@@ -1144,8 +1274,8 @@ $workbookSheetsAdj
   <cellStyleXfs count="1">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
   </cellStyleXfs>
-  <cellXfs count="20">
-    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+  <cellXfs count="22">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"/>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
@@ -1187,40 +1317,66 @@ $workbookSheetsAdj
     <xf numFmtId="0" fontId="6" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 12: Wort/Wörter White (s=12) with Standard Background & Amber Font -->
-    <xf numFmtId="0" fontId="7" fillId="0" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+    <!-- 12: Wort/Wörter White (s=12) -->
+    <xf numFmtId="0" fontId="7" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 13: Wort/Wörter Zebra (s=13) with Zebra Background & Amber Font -->
+    <!-- 13: Wort/Wörter Zebra (s=13) -->
     <xf numFmtId="0" fontId="7" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 14: Satz White (s=14) with Standard Background & Brown Font (fontId=8) -->
-    <xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+    <!-- 14: Satz White (s=14) -->
+    <xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 15: Satz Zebra (s=15) with Zebra Background & Brown Font (fontId=8) -->
+    <!-- 15: Satz Zebra (s=15) -->
     <xf numFmtId="0" fontId="8" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 16: Arabic Translation White (s=16) with Standard Background & Right Alignment -->
+    <!-- 16: Arabic Translation White (s=16) -->
     <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="right" vertical="center" wrapText="1"/>
     </xf>
-    <!-- 17: Arabic Translation Zebra (s=17) with Zebra Background & Right Alignment -->
+    <!-- 17: Arabic Translation Zebra (s=17) -->
     <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="right" vertical="center" wrapText="1"/>
     </xf>
-    <!-- 18: Adjektiv White (s=18) with Standard Background & Orange Font (fontId=9) -->
-    <xf numFmtId="0" fontId="9" fillId="0" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+    <!-- 18: Adjektiv White (s=18) -->
+    <xf numFmtId="0" fontId="9" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 19: Adjektiv Zebra (s=19) with Zebra Background & Orange Font (fontId=9) -->
+    <!-- 19: Adjektiv Zebra (s=19) -->
     <xf numFmtId="0" fontId="9" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
+    <!-- 20: Bold Body White (s=20) -->
+    <xf numFmtId="0" fontId="10" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center" wrapText="1"/>
+    </xf>
+    <!-- 21: Bold Body Zebra (s=21) -->
+    <xf numFmtId="0" fontId="10" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center" wrapText="1"/>
+    </xf>
   </cellXfs>
+  <cellStyles count="1">
+    <cellStyle name="Normal" xfId="0" builtinId="0"/>
+  </cellStyles>
+  <dxfs count="0"/>
 </styleSheet>"""
+    }
+
+    private fun buildInlineRichCellXml(
+        cellRef: String,
+        styleId: Int,
+        escapedText: String,
+        fontName: String,
+        familyId: Int,
+        fontSize: String,
+        colorRgb: String,
+        isBold: Boolean
+    ): String {
+        val boldTag = if (isBold) "<b/>" else ""
+        return """      <c r="$cellRef" s="$styleId" t="inlineStr"><is><r><rPr>${boldTag}<sz val="$fontSize"/><color rgb="$colorRgb"/><rFont val="$fontName"/><family val="$familyId"/></rPr><t xml:space="preserve">$escapedText</t></r></is></c>"""
     }
 
     private fun buildWorksheetXml(
@@ -1244,8 +1400,20 @@ $workbookSheetsAdj
             "Notizbuch: $cleanNotebook"
         }
 
-        val headerCharFactor = (typography.headerFontSize / 11.0).coerceAtLeast(0.7) * 1.25
-        val bodyCharFactor = (typography.bodyFontSize / 11.0).coerceAtLeast(0.7) * 1.15
+        val bodySz = if (typography.bodyFontSize % 1.0f == 0f) "${typography.bodyFontSize.toInt()}" else "${typography.bodyFontSize}"
+        val headerSz = if (typography.headerFontSize % 1.0f == 0f) "${typography.headerFontSize.toInt()}" else "${typography.headerFontSize}"
+        val titleSz = if ((typography.headerFontSize + 2f) % 1.0f == 0f) "${(typography.headerFontSize + 2f).toInt()}" else "${typography.headerFontSize + 2f}"
+        val bodyColorRgb = toExcelRgbHex(typography.bodyFontColorHex, "FF0F172A")
+        val headerColorRgb = toExcelRgbHex(typography.headerFontColorHex, "FF0F172A")
+        val bodyFontName = escapeXml(typography.bodyFontFamily)
+        val headerFontName = escapeXml(typography.headerFontFamily)
+        val bodyFamilyId = getExcelFontFamilyId(typography.bodyFontFamily)
+        val headerFamilyId = getExcelFontFamilyId(typography.headerFontFamily)
+
+        val headerWidthMult = getFontWidthMultiplier(typography.headerFontFamily)
+        val bodyWidthMult = getFontWidthMultiplier(typography.bodyFontFamily)
+        val headerCharFactor = (typography.headerFontSize / 11.0).coerceAtLeast(0.7) * 1.15 * headerWidthMult
+        val bodyCharFactor = (typography.bodyFontSize / 11.0).coerceAtLeast(0.7) * 1.05 * bodyWidthMult
         val colWidths = DoubleArray(colCount) { 16.0 }
         headers.forEachIndexed { i, h ->
             colWidths[i] = maxOf(colWidths[i], h.length * headerCharFactor + 3.0)
@@ -1294,11 +1462,32 @@ $workbookSheetsAdj
 
         // Row 1: Document Title in top-left cell A1, and Notizbuch Name alongside it in B1
         sheetBuilder.append("""    <row r="1" ht="$titleRowHt" customHeight="1">
-      <c r="A1" s="4" t="inlineStr"><is><t>${escapeXml(documentTitle)}</t></is></c>
 """)
+        sheetBuilder.append(
+            buildInlineRichCellXml(
+                cellRef = "A1",
+                styleId = 4,
+                escapedText = escapeXml(documentTitle),
+                fontName = headerFontName,
+                familyId = headerFamilyId,
+                fontSize = titleSz,
+                colorRgb = headerColorRgb,
+                isBold = true
+            )
+        ).append("\n")
         if (displayNotebook.isNotBlank()) {
-            sheetBuilder.append("""      <c r="B1" s="5" t="inlineStr"><is><t>${escapeXml(displayNotebook)}</t></is></c>
-""")
+            sheetBuilder.append(
+                buildInlineRichCellXml(
+                    cellRef = "B1",
+                    styleId = 5,
+                    escapedText = escapeXml(displayNotebook),
+                    fontName = headerFontName,
+                    familyId = headerFamilyId,
+                    fontSize = "12",
+                    colorRgb = "FF000000",
+                    isBold = true
+                )
+            ).append("\n")
         }
         sheetBuilder.append("""    </row>
 """)
@@ -1308,8 +1497,18 @@ $workbookSheetsAdj
 """)
         headers.forEachIndexed { i, h ->
             val cellRef = "${getColLetter(i)}2"
-            sheetBuilder.append("""      <c r="$cellRef" s="1" t="inlineStr"><is><t>${escapeXml(h)}</t></is></c>
-""")
+            sheetBuilder.append(
+                buildInlineRichCellXml(
+                    cellRef = cellRef,
+                    styleId = 1,
+                    escapedText = escapeXml(h),
+                    fontName = headerFontName,
+                    familyId = headerFamilyId,
+                    fontSize = headerSz,
+                    colorRgb = headerColorRgb,
+                    isBold = true
+                )
+            ).append("\n")
         }
         sheetBuilder.append("""    </row>
 """)
@@ -1317,7 +1516,7 @@ $workbookSheetsAdj
         val genusColIndex = headers.indexOf("Typ").let { if (it >= 0) it else headers.indexOf("Genus") }
         val translationColIndex = headers.indexOf("The Translation / الترجمة")
 
-        // Rows 3+: Data Rows (applying styleId to all cells across all columns)
+        // Rows 3+: Data Rows (applying styleId and inline font run to all cells across all columns)
         rows.forEachIndexed { rowIndex, rowData ->
             val rNum = rowIndex + 3
             val isZebra = rowIndex % 2 == 1
@@ -1330,25 +1529,62 @@ $workbookSheetsAdj
                 val rawVal = rowData.getOrElse(cIndex) { "" }
                 val textVal = escapeXml(rawVal)
 
+                var cellColorRgb = bodyColorRgb
+                var cellBold = (cIndex == 1)
+
                 val styleId = if (cIndex == genusColIndex && genusColIndex >= 0) {
                     val g = rawVal.trim().lowercase(java.util.Locale.ROOT)
+                    cellBold = true
                     when {
-                        g.startsWith("maskulin") || g == "der" || g == "m" -> if (isZebra) 7 else 6
-                        g.startsWith("feminin") || g == "die" || g == "f" -> if (isZebra) 9 else 8
-                        g.startsWith("neutrum") || g == "das" || g == "n" -> if (isZebra) 11 else 10
-                        g.startsWith("wort") || g.startsWith("wörter") || g.startsWith("woerter") -> if (isZebra) 13 else 12
-                        g.startsWith("satz") -> if (isZebra) 15 else 14
-                        g.startsWith("adjektiv") -> if (isZebra) 19 else 18
-                        else -> defaultStyleId
+                        g.startsWith("maskulin") || g == "der" || g == "m" -> {
+                            cellColorRgb = "FF1565C0"
+                            if (isZebra) 7 else 6
+                        }
+                        g.startsWith("feminin") || g == "die" || g == "f" -> {
+                            cellColorRgb = "FFC2185B"
+                            if (isZebra) 9 else 8
+                        }
+                        g.startsWith("neutrum") || g == "das" || g == "n" -> {
+                            cellColorRgb = "FFC5A880"
+                            if (isZebra) 11 else 10
+                        }
+                        g.startsWith("wort") || g.startsWith("wörter") || g.startsWith("woerter") -> {
+                            cellColorRgb = "FFEA580C"
+                            if (isZebra) 13 else 12
+                        }
+                        g.startsWith("satz") -> {
+                            cellColorRgb = "FF5E35B1"
+                            if (isZebra) 15 else 14
+                        }
+                        g.startsWith("adjektiv") -> {
+                            cellColorRgb = "FF00897B"
+                            if (isZebra) 19 else 18
+                        }
+                        else -> {
+                            cellBold = false
+                            defaultStyleId
+                        }
                     }
                 } else if (cIndex == translationColIndex && translationColIndex >= 0 && isArabicText(rawVal)) {
                     if (isZebra) 17 else 16
+                } else if (cIndex == 1) {
+                    if (isZebra) 21 else 20
                 } else {
                     defaultStyleId
                 }
 
-                sheetBuilder.append("""      <c r="$cellRef" s="$styleId" t="inlineStr"><is><t>$textVal</t></is></c>
-""")
+                sheetBuilder.append(
+                    buildInlineRichCellXml(
+                        cellRef = cellRef,
+                        styleId = styleId,
+                        escapedText = textVal,
+                        fontName = bodyFontName,
+                        familyId = bodyFamilyId,
+                        fontSize = bodySz,
+                        colorRgb = cellColorRgb,
+                        isBold = cellBold
+                    )
+                ).append("\n")
             }
             sheetBuilder.append("""    </row>
 """)
@@ -1627,6 +1863,7 @@ $workbookSheetsAdj
         val headerPaint = Paint().apply {
             textSize = headerFontSize
             typeface = headerTypeface
+            isFakeBoldText = true
             isAntiAlias = true
         }
         val cellPaint = Paint().apply {
@@ -1637,6 +1874,7 @@ $workbookSheetsAdj
         val boldCellPaint = Paint().apply {
             textSize = bodyFontSize
             typeface = bodyBoldTypeface
+            isFakeBoldText = true
             isAntiAlias = true
         }
 
@@ -1688,6 +1926,7 @@ $workbookSheetsAdj
                 color = headerColor
                 textSize = headerFontSize
                 typeface = headerTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val cellPaint = Paint().apply {
@@ -1700,6 +1939,7 @@ $workbookSheetsAdj
                 color = bodyColor
                 textSize = bodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
 
@@ -1843,8 +2083,10 @@ $workbookSheetsAdj
             val cellTextCombined = lines.joinToString(" ").trim()
             val isAr = (c == translationColumnIndex && translationColumnIndex >= 0) && isArabicText(cellTextCombined)
             val originalAlign = p.textAlign
+            val originalTf = p.typeface
             if (isAr) {
                 p.textAlign = Paint.Align.RIGHT
+                p.typeface = createSafeTypeface("Cairo", if (p.isFakeBoldText) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
             }
 
             for ((lineIdx, lineText) in lines.withIndex()) {
@@ -1856,6 +2098,7 @@ $workbookSheetsAdj
                 }
             }
             p.textAlign = originalAlign
+            p.typeface = originalTf
 
             if (c > 0) {
                 canvas.drawLine(colX, currentY, colX, currentY + row.rowHeight, gridPaint)
@@ -1987,6 +2230,7 @@ $workbookSheetsAdj
             color = Color.BLACK
             textSize = 12f // Always 12-point font in black regardless of heading settings
             typeface = headerTypeface
+            isFakeBoldText = true
             textAlign = Paint.Align.RIGHT
             isAntiAlias = true
         }
@@ -2084,6 +2328,7 @@ $workbookSheetsAdj
             color = headerColor
             textSize = maxOf(13f, typography.headerFontSize)
             typeface = headerTypeface
+            isFakeBoldText = true
             isAntiAlias = true
         }
 
@@ -2123,12 +2368,14 @@ $workbookSheetsAdj
                 color = bodyColor
                 textSize = nounTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val nounHeaderTextPaint = Paint().apply {
                 color = headerColor
                 textSize = nounTableLayout.effectiveHeaderFontSize
                 typeface = headerTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
 
@@ -2136,36 +2383,42 @@ $workbookSheetsAdj
                 color = Color.rgb(0x15, 0x65, 0xC0) // #1565C0
                 textSize = nounTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val femininPaint = Paint().apply {
                 color = Color.rgb(0xC2, 0x18, 0x5B) // #C2185B
                 textSize = nounTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val neutrumPaint = Paint().apply {
                 color = Color.rgb(0xC5, 0xA8, 0x80) // #C5A880 Lighter Beige
                 textSize = nounTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val wortPaint = Paint().apply {
                 color = Color.rgb(0xEA, 0x58, 0x0C) // #EA580C Rich Orange
                 textSize = nounTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val satzPaint = Paint().apply {
                 color = Color.rgb(0x5E, 0x35, 0xB1) // #5E35B1 Royal Purple
                 textSize = nounTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val adjektivTurquoisePaint = Paint().apply {
                 color = Color.rgb(0, 137, 123) // #00897B Turquoise
                 textSize = nounTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
 
@@ -2283,12 +2536,14 @@ $workbookSheetsAdj
                 color = bodyColor
                 textSize = verbTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val verbHeaderTextPaint = Paint().apply {
                 color = headerColor
                 textSize = verbTableLayout.effectiveHeaderFontSize
                 typeface = headerTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
 
@@ -2399,18 +2654,21 @@ $workbookSheetsAdj
                 color = bodyColor
                 textSize = adjektivTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val adjektivHeaderTextPaint = Paint().apply {
                 color = headerColor
                 textSize = adjektivTableLayout.effectiveHeaderFontSize
                 typeface = headerTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
             val adjektivOrangePaint = Paint().apply {
                 color = Color.rgb(230, 81, 0) // #E65100 Orange
                 textSize = adjektivTableLayout.effectiveBodyFontSize
                 typeface = bodyBoldTypeface
+                isFakeBoldText = true
                 isAntiAlias = true
             }
 

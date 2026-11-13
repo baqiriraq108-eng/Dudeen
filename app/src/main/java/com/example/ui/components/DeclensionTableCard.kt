@@ -1204,6 +1204,7 @@ fun DeclensionResultView(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     onSpeak: (String, String) -> Unit = { _, _ -> },
+    onSpeakTranslation: (String, String, String) -> Unit = { text, id, _ -> onSpeak(text, id) },
     onExport: () -> Unit = {},
     ttsSpeed: Float = 1.0f,
     onTtsSpeedChange: (Float) -> Unit = {},
@@ -1271,30 +1272,25 @@ fun DeclensionResultView(
         result.singular.rows.firstOrNull { it.caseKey == "genitiv" }?.definite?.trim().orEmpty()
     }
 
-    val grammaticalDetailsAnnotated = remember(plText, genText, primaryColor, onSurfaceColor, separatorColor) {
-        buildAnnotatedString {
-            var hasPrev = false
-            if (plText.isNotBlank()) {
-                withStyle(SpanStyle(color = primaryColor, fontWeight = FontWeight.Bold)) {
-                    append("Pl.: ")
-                }
-                withStyle(SpanStyle(color = onSurfaceColor, fontWeight = FontWeight.Medium)) {
-                    append(plText)
-                }
-                hasPrev = true
+    val pluralAnnotated = remember(plText, primaryColor, onSurfaceColor) {
+        if (plText.isBlank()) null
+        else buildAnnotatedString {
+            withStyle(SpanStyle(color = primaryColor, fontWeight = FontWeight.Bold)) {
+                append("Pl.: ")
             }
-            if (genText.isNotBlank()) {
-                if (hasPrev) {
-                    withStyle(SpanStyle(color = separatorColor)) {
-                        append("   ·   ")
-                    }
-                }
-                withStyle(SpanStyle(color = primaryColor, fontWeight = FontWeight.Bold)) {
-                    append("Gen.: ")
-                }
-                withStyle(SpanStyle(color = onSurfaceColor, fontWeight = FontWeight.Medium)) {
-                    append(genText)
-                }
+            withStyle(SpanStyle(color = onSurfaceColor, fontWeight = FontWeight.Medium)) {
+                append(plText)
+            }
+        }
+    }
+    val genitivAnnotated = remember(genText, primaryColor, onSurfaceColor) {
+        if (genText.isBlank()) null
+        else buildAnnotatedString {
+            withStyle(SpanStyle(color = primaryColor, fontWeight = FontWeight.Bold)) {
+                append("Gen.: ")
+            }
+            withStyle(SpanStyle(color = onSurfaceColor, fontWeight = FontWeight.Medium)) {
+                append(genText)
             }
         }
     }
@@ -1409,7 +1405,7 @@ fun DeclensionResultView(
                     }
                 }
 
-                // Row 2: Grammatical Details - Plural & Genitiv (Inflection: horizontally scrollable, no wrapping)
+                // Row 2: Grammatical Details - Plural & Genitiv (Inflection: horizontally scrollable, with speaker buttons)
                 if (plText.isNotBlank() || genText.isNotBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
@@ -1418,36 +1414,82 @@ fun DeclensionResultView(
                             .horizontalScroll(rememberScrollState()),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = grammaticalDetailsAnnotated,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontSize = 14.sp,
-                            color = GeoOnSurfaceVariant,
-                            fontWeight = FontWeight.Medium,
-                            lineHeight = 19.sp,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                        if (pluralAnnotated != null) {
+                            Text(
+                                text = pluralAnnotated,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontSize = 14.sp,
+                                color = GeoOnSurfaceVariant,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 19.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            if (plText != "–" && plText != "-") {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                val pluralSpeakerId = "decl_plural_word_${result.word.hashCode()}"
+                                val isPlayingPlural = currentlySpokenId != null && currentlySpokenId == pluralSpeakerId
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isPlayingPlural) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                        .clickable { onSpeak(plText, pluralSpeakerId) }
+                                        .testTag("pronounce_plural_button"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (isPlayingPlural) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = if (isPlayingPlural) "Stoppen" else "Plural anhören",
+                                        tint = if (isPlayingPlural) Color(0xFFD32F2F) else Color(0xFF757575),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
 
-                        if (plText.isNotBlank() && plText != "–" && plText != "-") {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            val pluralSpeakerId = "decl_plural_word_${result.word.hashCode()}"
-                            val isPlayingPlural = currentlySpokenId != null && currentlySpokenId == pluralSpeakerId
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isPlayingPlural) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
-                                    .clickable { onSpeak(plText, pluralSpeakerId) }
-                                    .testTag("pronounce_plural_button"),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (isPlayingPlural) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
-                                    contentDescription = if (isPlayingPlural) "Stoppen" else "Plural anhören",
-                                    tint = if (isPlayingPlural) Color(0xFFD32F2F) else Color(0xFF757575),
-                                    modifier = Modifier.size(14.dp)
-                                )
+                        if (pluralAnnotated != null && genitivAnnotated != null) {
+                            Text(
+                                text = "   ·   ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontSize = 14.sp,
+                                color = separatorColor,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+
+                        if (genitivAnnotated != null) {
+                            Text(
+                                text = genitivAnnotated,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontSize = 14.sp,
+                                color = GeoOnSurfaceVariant,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 19.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            if (genText != "–" && genText != "-") {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                val genitivSpeakerId = "decl_genitiv_word_${result.word.hashCode()}"
+                                val isPlayingGenitiv = currentlySpokenId != null && currentlySpokenId == genitivSpeakerId
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isPlayingGenitiv) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                        .clickable { onSpeak(genText, genitivSpeakerId) }
+                                        .testTag("pronounce_genitiv_button"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (isPlayingGenitiv) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                        contentDescription = if (isPlayingGenitiv) "Stoppen" else "Genitiv anhören",
+                                        tint = if (isPlayingGenitiv) Color(0xFFD32F2F) else Color(0xFF757575),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1488,6 +1530,9 @@ fun DeclensionResultView(
                         }
                     }
                     Spacer(modifier = Modifier.height(6.dp))
+                    val meaningSpeakerId = "decl_meaning_${result.word.hashCode()}"
+                    val isPlayingMeaning = currentlySpokenId != null && currentlySpokenId == meaningSpeakerId
+                    val meaningLangCode = if (isArabic) "ar" else "en"
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1508,6 +1553,24 @@ fun DeclensionResultView(
                                     tint = GeoOnPrimaryContainer
                                 )
                             }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPlayingMeaning) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                    .clickable { onSpeakTranslation(meaningText, meaningSpeakerId, meaningLangCode) }
+                                    .testTag("pronounce_noun_translation_button"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingMeaning) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = if (isPlayingMeaning) "Stoppen" else "Übersetzung anhören",
+                                    tint = if (isPlayingMeaning) Color(0xFFD32F2F) else Color(0xFF757575),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
                         }
                         Text(
                             text = annotatedMeaning,
@@ -1519,7 +1582,24 @@ fun DeclensionResultView(
                             maxLines = 2,
                             modifier = Modifier.weight(1f, fill = false)
                         )
-                        if (isArabic) {
+                        if (!isArabic) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPlayingMeaning) Color(0xFFFFCDD2) else Color(0xFFEEEEEE))
+                                    .clickable { onSpeakTranslation(meaningText, meaningSpeakerId, meaningLangCode) }
+                                    .testTag("pronounce_noun_translation_button"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingMeaning) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = if (isPlayingMeaning) "Stoppen" else "Übersetzung anhören",
+                                    tint = if (isPlayingMeaning) Color(0xFFD32F2F) else Color(0xFF757575),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        } else {
                             Spacer(modifier = Modifier.width(8.dp))
                             Box(
                                 modifier = Modifier

@@ -516,17 +516,19 @@ fun CreateNotebookDialog(
                             .weight(1f)
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
                             color = GeoOnSurface,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = {
                             val name = notebookName.trim().ifBlank { "Neues Notizbuch" }
                             onCreate(name, selectedThemeId, selectedThemeMode)
@@ -536,14 +538,19 @@ fun CreateNotebookDialog(
                             .weight(1f)
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = GeoOnSurface,
+                            disabledContentColor = GeoOnSurfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.confirm,
-                            color = GeoOnPrimary,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            color = if (notebookName.isNotBlank()) GeoOnSurface else GeoOnSurfaceVariant.copy(alpha = 0.5f),
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
@@ -1390,17 +1397,17 @@ fun NotebookManagerDialog(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Button(
+                                            OutlinedButton(
                                                 onClick = { folderPickerLauncher.launch(null) },
                                                 modifier = Modifier
                                                     .weight(1f)
-                                                    .height(38.dp),
-                                                shape = RoundedCornerShape(9.dp),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                    .height(40.dp),
+                                                shape = RoundedCornerShape(10.dp),
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.onSurface
                                                 ),
-                                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                             ) {
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
@@ -1409,46 +1416,52 @@ fun NotebookManagerDialog(
                                                     Icon(
                                                         imageVector = Icons.Default.Add,
                                                         contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onSurface,
                                                         modifier = Modifier.size(16.dp)
                                                     )
                                                     AutoSizingText(
                                                         text = strings.addFolderButton,
                                                         maxFontSize = 12.5.sp,
-                                                        minFontSize = 11.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                        minFontSize = 9.5.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.onSurface
                                                     )
                                                 }
                                             }
 
-                                            Button(
+                                            OutlinedButton(
                                                 onClick = onBackupNow,
                                                 enabled = !isBackingUp && backupFolders.isNotEmpty(),
                                                 modifier = Modifier
                                                     .weight(1f)
-                                                    .height(38.dp),
-                                                shape = RoundedCornerShape(9.dp),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.primary,
-                                                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                                                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                                    .height(40.dp),
+                                                shape = RoundedCornerShape(10.dp),
+                                                border = BorderStroke(
+                                                    1.dp,
+                                                    if (!isBackingUp && backupFolders.isNotEmpty())
+                                                        MaterialTheme.colorScheme.outlineVariant
+                                                    else
+                                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                                ),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.onSurface,
                                                     disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                                 ),
-                                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                             ) {
                                                 if (isBackingUp) {
                                                     CircularProgressIndicator(
                                                         modifier = Modifier.size(14.dp),
                                                         strokeWidth = 2.dp,
-                                                        color = MaterialTheme.colorScheme.onPrimary
+                                                        color = MaterialTheme.colorScheme.onSurface
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
-                                                    Text(
+                                                    AutoSizingText(
                                                         text = strings.backingUpStatus,
-                                                        fontSize = 11.5.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        maxLines = 1,
-                                                        softWrap = false
+                                                        maxFontSize = 12.sp,
+                                                        minFontSize = 9.5.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = MaterialTheme.colorScheme.onSurface
                                                     )
                                                 } else {
                                                     Row(
@@ -1463,9 +1476,9 @@ fun NotebookManagerDialog(
                                                         AutoSizingText(
                                                             text = strings.backupNowButton,
                                                             maxFontSize = 12.5.sp,
-                                                            minFontSize = 11.sp,
-                                                            fontWeight = FontWeight.Medium,
-                                                            color = if (backupFolders.isNotEmpty()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                            minFontSize = 9.5.sp,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = if (backupFolders.isNotEmpty()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                                         )
                                                     }
                                                 }
@@ -1766,17 +1779,19 @@ fun NotebookManagerDialog(
                                 .weight(1f)
                                 .height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, GeoBorder)
+                            border = BorderStroke(1.dp, GeoBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.cancel,
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
                                 color = GeoOnSurface,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                softWrap = false
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 val name = newTitle.trim()
                                 if (name.isNotBlank()) {
@@ -1788,14 +1803,16 @@ fun NotebookManagerDialog(
                                 .weight(1f)
                                 .height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                            border = BorderStroke(1.dp, GeoBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.confirm,
-                                color = GeoOnPrimary,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
+                                color = GeoOnSurface,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -1837,17 +1854,19 @@ fun NotebookManagerDialog(
                                 .weight(1f)
                                 .height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, GeoBorder)
+                            border = BorderStroke(1.dp, GeoBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.cancel,
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
                                 color = GeoOnSurface,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                softWrap = false
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 onDeleteNotebook(target.id)
                                 notebookToDelete = null
@@ -1856,14 +1875,16 @@ fun NotebookManagerDialog(
                                 .weight(1f)
                                 .height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                            border = BorderStroke(1.dp, GeoBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.confirm,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
+                                color = GeoOnSurface,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -1907,17 +1928,19 @@ fun NotebookManagerDialog(
                                 .weight(1f)
                                 .height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.cancel,
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
                                 color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                softWrap = false
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
-                        Button(
+                        OutlinedButton(
                             onClick = {
                                 onSetPrimaryBackupFolder(targetFolder.uriString)
                                 folderToSetPrimary = null
@@ -1926,14 +1949,16 @@ fun NotebookManagerDialog(
                                 .weight(1f)
                                 .height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.confirm,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
+                                maxFontSize = 13.sp,
+                                minFontSize = 9.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -2086,57 +2111,61 @@ fun JsonExportActionDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Share (Secondary)
+                        // Share (Standardized Decline-Style Outline)
                         OutlinedButton(
                             onClick = onShare,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, GeoPrimary.copy(alpha = 0.7f)),
+                            border = BorderStroke(1.dp, GeoBorder),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = GeoPrimary
-                            )
+                                contentColor = GeoOnSurface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = null,
+                                tint = GeoOnSurface,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(
+                            AutoSizingText(
                                 text = strings.share,
-                                fontSize = 12.5.sp,
+                                maxFontSize = 12.5.sp,
+                                minFontSize = 9.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                softWrap = false
+                                color = GeoOnSurface
                             )
                         }
 
-                        // Confirm / Save to file (Primary)
-                        Button(
+                        // Confirm / Save to file (Standardized Decline-Style Outline)
+                        OutlinedButton(
                             onClick = onSaveToFile,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(42.dp),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = GeoPrimary,
-                                contentColor = GeoOnPrimary
-                            )
+                            border = BorderStroke(1.dp, GeoBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = GeoOnSurface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Save,
                                 contentDescription = null,
+                                tint = GeoOnSurface,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(
+                            AutoSizingText(
                                 text = strings.confirm,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
+                                maxFontSize = 12.5.sp,
+                                minFontSize = 9.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = GeoOnSurface
                             )
                         }
                     }
@@ -2148,12 +2177,15 @@ fun JsonExportActionDialog(
                             .fillMaxWidth()
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
+                            maxFontSize = 12.5.sp,
+                            minFontSize = 9.5.sp,
                             color = GeoOnSurface,
-                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -2220,17 +2252,22 @@ fun SelectNotebooksExportDialog(
                             color = GeoOnSurfaceVariant
                         )
                         val areAllSelected = selectedIds.size == notebooks.size && notebooks.isNotEmpty()
-                        TextButton(
+                        OutlinedButton(
                             onClick = {
                                 selectedIds = if (areAllSelected) emptySet() else notebooks.map { it.id }.toSet()
                             },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, GeoBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                            modifier = Modifier.height(34.dp)
                         ) {
-                            Text(
+                            AutoSizingText(
                                 text = strings.selectAll,
-                                fontSize = 12.sp,
+                                maxFontSize = 12.sp,
+                                minFontSize = 9.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = GeoPrimary
+                                color = GeoOnSurface
                             )
                         }
                     }
@@ -2387,18 +2424,19 @@ fun SelectNotebooksExportDialog(
                             .weight(1f)
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
-                            fontSize = 12.5.sp,
+                            maxFontSize = 12.5.sp,
+                            minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoOnSurface,
-                            maxLines = 1,
-                            softWrap = false
+                            color = GeoOnSurface
                         )
                     }
-                    Button(
+                    OutlinedButton(
                         onClick = {
                             val list = selectedIds.toList()
                             if (exportMode == "combined") {
@@ -2412,15 +2450,19 @@ fun SelectNotebooksExportDialog(
                             .weight(1f)
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = GeoOnSurface,
+                            disabledContentColor = GeoOnSurfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.confirm,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GeoOnPrimary,
-                            maxLines = 1,
-                            softWrap = false
+                            maxFontSize = 12.5.sp,
+                            minFontSize = 9.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (selectedIds.isNotEmpty()) GeoOnSurface else GeoOnSurfaceVariant.copy(alpha = 0.5f)
                         )
                     }
                 }
@@ -2522,47 +2564,47 @@ fun ImportSingleChoiceDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Option 1: Neues Notizbuch (Height 44dp, padding 16dp, corner 10dp)
-                    Button(
+                    // Option 1: Neues Notizbuch (Standardized Decline-Style Outline)
+                    OutlinedButton(
                         onClick = { onCreateAsNew(notebookName.trim().ifBlank { detectedName }) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GeoPrimary,
-                            contentColor = GeoOnPrimary
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = GeoOnSurface
                         ),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
                         AutoSizingText(
                             text = strings.importAsNewNotebookButton,
-                            maxFontSize = 15.sp,
-                            minFontSize = 12.sp,
+                            maxFontSize = 14.sp,
+                            minFontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoOnPrimary
+                            color = GeoOnSurface
                         )
                     }
 
-                    // Option 2: Zusammenführen (Height 44dp, padding 16dp, corner 10dp)
+                    // Option 2: Zusammenführen (Standardized Decline-Style Outline)
                     OutlinedButton(
                         onClick = onMergeIntoActive,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoPrimary),
+                        border = BorderStroke(1.dp, GeoBorder),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = GeoPrimary
+                            contentColor = GeoOnSurface
                         ),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
                         AutoSizingText(
                             text = strings.mergeIntoActiveNotebookButton,
-                            maxFontSize = 15.sp,
-                            minFontSize = 12.sp,
+                            maxFontSize = 14.sp,
+                            minFontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoPrimary
+                            color = GeoOnSurface
                         )
                     }
 
@@ -2573,15 +2615,16 @@ fun ImportSingleChoiceDialog(
                             .fillMaxWidth()
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
-                            fontSize = 13.sp,
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoOnSurface,
-                            maxLines = 1,
-                            softWrap = false
+                            color = GeoOnSurface
                         )
                     }
                 }
@@ -2682,24 +2725,24 @@ fun ImportMultiChoiceDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
+                    OutlinedButton(
                         onClick = onImportAllSeparate,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GeoPrimary,
-                            contentColor = GeoOnPrimary
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = GeoOnSurface
                         ),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
                         AutoSizingText(
                             text = strings.importAllSeparateButton(notebookNames.size),
                             maxFontSize = 14.sp,
-                            minFontSize = 11.5.sp,
+                            minFontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoOnPrimary
+                            color = GeoOnSurface
                         )
                     }
 
@@ -2709,18 +2752,18 @@ fun ImportMultiChoiceDialog(
                             .fillMaxWidth()
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoPrimary),
+                        border = BorderStroke(1.dp, GeoBorder),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = GeoPrimary
+                            contentColor = GeoOnSurface
                         ),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
                         AutoSizingText(
                             text = strings.importAsOneCombinedButton,
                             maxFontSize = 14.sp,
-                            minFontSize = 11.5.sp,
+                            minFontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoPrimary
+                            color = GeoOnSurface
                         )
                     }
 
@@ -2730,15 +2773,16 @@ fun ImportMultiChoiceDialog(
                             .fillMaxWidth()
                             .height(42.dp),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
-                            fontSize = 13.sp,
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoOnSurface,
-                            maxLines = 1,
-                            softWrap = false
+                            color = GeoOnSurface
                         )
                     }
                 }
@@ -2851,19 +2895,22 @@ fun PostImportApiKeyDialog(
                         onClick = onSkip,
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
-                            fontSize = 12.5.sp,
+                            maxFontSize = 12.5.sp,
+                            minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = GeoOnSurface
                         )
                     }
 
-                    Button(
+                    OutlinedButton(
                         onClick = {
                             if (keyInput.isNotBlank()) {
                                 onSaveApiKey(keyInput.trim())
@@ -2872,16 +2919,19 @@ fun PostImportApiKeyDialog(
                             }
                         },
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GeoPrimary),
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.confirm,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GeoOnPrimary
+                            maxFontSize = 12.5.sp,
+                            minFontSize = 9.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GeoOnSurface
                         )
                     }
                 }

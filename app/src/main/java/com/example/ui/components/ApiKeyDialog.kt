@@ -790,13 +790,13 @@ fun ApiKeyDialog(
                                 enabled = !isTestingKey && currentKey.trim().isNotEmpty(),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(36.dp)
+                                    .height(38.dp)
                                     .testTag(testButtonTag),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, GeoPrimary),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, GeoBorder),
                                 colors = ButtonDefaults.outlinedButtonColors(
                                     containerColor = GeoSurface,
-                                    contentColor = GeoPrimary
+                                    contentColor = GeoOnSurface
                                 ),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
@@ -804,12 +804,24 @@ fun ApiKeyDialog(
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(14.dp),
                                         strokeWidth = 2.dp,
-                                        color = GeoPrimary
+                                        color = GeoOnSurface
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(text = strings.testingKeyStatus, fontSize = 11.sp)
+                                    AutoSizingText(
+                                        text = strings.testingKeyStatus,
+                                        maxFontSize = 11.5.sp,
+                                        minFontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GeoOnSurface
+                                    )
                                 } else {
-                                    Text(text = strings.testKeyButton, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    AutoSizingText(
+                                        text = strings.testKeyButton,
+                                        maxFontSize = 11.5.sp,
+                                        minFontSize = 9.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = GeoOnSurface
+                                    )
                                 }
                             }
 
@@ -929,12 +941,12 @@ fun ApiKeyDialog(
                                             ),
                                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                         ) {
-                                            Text(
+                                            AutoSizingText(
                                                 text = lang.nativeLabel,
-                                                fontSize = 11.sp,
-                                                fontWeight = if (isLangSelected) FontWeight.Bold else FontWeight.Normal,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                                maxFontSize = 11.5.sp,
+                                                minFontSize = 8.5.sp,
+                                                fontWeight = if (isLangSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isLangSelected) GeoPrimary else GeoOnSurface
                                             )
                                         }
                                     }
@@ -973,12 +985,12 @@ fun ApiKeyDialog(
                                                 ),
                                                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                             ) {
-                                                Text(
+                                                AutoSizingText(
                                                     text = label,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = if (isTransSelected) FontWeight.Bold else FontWeight.Normal,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
+                                                    maxFontSize = 11.5.sp,
+                                                    minFontSize = 8.5.sp,
+                                                    fontWeight = if (isTransSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    color = if (isTransSelected) GeoPrimary else GeoOnSurface
                                                 )
                                             }
                                         }
@@ -1008,35 +1020,35 @@ fun ApiKeyDialog(
                             .testTag("close_api_key_dialog"),
                         shape = RoundedCornerShape(10.dp),
                         border = BorderStroke(1.dp, GeoBorder),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.cancel,
-                            fontSize = 13.sp,
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false
+                            color = GeoOnSurface
                         )
                     }
 
-                    Button(
+                    OutlinedButton(
                         onClick = onSaveAll,
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp)
                             .testTag("save_api_key_button"),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GeoPrimary,
-                            contentColor = GeoOnPrimary
-                        ),
-                        shape = RoundedCornerShape(10.dp)
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
-                        Text(
+                        AutoSizingText(
                             text = strings.confirm,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            softWrap = false
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GeoOnSurface
                         )
                     }
                 }

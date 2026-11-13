@@ -24,20 +24,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SettingsBrightness
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -69,20 +63,13 @@ import com.example.ui.i18n.AppStrings
 import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.AppThemePackage
 import com.example.ui.theme.ColorGroupCategory
-import com.example.ui.theme.GeoFemininBg
-import com.example.ui.theme.GeoFemininText
-import com.example.ui.theme.GeoMaskulinBg
-import com.example.ui.theme.GeoMaskulinText
-import com.example.ui.theme.GeoNeutrumBg
-import com.example.ui.theme.GeoNeutrumText
 
 /**
  * Separate Color Scheme Window (Bottom Sheet).
  * Displays:
  * 1. Mode Selection: [ System ] [ Light ] [ Dark ]
  * 2. 10 Categories of the 100 Colors (plus preserved classic themes) with expandable headers
- * 3. Live Preview matching the active selected theme and mode
- * 4. Action buttons: Cancel and Apply
+ * 3. Action buttons: Cancel and Apply
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -333,12 +320,35 @@ fun ColorBottomSheet(
                 // ==============================================================
                 // 2. Ten Categories of the 100 Colors (Expandable)
                 // ==============================================================
-                Text(
-                    text = strings.chooseColorGroupsLabel,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textPrimary
-                )
+                val allExpanded = AppThemePackage.ALL_CATEGORIES.all { expandedCategories[it.id] == true }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = strings.chooseColorGroupsLabel,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textPrimary
+                    )
+                    Text(
+                        text = if (allExpanded) strings.collapseDesc else strings.expandDesc,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = previewTheme.tier1Primary(isPreviewDark),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable {
+                                val nextState = !allExpanded
+                                AppThemePackage.ALL_CATEGORIES.forEach { cat ->
+                                    expandedCategories[cat.id] = nextState
+                                }
+                            }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .testTag("toggle_all_color_categories")
+                    )
+                }
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -362,81 +372,6 @@ fun ColorBottomSheet(
                         )
                     }
                 }
-
-                HorizontalDivider(color = dividerColor.copy(alpha = 0.6f), thickness = 1.dp)
-
-                // ==============================================================
-                // 3. Live Preview
-                // ==============================================================
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = strings.livePreviewLabel,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textPrimary
-                        )
-
-                        Text(
-                            text = "${previewTheme.shortName} (${if (isPreviewDark) strings.themeModeDark else strings.themeModeLight})",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = previewTheme.primary
-                        )
-                    }
-
-                    // Live preview mock component
-                    LivePreviewMock(
-                        theme = previewTheme,
-                        isDark = isPreviewDark
-                    )
-                }
-
-                // ==============================================================
-                // 4. Recommendations Note (Card)
-                // ==============================================================
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isPreviewDark) Color(0xFF2A2A2A) else Color(0xFFF7F7F8)
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, dividerColor)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = previewTheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(
-                                text = strings.designRecommendationsTitle,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = textPrimary
-                            )
-                            Text(
-                                text = strings.designRecommendationsBody,
-                                fontSize = 10.sp,
-                                color = textSecondary,
-                                lineHeight = 14.sp
-                            )
-                        }
-                    }
-                }
             }
 
             HorizontalDivider(color = dividerColor, thickness = 1.dp)
@@ -456,41 +391,41 @@ fun ColorBottomSheet(
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, dividerColor),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = textPrimary),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
                         .testTag("cancel_color_selection")
                 ) {
-                    Text(
+                    AutoSizingText(
                         text = strings.cancel,
-                        fontSize = 13.sp,
+                        maxFontSize = 13.sp,
+                        minFontSize = 9.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        softWrap = false
+                        color = textPrimary
                     )
                 }
 
-                Button(
+                OutlinedButton(
                     onClick = {
                         onApplyTheme(previewTheme, previewMode)
                         onDismiss()
                     },
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = previewTheme.primary,
-                        contentColor = Color.White
-                    ),
+                    border = BorderStroke(1.dp, dividerColor),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = textPrimary),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
                         .testTag("apply_color_selection")
                 ) {
-                    Text(
+                    AutoSizingText(
                         text = strings.confirm,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false
+                        maxFontSize = 13.sp,
+                        minFontSize = 9.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textPrimary
                     )
                 }
             }
@@ -516,14 +451,16 @@ private fun CategoryExpandableSection(
     val rotation by animateFloatAsState(targetValue = if (isExpanded) 180f else 0f, label = "arrow_rot")
     val textPrimary = if (isPreviewDark) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
     val cardBg = selectedTheme.tier4SurfaceContainer(isPreviewDark)
-    val borderColor = selectedTheme.tier4Border(isPreviewDark)
+    val containsSelected = category.themes.any { it.id == selectedTheme.id || it == selectedTheme }
+    val activeAccent = selectedTheme.tier1Primary(isPreviewDark)
+    val borderColor = if (containsSelected) activeAccent.copy(alpha = 0.55f) else selectedTheme.tier4Border(isPreviewDark)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(cardBg)
-            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .border(if (containsSelected) 1.2.dp else 1.dp, borderColor, RoundedCornerShape(10.dp))
     ) {
         // Expandable Header Row
         Row(
@@ -546,8 +483,16 @@ private fun CategoryExpandableSection(
                     text = "$categoryTitle (${category.themes.size})",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = textPrimary
+                    color = if (containsSelected) activeAccent else textPrimary
                 )
+                if (containsSelected) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(activeAccent)
+                    )
+                }
             }
 
             Icon(
@@ -611,8 +556,12 @@ private fun ColorCardItem(
     val tier4 = theme.tier4Swatch(isPreviewDark)
 
     val textPrimary = if (isPreviewDark) Color(0xFFFFFFFF) else Color(0xFF1A1A1A)
+    val textSecondary = if (isPreviewDark) Color(0xFFB4B8C0) else Color(0xFF5A5D64)
     val itemBg = theme.tier4SurfaceLowest(isPreviewDark)
     val itemBorder = if (isSelected) tier1 else theme.tier4Border(isPreviewDark)
+    val primaryHex = remember(theme.primaryHex) {
+        String.format("#%06X", (0xFFFFFFL and theme.primaryHex))
+    }
 
     Row(
         modifier = modifier
@@ -635,7 +584,7 @@ private fun ColorCardItem(
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = "Ausgewählt",
+                        contentDescription = null,
                         tint = tier1,
                         modifier = Modifier.size(13.dp)
                     )
@@ -650,268 +599,36 @@ private fun ColorCardItem(
                 )
             }
 
-            // Four Tonal Layer Swatches: Tier 1 (Primary), Tier 2 (Secondary), Tier 3 (Tertiary), Tier 4 (Quaternary)
+            // Four Tonal Layer Swatches + Primary Hex label
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                listOf(tier1, tier2, tier3, tier4).forEach { swatchColor ->
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clip(CircleShape)
-                            .background(swatchColor)
-                            .border(
-                                0.6.dp,
-                                if (isPreviewDark) Color.White.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.18f),
-                                CircleShape
-                            )
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Live Preview Mock Component simulating the 4-Tier Color Hierarchy:
- * - Tier 1 (Primary): Header banner (Light), Primary button, Result card top accent bar (2dp), Primary audio icon
- * - Tier 2 (Secondary): Dark-mode header banner, Card title accent, Secondary tonal badges
- * - Tier 3 (Tertiary): Search icon & harmonic highlight accents
- * - Tier 4 (Quaternary): Elevated card container, Search field idle surface, Structural borders
- */
-@Composable
-private fun LivePreviewMock(
-    theme: AppThemePackage,
-    isDark: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val tier1 = theme.tier1Primary(isDark)
-    val tier2 = theme.tier2Secondary(isDark)
-    val tier3 = theme.tier3Tertiary(isDark)
-    val headerBg = if (isDark) theme.tier2Secondary(isDark = false) else theme.tier1Primary(isDark = false)
-    val mainBg = Color(if (isDark) theme.backgroundDarkHex else theme.backgroundLightHex)
-    val cardBg = theme.tier4SurfaceContainer(isDark)
-    val cardTitle = tier1
-    val bodyText = if (isDark) Color(0xFFE6E8EC) else Color(0xFF1C1D21)
-    val searchIdleBg = theme.tier4SurfaceHigh(isDark)
-    val borderCol = theme.tier4Border(isDark)
-    val accentBarColor = tier1
-    val audioIconColor = tier3
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = mainBg),
-        border = BorderStroke(1.dp, borderCol)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // 1. Header (Primary / Dark variant + White text/icons)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(headerBg)
-                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("🇩🇪", fontSize = 10.sp)
-                    }
-                    Text(
-                        text = "Deklo",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("✨", fontSize = 9.sp)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("🎨", fontSize = 9.sp)
-                    }
-                }
-            }
-
-            // Preview Body with Search & Result Card
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // 2. Search Field + Primary Button
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(searchIdleBg)
-                            .border(1.dp, if (isDark) Color(0xFF3F3F3F) else Color(0xFFE5E5E5), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = cardTitle,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Text(
-                            text = "Haus",
-                            fontSize = 10.sp,
-                            color = bodyText
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .height(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(theme.primary)
-                            .padding(horizontal = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Suchen",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                }
-
-                // 3. Result Card with 2dp Top Accent Bar
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardBg),
-                    border = BorderStroke(0.5.dp, if (isDark) Color(0xFF3F3F3F) else Color(0xFFE5E5E5))
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        // 2dp accent bar
+                    listOf(tier1, tier2, tier3, tier4).forEach { swatchColor ->
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(2.dp)
-                                .background(accentBarColor)
-                        )
-
-                        Column(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            // Title & Audio icon
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        text = "das Haus",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = cardTitle
-                                    )
-                                    // Fixed Semantic Badge: Neutrum (remains fixed)
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(GeoNeutrumBg)
-                                            .padding(horizontal = 4.dp, vertical = 1.dp)
-                                    ) {
-                                        Text(
-                                            text = "Neutrum",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = GeoNeutrumText
-                                        )
-                                    }
-                                }
-
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                                    contentDescription = null,
-                                    tint = audioIconColor,
-                                    modifier = Modifier.size(15.dp)
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(swatchColor)
+                                .border(
+                                    0.6.dp,
+                                    if (isPreviewDark) Color.White.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.18f),
+                                    CircleShape
                                 )
-                            }
-
-                            // Secondary translation & body text
-                            Text(
-                                text = "Übersetzung: house, building • Plural: die Häuser",
-                                fontSize = 10.sp,
-                                color = bodyText
-                            )
-
-                            // Fixed Semantic Badges: Maskulin & Feminin to demonstrate fixed colors
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(GeoMaskulinBg)
-                                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                                ) {
-                                    Text("der (M)", fontSize = 8.sp, color = GeoMaskulinText, fontWeight = FontWeight.Bold)
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(GeoFemininBg)
-                                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                                ) {
-                                    Text("die (F)", fontSize = 8.sp, color = GeoFemininText, fontWeight = FontWeight.Bold)
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(3.dp))
-                                        .background(GeoNeutrumBg)
-                                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                                ) {
-                                    Text("das (N)", fontSize = 8.sp, color = GeoNeutrumText, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
+                        )
                     }
                 }
+                Text(
+                    text = primaryHex,
+                    fontSize = 9.sp,
+                    color = textSecondary,
+                    maxLines = 1
+                )
             }
         }
     }

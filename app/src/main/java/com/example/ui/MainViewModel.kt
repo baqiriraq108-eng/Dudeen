@@ -80,6 +80,7 @@ data class MainUiState(
     val currentResult: WordDeclensionResult? = null,
     val currentGrammarResult: GrammarResult? = null,
     val errorMessage: String? = null,
+    val isStartupSettingsLoaded: Boolean = false,
     val hasApiKey: Boolean = false,
     val isApiKeyDialogOpen: Boolean = false,
     val selectedProvider: ModelProvider = ModelProvider.GEMINI,
@@ -171,11 +172,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private val initialProvider: ModelProvider = repository.getSelectedProvider()
+
     private val _uiState = MutableStateFlow(
         MainUiState(
+            hasApiKey = repository.isApiKeyConfigured(),
+            selectedProvider = initialProvider,
+            selectedModel = repository.getSelectedModel(initialProvider),
             selectedTheme = themePreferences.getSelectedTheme(),
             themeMode = themePreferences.getThemeMode(),
-            appLanguage = themePreferences.getAppLanguage()
+            appLanguage = themePreferences.getAppLanguage(),
+            translationLanguage = themePreferences.getTranslationLanguage()
         )
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -221,12 +228,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val activeThemeMode = notebookSettings.themeMode
                 ttsManager.setSpeedRate(notebookSettings.ttsSpeed)
 
-                val isConfigured = if (notebookSettings.customApiKey.isNotBlank() || notebookSettings.openRouterApiKey.isNotBlank()) {
-                    true
+                val provider = if (notebookSettings.selectedProvider.isNotBlank()) {
+                    ModelProvider.fromId(notebookSettings.selectedProvider).also {
+                        repository.saveSelectedProvider(it)
+                    }
                 } else {
-                    repository.isApiKeyConfigured()
+                    repository.getSelectedProvider()
                 }
-                val provider = ModelProvider.fromId(notebookSettings.selectedProvider)
+                if (notebookSettings.customApiKey.isNotBlank() && repository.getUserEnteredGeminiKey().isBlank()) {
+                    repository.saveGeminiApiKey(notebookSettings.customApiKey)
+                }
+                if (notebookSettings.openRouterApiKey.isNotBlank() && repository.getOpenRouterApiKey().isBlank()) {
+                    repository.saveOpenRouterApiKey(notebookSettings.openRouterApiKey)
+                }
+
+                val isConfigured = notebookSettings.customApiKey.isNotBlank() ||
+                    notebookSettings.openRouterApiKey.isNotBlank() ||
+                    repository.isApiKeyConfigured()
                 val currentModel = notebookSettings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
                 val geminiKey = notebookSettings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
                 val openRouterKey = notebookSettings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
@@ -253,6 +271,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         appLanguage = activeLanguage,
                         translationLanguage = activeTranslationLanguage,
                         hasApiKey = isConfigured,
+                        isStartupSettingsLoaded = true,
                         selectedProvider = provider,
                         apiKeyInput = geminiKey,
                         geminiApiKeyInput = geminiKey,
@@ -268,6 +287,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Throwable) {
                 Log.e("MainViewModel", "Failed to load initial notebook settings", e)
+            } finally {
+                _uiState.update { current ->
+                    if (current.isStartupSettingsLoaded) current
+                    else current.copy(
+                        isStartupSettingsLoaded = true,
+                        hasApiKey = repository.isApiKeyConfigured()
+                    )
+                }
             }
 
             try {
@@ -1307,12 +1334,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Pronounces the given German word or phrase using TextToSpeech.
+     * Pronounces the given phrase or word in [languageCode] ("de", "en", or "ar") using TextToSpeech.
      * Ensures only the specific [speakerId] icon is active, preventing any
      * other icons with identical or similar words/verbs from triggering or animating.
      * Toggles play/stop if the exact same [speakerId] is already speaking.
      */
-    fun speakGerman(text: String, speakerId: String? = null) {
+    fun speakText(text: String, speakerId: String? = null, languageCode: String = "de") {
         val clean = text.trim()
         if (clean.isBlank()) return
         val targetId = speakerId ?: clean
@@ -1320,8 +1347,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (ttsManager.isSpeaking.value && currentId == targetId) {
             ttsManager.stop()
         } else {
-            ttsManager.speak(clean, targetId)
+            ttsManager.speak(clean, targetId, languageCode)
         }
+    }
+
+    fun speakGerman(text: String, speakerId: String? = null) {
+        speakText(text, speakerId, "de")
     }
 
     fun stopSpeaking() {
@@ -1366,7 +1397,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ==============================================================
 
     fun selectNotebook(notebookId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             notebookRepository.setActiveNotebookId(notebookId)
             val updatedAll = notebookRepository.listAllNotebooks()
             val newActive = notebookRepository.getActiveNotebook()
@@ -1390,32 +1421,48 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val effectiveTranslationLanguage = if (globalTranslationLanguage.isNotBlank()) globalTranslationLanguage else settings.translationLanguage.ifBlank { "en" }
             themePreferences.saveTranslationLanguage(effectiveTranslationLanguage)
 
-            // Sync API key to repository
+            // Sync provider & API key state to repository
+            val provider = ModelProvider.fromId(settings.selectedProvider)
+            repository.saveSelectedProvider(provider)
             if (settings.customApiKey.isNotBlank()) {
                 repository.saveGeminiApiKey(settings.customApiKey)
             }
             if (settings.openRouterApiKey.isNotBlank()) {
                 repository.saveOpenRouterApiKey(settings.openRouterApiKey)
             }
+            val effectiveGeminiKey = settings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
+            val effectiveOpenRouterKey = settings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
+            val effectiveModel = settings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
+            val isConfigured = settings.customApiKey.isNotBlank() ||
+                settings.openRouterApiKey.isNotBlank() ||
+                repository.isApiKeyConfigured()
+            val (remaining, total) = repository.getDailyUsage(provider, effectiveModel)
 
-            _uiState.value = _uiState.value.copy(
-                allNotebooks = updatedAll,
-                activeNotebook = newActive,
-                selectedTheme = theme,
-                themeMode = settings.themeMode,
-                appLanguage = effectiveLanguage,
-                translationLanguage = effectiveTranslationLanguage,
-                selectedProvider = ModelProvider.fromId(settings.selectedProvider),
-                selectedModel = settings.selectedModel,
-                apiKeyInput = settings.customApiKey,
-                geminiApiKeyInput = settings.customApiKey,
-                openRouterApiKeyInput = settings.openRouterApiKey,
-                otherApiKeyInput = settings.openRouterApiKey,
-                currentResult = null,
-                currentGrammarResult = null,
-                searchQuery = "",
-                selectedHistoryFolderName = if (settings.storageFolderUri.isNotBlank()) settings.storageFolderUri else "Standard (${newActive.name})"
-            )
+            _uiState.update { current ->
+                current.copy(
+                    allNotebooks = updatedAll,
+                    activeNotebook = newActive,
+                    selectedTheme = theme,
+                    themeMode = settings.themeMode,
+                    appLanguage = effectiveLanguage,
+                    translationLanguage = effectiveTranslationLanguage,
+                    selectedProvider = provider,
+                    selectedModel = effectiveModel,
+                    availableModels = repository.getAvailableModelsForProvider(provider),
+                    hasApiKey = isConfigured,
+                    isStartupSettingsLoaded = true,
+                    remainingDailyRequests = remaining,
+                    totalDailyQuota = total,
+                    apiKeyInput = effectiveGeminiKey,
+                    geminiApiKeyInput = effectiveGeminiKey,
+                    openRouterApiKeyInput = effectiveOpenRouterKey,
+                    otherApiKeyInput = effectiveOpenRouterKey,
+                    currentResult = null,
+                    currentGrammarResult = null,
+                    searchQuery = "",
+                    selectedHistoryFolderName = if (settings.storageFolderUri.isNotBlank()) settings.storageFolderUri else "Standard (${newActive.name})"
+                )
+            }
         }
     }
 

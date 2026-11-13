@@ -20,6 +20,7 @@ class GermanTtsManager(context: Context) : TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
     private var isReady = false
+    private var currentLocale: Locale = Locale.GERMAN
 
     private val _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
@@ -49,8 +50,15 @@ class GermanTtsManager(context: Context) : TextToSpeech.OnInitListener {
      * The new speed rate is only applied upon the next explicit playback trigger.
      */
     fun setSpeedRate(rate: Float) {
-        val snapped = (round(rate * 10f) / 10f).coerceIn(0.3f, 2.0f)
+        val snapped = (round(rate * 20f) / 20f).coerceIn(0.25f, 2.0f)
         _speechRate.value = snapped
+        if (isReady) {
+            try {
+                tts?.setSpeechRate(snapped)
+            } catch (e: Exception) {
+                Log.w("GermanTtsManager", "Failed to apply TTS speed rate immediately", e)
+            }
+        }
         try {
             prefs.edit().putFloat(PREF_KEY_TTS_SPEED, snapped).apply()
         } catch (e: Exception) {
@@ -65,6 +73,7 @@ class GermanTtsManager(context: Context) : TextToSpeech.OnInitListener {
                 Log.w("GermanTtsManager", "German language data missing or not supported on this device")
             } else {
                 isReady = true
+                currentLocale = Locale.GERMAN
                 tts?.setSpeechRate(_speechRate.value)
                 tts?.setPitch(1.0f)
                 setupProgressListener()
@@ -105,11 +114,11 @@ class GermanTtsManager(context: Context) : TextToSpeech.OnInitListener {
     }
 
     /**
-     * Speaks the given German phrase or word.
+     * Speaks the given phrase or word in the requested [languageCode] ("de", "en", or "ar").
      * Tracks the specific [speakerId] so that only the clicked icon is active,
      * and stops any other previous audio immediately.
      */
-    fun speak(text: String, speakerId: String? = null) {
+    fun speak(text: String, speakerId: String? = null, languageCode: String = "de") {
         val clean = text.trim()
         if (clean.isBlank()) return
 
@@ -124,6 +133,20 @@ class GermanTtsManager(context: Context) : TextToSpeech.OnInitListener {
                 tts?.stop()
             } catch (e: Exception) {
                 Log.w("GermanTtsManager", "Error stopping previous utterance", e)
+            }
+
+            val targetLocale = when {
+                languageCode.equals("ar", ignoreCase = true) -> Locale("ar")
+                languageCode.equals("en", ignoreCase = true) -> Locale.ENGLISH
+                else -> Locale.GERMAN
+            }
+            if (targetLocale != currentLocale) {
+                val langResult = tts?.setLanguage(targetLocale)
+                if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.w("GermanTtsManager", "TTS language $targetLocale not supported or missing data")
+                } else {
+                    currentLocale = targetLocale
+                }
             }
 
             tts?.setSpeechRate(_speechRate.value)
