@@ -37,6 +37,7 @@ import com.example.util.GermanTtsManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -46,6 +47,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+private val VIEWMODEL_WORD_SPLIT_REGEX = Regex("[\\s,;]+")
 
 data class JsonExportTarget(
     val fileName: String,
@@ -93,13 +96,14 @@ data class MainUiState(
     val isRefreshingModels: Boolean = false,
     val refreshModelsStatus: String? = null,
     val selectedNumberTab: Int = 0, // 0: Singular, 1: Plural, 2: Both
-    val selectedHistoryFilter: Int = 0, // 0: Alle, 1: Nomen, 2: Verben, 3: Sätze, 4: Wörter
+    val selectedHistoryFilter: Int = 0, // 0: Alle, 1: Nomen, 2: Verben, 3: Sätze, 4: Wörter, 5: Adjektive
     val historySortOptions: Map<Int, HistorySortOption> = mapOf(
         0 to HistorySortOption(),
         1 to HistorySortOption(),
         2 to HistorySortOption(),
         3 to HistorySortOption(),
-        4 to HistorySortOption()
+        4 to HistorySortOption(),
+        5 to HistorySortOption()
     ),
     val isExportDialogOpen: Boolean = false,
     val exportOpenedFromSettings: Boolean = false,
@@ -164,11 +168,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val currentlySpokenId: StateFlow<String?> = ttsManager.currentlySpokenId
     val ttsSpeedRate: StateFlow<Float> = ttsManager.speechRate
 
+    private var ttsSpeedSaveJob: Job? = null
+
     fun setTtsSpeed(speed: Float) {
         ttsManager.setSpeedRate(speed)
-        val currentSettings = _uiState.value.activeNotebook?.settings
-        if (currentSettings != null) {
-            saveActiveNotebookSettings(currentSettings.copy(ttsSpeed = speed))
+        ttsSpeedSaveJob?.cancel()
+        ttsSpeedSaveJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(350)
+            val currentSettings = _uiState.value.activeNotebook?.settings
+            if (currentSettings != null && currentSettings.ttsSpeed != speed) {
+                val updated = currentSettings.copy(ttsSpeed = speed)
+                notebookRepository.saveActiveSettings(updated)
+                _uiState.update { state ->
+                    val active = state.activeNotebook
+                    if (active != null) state.copy(activeNotebook = active.copy(settings = updated))
+                    else state
+                }
+            }
         }
     }
 
@@ -309,28 +325,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val provider = _uiState.value.selectedProvider
         val model = _uiState.value.selectedModel
         val (remaining, total) = repository.getDailyUsage(provider, model)
-        _uiState.value = _uiState.value.copy(
-            remainingDailyRequests = remaining,
-            totalDailyQuota = total
-        )
+        _uiState.update {
+            it.copy(
+                remainingDailyRequests = remaining,
+                totalDailyQuota = total
+            )
+        }
     }
 
     fun onOpenColorWindow() {
-        _uiState.value = _uiState.value.copy(isColorWindowOpen = true)
+        _uiState.update { it.copy(isColorWindowOpen = true) }
     }
 
     fun onCloseColorWindow() {
-        _uiState.value = _uiState.value.copy(isColorWindowOpen = false)
+        _uiState.update { it.copy(isColorWindowOpen = false) }
     }
 
     fun onApplyColorTheme(theme: AppThemePackage, mode: String) {
         themePreferences.saveSelectedTheme(theme)
         themePreferences.saveThemeMode(mode)
-        _uiState.value = _uiState.value.copy(
-            selectedTheme = theme,
-            themeMode = mode,
-            isColorWindowOpen = false
-        )
+        _uiState.update {
+            it.copy(
+                selectedTheme = theme,
+                themeMode = mode,
+                isColorWindowOpen = false
+            )
+        }
         val currentSettings = _uiState.value.activeNotebook?.settings
         if (currentSettings != null) {
             saveActiveNotebookSettings(currentSettings.copy(themeColorId = theme.id, themeMode = mode))
@@ -339,7 +359,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onThemeSelected(theme: AppThemePackage) {
         themePreferences.saveSelectedTheme(theme)
-        _uiState.value = _uiState.value.copy(selectedTheme = theme)
+        _uiState.update { it.copy(selectedTheme = theme) }
         val currentSettings = _uiState.value.activeNotebook?.settings
         if (currentSettings != null) {
             saveActiveNotebookSettings(currentSettings.copy(themeColorId = theme.id))
@@ -348,7 +368,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onThemeModeChange(mode: String) {
         themePreferences.saveThemeMode(mode)
-        _uiState.value = _uiState.value.copy(themeMode = mode)
+        _uiState.update { it.copy(themeMode = mode) }
         val currentSettings = _uiState.value.activeNotebook?.settings
         if (currentSettings != null) {
             saveActiveNotebookSettings(currentSettings.copy(themeMode = mode))
@@ -356,26 +376,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onGrammarTypeSelected(type: GrammarType) {
-        if (_uiState.value.selectedGrammarType != type) {
-            val keyType = if (type == GrammarType.SENTENCE) GrammarType.NOMEN else type
-            val savedQuery = _uiState.value.searchQueriesPerType[keyType] ?: ""
-            _uiState.value = _uiState.value.copy(
-                selectedGrammarType = type,
-                searchQuery = savedQuery,
-                errorMessage = null
-            )
+        _uiState.update { current ->
+            if (current.selectedGrammarType != type) {
+                val keyType = if (type == GrammarType.SENTENCE) GrammarType.NOMEN else type
+                val savedQuery = current.searchQueriesPerType[keyType] ?: ""
+                current.copy(
+                    selectedGrammarType = type,
+                    searchQuery = savedQuery,
+                    errorMessage = null
+                )
+            } else {
+                current
+            }
         }
     }
 
     fun onQueryChange(newQuery: String) {
-        val currentType = _uiState.value.selectedGrammarType
-        val keyType = if (currentType == GrammarType.SENTENCE) GrammarType.NOMEN else currentType
-        val updatedQueries = _uiState.value.searchQueriesPerType.toMutableMap()
-        updatedQueries[keyType] = newQuery
-        _uiState.value = _uiState.value.copy(
-            searchQuery = newQuery,
-            searchQueriesPerType = updatedQueries
-        )
+        _uiState.update { current ->
+            val currentType = current.selectedGrammarType
+            val keyType = if (currentType == GrammarType.SENTENCE) GrammarType.NOMEN else currentType
+            val updatedQueries = current.searchQueriesPerType.toMutableMap()
+            updatedQueries[keyType] = newQuery
+            current.copy(
+                searchQuery = newQuery,
+                searchQueriesPerType = updatedQueries
+            )
+        }
     }
 
     private var activeSearchJob: Job? = null
@@ -383,9 +409,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelSearch() {
         activeSearchJob?.cancel()
         activeSearchJob = null
-        _uiState.value = _uiState.value.copy(
-            isSearching = false
-        )
+        _uiState.update {
+            it.copy(
+                isSearching = false
+            )
+        }
     }
 
     fun onSearch(specificQuery: String? = null) {
@@ -405,28 +433,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 GrammarType.ADJEKTIV -> "Bitte geben Sie ein deutsches Adjektiv ein (z. B. 'schön')."
                 else -> "Bitte geben Sie ein deutsches Wort oder einen Satz ein (z. B. 'Tisch')."
             }
-            _uiState.value = _uiState.value.copy(errorMessage = emptyMsg)
+            _uiState.update { it.copy(errorMessage = emptyMsg) }
             return
         }
 
         val hasKey = repository.isApiKeyConfigured()
         if (!hasKey) {
             val providerName = _uiState.value.selectedProvider.displayName
-            _uiState.value = _uiState.value.copy(
-                isApiKeyDialogOpen = true,
-                errorMessage = "Bitte konfigurieren Sie Ihren API-Schlüssel für $providerName in den Einstellungen."
-            )
+            _uiState.update {
+                it.copy(
+                    isApiKeyDialogOpen = true,
+                    errorMessage = "Bitte konfigurieren Sie Ihren API-Schlüssel für $providerName in den Einstellungen."
+                )
+            }
             return
         }
 
         activeSearchJob?.cancel()
         activeSearchJob = viewModelScope.launch {
             val transLang = _uiState.value.translationLanguage
-            _uiState.value = _uiState.value.copy(
-                isSearching = true,
-                errorMessage = null,
-                searchQuery = trimmed
-            )
+            val selectedTypeAtStart = _uiState.value.selectedGrammarType
+            _uiState.update {
+                it.copy(
+                    isSearching = true,
+                    errorMessage = null,
+                    searchQuery = trimmed
+                )
+            }
 
             try {
                 if (isWörterTab) {
@@ -441,38 +474,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         is GrammarResult.Adjektiv -> throw IllegalStateException("Unerwartetes Ergebnis")
                     }
                     val initialManual = findExistingManualTranslation(trimmed, GrammarType.NOMEN_LIST.displayName)
-                    _uiState.value = _uiState.value.copy(
-                        isSearching = false,
-                        currentResult = declension,
-                        currentGrammarResult = GrammarResult.NomenList(declension),
-                        currentManualTranslation = initialManual,
-                        errorMessage = null
-                    )
-                } else if (_uiState.value.selectedGrammarType == GrammarType.ADJEKTIV) {
+                    _uiState.update {
+                        it.copy(
+                            isSearching = false,
+                            currentResult = declension,
+                            currentGrammarResult = GrammarResult.NomenList(declension),
+                            currentManualTranslation = initialManual,
+                            errorMessage = null
+                        )
+                    }
+                } else if (selectedTypeAtStart == GrammarType.ADJEKTIV) {
                     val adjResult = repository.searchAdjektiv(trimmed, transLang)
                     refreshUsageQuota()
                     val initialManual = findExistingManualTranslation(trimmed, GrammarType.ADJEKTIV.displayName)
-                    _uiState.value = _uiState.value.copy(
-                        isSearching = false,
-                        currentGrammarResult = GrammarResult.Adjektiv(adjResult),
-                        currentResult = null,
-                        currentManualTranslation = initialManual,
-                        errorMessage = null
-                    )
-                } else if (_uiState.value.selectedGrammarType == GrammarType.VERB) {
+                    _uiState.update {
+                        it.copy(
+                            isSearching = false,
+                            currentGrammarResult = GrammarResult.Adjektiv(adjResult),
+                            currentResult = null,
+                            currentManualTranslation = initialManual,
+                            errorMessage = null
+                        )
+                    }
+                } else if (selectedTypeAtStart == GrammarType.VERB) {
                     val verbResult = repository.searchVerb(trimmed, transLang)
                     refreshUsageQuota()
                     val initialManual = findExistingManualTranslation(trimmed, GrammarType.VERB.displayName)
-                    _uiState.value = _uiState.value.copy(
-                        isSearching = false,
-                        currentGrammarResult = GrammarResult.Verb(verbResult),
-                        currentResult = null,
-                        currentManualTranslation = initialManual,
-                        errorMessage = null
-                    )
+                    _uiState.update {
+                        it.copy(
+                            isSearching = false,
+                            currentGrammarResult = GrammarResult.Verb(verbResult),
+                            currentResult = null,
+                            currentManualTranslation = initialManual,
+                            errorMessage = null
+                        )
+                    }
                 } else {
                     // Nomen & Sätze: 2 or more words = Sentence, 1 word = Noun (supporting spaces, commas, etc.)
-                    val words = trimmed.split(Regex("[\\s,;]+")).filter { it.isNotBlank() }
+                    val words = trimmed.split(VIEWMODEL_WORD_SPLIT_REGEX).filter { it.isNotBlank() }
                     val isSentence = words.size >= 2
                     if (isSentence) {
                         val sentenceResult = repository.searchGrammar(trimmed, GrammarType.SENTENCE, transLang)
@@ -485,35 +524,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             is GrammarResult.Adjektiv -> throw IllegalStateException("Unerwartetes Ergebnis")
                         }
                         val initialManual = findExistingManualTranslation(trimmed, GrammarType.SENTENCE.displayName)
-                        _uiState.value = _uiState.value.copy(
-                            isSearching = false,
-                            currentResult = declension,
-                            currentGrammarResult = GrammarResult.Sentence(declension),
-                            currentManualTranslation = initialManual,
-                            errorMessage = null
-                        )
+                        _uiState.update {
+                            it.copy(
+                                isSearching = false,
+                                currentResult = declension,
+                                currentGrammarResult = GrammarResult.Sentence(declension),
+                                currentManualTranslation = initialManual,
+                                errorMessage = null
+                            )
+                        }
                     } else {
                         val declensionResult = repository.searchWord(trimmed, transLang)
                         refreshUsageQuota()
                         val initialManual = findExistingManualTranslation(trimmed, GrammarType.NOMEN.displayName)
-                        _uiState.value = _uiState.value.copy(
-                            isSearching = false,
-                            currentResult = declensionResult,
-                            currentGrammarResult = GrammarResult.Noun(declensionResult),
-                            currentManualTranslation = initialManual,
-                            errorMessage = null
-                        )
+                        _uiState.update {
+                            it.copy(
+                                isSearching = false,
+                                currentResult = declensionResult,
+                                currentGrammarResult = GrammarResult.Noun(declensionResult),
+                                currentManualTranslation = initialManual,
+                                errorMessage = null
+                            )
+                        }
                     }
                 }
             } catch (e: CancellationException) {
-                _uiState.value = _uiState.value.copy(
-                    isSearching = false
-                )
+                _uiState.update {
+                    it.copy(
+                        isSearching = false
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isSearching = false,
-                    errorMessage = e.message ?: "Fehler beim Abrufen der Grammatikdaten."
-                )
+                _uiState.update {
+                    it.copy(
+                        isSearching = false,
+                        errorMessage = e.message ?: "Fehler beim Abrufen der Grammatikdaten."
+                    )
+                }
             } finally {
                 if (activeSearchJob == coroutineContext[Job]) {
                     activeSearchJob = null
@@ -525,83 +572,81 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onSelectHistoryItem(entity: WordHistoryEntity) {
         viewModelScope.launch {
             try {
-                val isAdjektiv = entity.type.equals("Adjektiv", ignoreCase = true) ||
-                        entity.gender.equals("Adjektiv", ignoreCase = true)
-                val isVerb = entity.type.equals("Verb", ignoreCase = true)
-                val isNomenList = entity.gender.equals("Wort", ignoreCase = true) ||
-                        entity.gender.equals("Wörter", ignoreCase = true) ||
-                        entity.gender.equals("Woerter", ignoreCase = true) ||
-                        entity.type.equals("Wörter", ignoreCase = true) ||
-                        entity.type.equals("Woerter", ignoreCase = true) ||
-                        entity.type.equals("NomenList", ignoreCase = true) ||
-                        entity.type.equals("Nomen (Liste)", ignoreCase = true) ||
-                        (entity.gender.equals("Nomen", ignoreCase = true) && !entity.gender.equals("Maskulin", ignoreCase = true) && !entity.gender.equals("Feminin", ignoreCase = true) && !entity.gender.equals("Neutrum", ignoreCase = true))
-                val isSentence = !isNomenList && !isAdjektiv && (entity.type.equals("Satz", ignoreCase = true) ||
-                        entity.type.equals("Sentence", ignoreCase = true) ||
-                        entity.gender.equals("Satz", ignoreCase = true) ||
-                        entity.gender == "–" ||
-                        entity.word.trim().split(Regex("[\\s,;]+")).filter { it.isNotBlank() }.size >= 2)
+                val isAdjektiv = com.example.util.HistoryFilterHelper.isAdjektivItem(entity)
+                val isVerb = com.example.util.HistoryFilterHelper.isVerbItem(entity)
+                val isNomenList = com.example.util.HistoryFilterHelper.isNomenListItem(entity)
+                val isSentence = com.example.util.HistoryFilterHelper.isSentenceItem(entity)
 
                 if (isAdjektiv) {
                     val cachedAdjektiv = withContext(Dispatchers.Default) {
                         com.example.data.model.AdjektivResult.fromJson(entity.rawJsonResult, fallbackWord = entity.word)
                     }
-                    _uiState.value = _uiState.value.copy(
-                        selectedGrammarType = GrammarType.ADJEKTIV,
-                        currentGrammarResult = GrammarResult.Adjektiv(cachedAdjektiv),
-                        currentResult = null,
-                        currentManualTranslation = entity.manualTranslation,
-                        searchQuery = entity.word,
-                        errorMessage = null
-                    )
+                    _uiState.update {
+                        it.copy(
+                            selectedGrammarType = GrammarType.ADJEKTIV,
+                            currentGrammarResult = GrammarResult.Adjektiv(cachedAdjektiv),
+                            currentResult = null,
+                            currentManualTranslation = entity.manualTranslation,
+                            searchQuery = entity.word,
+                            errorMessage = null
+                        )
+                    }
                 } else if (isVerb) {
                     val cachedVerb = withContext(Dispatchers.Default) {
                         VerbConjugationResult.fromJson(entity.rawJsonResult, fallbackWord = entity.word)
                     }
-                    _uiState.value = _uiState.value.copy(
-                        selectedGrammarType = GrammarType.VERB,
-                        currentGrammarResult = GrammarResult.Verb(cachedVerb),
-                        currentResult = null,
-                        currentManualTranslation = entity.manualTranslation,
-                        searchQuery = entity.word,
-                        errorMessage = null
-                    )
+                    _uiState.update {
+                        it.copy(
+                            selectedGrammarType = GrammarType.VERB,
+                            currentGrammarResult = GrammarResult.Verb(cachedVerb),
+                            currentResult = null,
+                            currentManualTranslation = entity.manualTranslation,
+                            searchQuery = entity.word,
+                            errorMessage = null
+                        )
+                    }
                 } else if (isNomenList) {
                     val cachedResult = withContext(Dispatchers.Default) {
                         WordDeclensionResult.fromJson(entity.rawJsonResult, fallbackWord = entity.word)
                     }
-                    _uiState.value = _uiState.value.copy(
-                        selectedGrammarType = GrammarType.NOMEN_LIST,
-                        currentResult = cachedResult,
-                        currentGrammarResult = GrammarResult.NomenList(cachedResult),
-                        currentManualTranslation = entity.manualTranslation,
-                        searchQuery = entity.word,
-                        errorMessage = null
-                    )
+                    _uiState.update {
+                        it.copy(
+                            selectedGrammarType = GrammarType.NOMEN_LIST,
+                            currentResult = cachedResult,
+                            currentGrammarResult = GrammarResult.NomenList(cachedResult),
+                            currentManualTranslation = entity.manualTranslation,
+                            searchQuery = entity.word,
+                            errorMessage = null
+                        )
+                    }
                 } else if (isSentence) {
                     val cachedResult = withContext(Dispatchers.Default) {
                         WordDeclensionResult.fromJson(entity.rawJsonResult, fallbackWord = entity.word)
                     }
-                    _uiState.value = _uiState.value.copy(
-                        selectedGrammarType = GrammarType.NOMEN,
-                        currentResult = cachedResult,
-                        currentGrammarResult = GrammarResult.Sentence(cachedResult),
-                        currentManualTranslation = entity.manualTranslation,
-                        searchQuery = entity.word,
-                        errorMessage = null
-                    )
+                    _uiState.update {
+                        it.copy(
+                            selectedGrammarType = GrammarType.NOMEN,
+                            currentResult = cachedResult,
+                            currentGrammarResult = GrammarResult.Sentence(cachedResult),
+                            currentManualTranslation = entity.manualTranslation,
+                            searchQuery = entity.word,
+                            errorMessage = null
+                        )
+                    }
                 } else {
                     val cachedResult = withContext(Dispatchers.Default) {
                         WordDeclensionResult.fromJson(entity.rawJsonResult, fallbackWord = entity.word)
                     }
-                    _uiState.value = _uiState.value.copy(
-                        selectedGrammarType = GrammarType.NOMEN,
-                        currentResult = cachedResult,
-                        currentGrammarResult = GrammarResult.Noun(cachedResult),
-                        currentManualTranslation = entity.manualTranslation,
-                        searchQuery = entity.word,
-                        errorMessage = null
-                    )
+                    _uiState.update {
+                        it.copy(
+                            selectedGrammarType = GrammarType.NOMEN,
+                            currentResult = cachedResult,
+                            currentGrammarResult = GrammarResult.Noun(cachedResult),
+                            currentManualTranslation = entity.manualTranslation,
+                            searchQuery = entity.word,
+                            errorMessage = null
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 onSearch(entity.word)
@@ -904,33 +949,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onSelectTab(tabIndex: Int) {
-        _uiState.value = _uiState.value.copy(selectedNumberTab = tabIndex)
+        _uiState.update { it.copy(selectedNumberTab = tabIndex) }
     }
 
     fun onSelectHistoryFilter(filterIndex: Int) {
-        _uiState.value = _uiState.value.copy(selectedHistoryFilter = filterIndex)
+        _uiState.update { it.copy(selectedHistoryFilter = filterIndex) }
     }
 
     fun onUpdateHistorySort(filterIndex: Int, sortOption: HistorySortOption) {
-        val currentMap = _uiState.value.historySortOptions.toMutableMap()
-        currentMap[filterIndex] = sortOption
-        _uiState.value = _uiState.value.copy(historySortOptions = currentMap)
+        _uiState.update { current ->
+            val currentMap = current.historySortOptions.toMutableMap()
+            currentMap[filterIndex] = sortOption
+            current.copy(historySortOptions = currentMap)
+        }
     }
 
     fun onOpenExportDialog(fromSettings: Boolean = false) {
-        _uiState.value = _uiState.value.copy(
-            isExportDialogOpen = true,
-            exportOpenedFromSettings = fromSettings
-        )
+        _uiState.update {
+            it.copy(
+                isExportDialogOpen = true,
+                exportOpenedFromSettings = fromSettings
+            )
+        }
     }
 
     fun onCloseExportDialog() {
-        val fromSettings = _uiState.value.exportOpenedFromSettings
-        _uiState.value = _uiState.value.copy(
-            isExportDialogOpen = false,
-            exportOpenedFromSettings = false,
-            isApiKeyDialogOpen = fromSettings || _uiState.value.isApiKeyDialogOpen
-        )
+        _uiState.update { current ->
+            val fromSettings = current.exportOpenedFromSettings
+            current.copy(
+                isExportDialogOpen = false,
+                exportOpenedFromSettings = false,
+                isApiKeyDialogOpen = fromSettings || current.isApiKeyDialogOpen
+            )
+        }
     }
 
     fun onDismissExportDialog() {
@@ -938,16 +989,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onOpenGrammarTables() {
-        _uiState.value = _uiState.value.copy(isGrammarTablesOpen = true)
+        _uiState.update { it.copy(isGrammarTablesOpen = true) }
     }
 
     fun onCloseGrammarTables() {
-        _uiState.value = _uiState.value.copy(
-            isGrammarTablesOpen = false,
-            grammarVerbResult = null,
-            isGrammarVerbLoading = false,
-            grammarVerbError = null
-        )
+        _uiState.update {
+            it.copy(
+                isGrammarTablesOpen = false,
+                grammarVerbResult = null,
+                isGrammarVerbLoading = false,
+                grammarVerbError = null
+            )
+        }
     }
 
     fun searchGrammarVerb(verb: String) {
@@ -1267,13 +1320,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onClearResult() {
-        _uiState.value = _uiState.value.copy(
-            currentResult = null,
-            currentGrammarResult = null,
-            currentManualTranslation = "",
-            searchQuery = "",
-            errorMessage = null
-        )
+        _uiState.update {
+            it.copy(
+                currentResult = null,
+                currentGrammarResult = null,
+                currentManualTranslation = "",
+                searchQuery = "",
+                errorMessage = null
+            )
+        }
     }
 
     private suspend fun findExistingManualTranslation(word: String, type: String? = null): String {
@@ -1397,95 +1452,106 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ==============================================================
 
     fun selectNotebook(notebookId: String) {
+        cancelSearch()
         viewModelScope.launch(Dispatchers.IO) {
-            notebookRepository.setActiveNotebookId(notebookId)
-            val updatedAll = notebookRepository.listAllNotebooks()
-            val newActive = notebookRepository.getActiveNotebook()
-            val settings = newActive.settings
+            try {
+                notebookRepository.setActiveNotebookId(notebookId)
+                val updatedAll = notebookRepository.listAllNotebooks()
+                val newActive = notebookRepository.getActiveNotebook()
+                val settings = newActive.settings
 
-            // Hydrate Room with the selected notebook's history
-            val historyItems = notebookRepository.loadNotebookHistory(notebookId)
-            repository.reloadRoomWithItems(historyItems)
+                // Hydrate Room with the selected notebook's history
+                val historyItems = notebookRepository.loadNotebookHistory(notebookId)
+                repository.reloadRoomWithItems(historyItems)
 
-            // Update TTS speed rate
-            ttsManager.setSpeedRate(settings.ttsSpeed)
+                // Update TTS speed rate
+                ttsManager.setSpeedRate(settings.ttsSpeed)
 
-            // Update theme
-            val theme = AppThemePackage.fromId(settings.themeColorId)
-            themePreferences.saveSelectedTheme(theme)
-            themePreferences.saveThemeMode(settings.themeMode)
-            val globalLanguage = themePreferences.getAppLanguage()
-            val effectiveLanguage = if (globalLanguage.isNotBlank()) globalLanguage else settings.appLanguage.ifBlank { "de" }
-            themePreferences.saveAppLanguage(effectiveLanguage)
-            val globalTranslationLanguage = themePreferences.getTranslationLanguage()
-            val effectiveTranslationLanguage = if (globalTranslationLanguage.isNotBlank()) globalTranslationLanguage else settings.translationLanguage.ifBlank { "en" }
-            themePreferences.saveTranslationLanguage(effectiveTranslationLanguage)
+                // Update theme
+                val theme = AppThemePackage.fromId(settings.themeColorId)
+                themePreferences.saveSelectedTheme(theme)
+                themePreferences.saveThemeMode(settings.themeMode)
+                val globalLanguage = themePreferences.getAppLanguage()
+                val effectiveLanguage = if (globalLanguage.isNotBlank()) globalLanguage else settings.appLanguage.ifBlank { "de" }
+                themePreferences.saveAppLanguage(effectiveLanguage)
+                val globalTranslationLanguage = themePreferences.getTranslationLanguage()
+                val effectiveTranslationLanguage = if (globalTranslationLanguage.isNotBlank()) globalTranslationLanguage else settings.translationLanguage.ifBlank { "en" }
+                themePreferences.saveTranslationLanguage(effectiveTranslationLanguage)
 
-            // Sync provider & API key state to repository
-            val provider = ModelProvider.fromId(settings.selectedProvider)
-            repository.saveSelectedProvider(provider)
-            if (settings.customApiKey.isNotBlank()) {
-                repository.saveGeminiApiKey(settings.customApiKey)
-            }
-            if (settings.openRouterApiKey.isNotBlank()) {
-                repository.saveOpenRouterApiKey(settings.openRouterApiKey)
-            }
-            val effectiveGeminiKey = settings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
-            val effectiveOpenRouterKey = settings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
-            val effectiveModel = settings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
-            val isConfigured = settings.customApiKey.isNotBlank() ||
-                settings.openRouterApiKey.isNotBlank() ||
-                repository.isApiKeyConfigured()
-            val (remaining, total) = repository.getDailyUsage(provider, effectiveModel)
+                // Sync provider & API key state to repository
+                val provider = ModelProvider.fromId(settings.selectedProvider)
+                repository.saveSelectedProvider(provider)
+                if (settings.customApiKey.isNotBlank()) {
+                    repository.saveGeminiApiKey(settings.customApiKey)
+                }
+                if (settings.openRouterApiKey.isNotBlank()) {
+                    repository.saveOpenRouterApiKey(settings.openRouterApiKey)
+                }
+                val effectiveGeminiKey = settings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
+                val effectiveOpenRouterKey = settings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
+                val effectiveModel = settings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
+                val isConfigured = settings.customApiKey.isNotBlank() ||
+                    settings.openRouterApiKey.isNotBlank() ||
+                    repository.isApiKeyConfigured()
+                val (remaining, total) = repository.getDailyUsage(provider, effectiveModel)
 
-            _uiState.update { current ->
-                current.copy(
-                    allNotebooks = updatedAll,
-                    activeNotebook = newActive,
-                    selectedTheme = theme,
-                    themeMode = settings.themeMode,
-                    appLanguage = effectiveLanguage,
-                    translationLanguage = effectiveTranslationLanguage,
-                    selectedProvider = provider,
-                    selectedModel = effectiveModel,
-                    availableModels = repository.getAvailableModelsForProvider(provider),
-                    hasApiKey = isConfigured,
-                    isStartupSettingsLoaded = true,
-                    remainingDailyRequests = remaining,
-                    totalDailyQuota = total,
-                    apiKeyInput = effectiveGeminiKey,
-                    geminiApiKeyInput = effectiveGeminiKey,
-                    openRouterApiKeyInput = effectiveOpenRouterKey,
-                    otherApiKeyInput = effectiveOpenRouterKey,
-                    currentResult = null,
-                    currentGrammarResult = null,
-                    searchQuery = "",
-                    selectedHistoryFolderName = if (settings.storageFolderUri.isNotBlank()) settings.storageFolderUri else "Standard (${newActive.name})"
-                )
+                _uiState.update { current ->
+                    current.copy(
+                        allNotebooks = updatedAll,
+                        activeNotebook = newActive,
+                        selectedTheme = theme,
+                        themeMode = settings.themeMode,
+                        appLanguage = effectiveLanguage,
+                        translationLanguage = effectiveTranslationLanguage,
+                        selectedProvider = provider,
+                        selectedModel = effectiveModel,
+                        availableModels = repository.getAvailableModelsForProvider(provider),
+                        hasApiKey = isConfigured,
+                        isStartupSettingsLoaded = true,
+                        remainingDailyRequests = remaining,
+                        totalDailyQuota = total,
+                        apiKeyInput = effectiveGeminiKey,
+                        geminiApiKeyInput = effectiveGeminiKey,
+                        openRouterApiKeyInput = effectiveOpenRouterKey,
+                        otherApiKeyInput = effectiveOpenRouterKey,
+                        currentResult = null,
+                        currentGrammarResult = null,
+                        searchQuery = "",
+                        selectedHistoryFolderName = if (settings.storageFolderUri.isNotBlank()) settings.storageFolderUri else "Standard (${newActive.name})"
+                    )
+                }
+            } catch (e: Throwable) {
+                Log.e("MainViewModel", "Error selecting notebook $notebookId", e)
             }
         }
     }
 
     fun createNotebook(name: String, themeColorId: String = "Dunkelblau", themeMode: String = "auto") {
-        viewModelScope.launch {
-            val notebook = notebookRepository.createNotebook(name, themeColorId, themeMode)
-            selectNotebook(notebook.id)
-            _uiState.value = _uiState.value.copy(isCreateNotebookDialogOpen = false)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val notebook = notebookRepository.createNotebook(name, themeColorId, themeMode)
+                _uiState.update { it.copy(isCreateNotebookDialogOpen = false) }
+                selectNotebook(notebook.id)
+            } catch (e: Throwable) {
+                Log.e("MainViewModel", "Error creating notebook '$name'", e)
+            }
         }
     }
 
     fun renameNotebook(notebookId: String, newName: String) {
         val trimmed = newName.trim()
         if (trimmed.isBlank()) return
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 notebookRepository.renameNotebook(notebookId, trimmed)
                 val updatedAll = notebookRepository.listAllNotebooks()
                 val active = notebookRepository.getActiveNotebook()
-                _uiState.value = _uiState.value.copy(
-                    allNotebooks = updatedAll,
-                    activeNotebook = active
-                )
+                _uiState.update {
+                    it.copy(
+                        allNotebooks = updatedAll,
+                        activeNotebook = active
+                    )
+                }
             } catch (e: Throwable) {
                 Log.e("MainViewModel", "Error renaming notebook $notebookId to '$newName'", e)
             }
@@ -1493,11 +1559,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteNotebook(notebookId: String) {
-        viewModelScope.launch {
-            val success = notebookRepository.deleteNotebook(notebookId)
-            if (success) {
-                val active = notebookRepository.getActiveNotebook()
-                selectNotebook(active.id)
+        cancelSearch()
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val success = notebookRepository.deleteNotebook(notebookId)
+                if (success) {
+                    val active = notebookRepository.getActiveNotebook()
+                    selectNotebook(active.id)
+                }
+            } catch (e: Throwable) {
+                Log.e("MainViewModel", "Error deleting notebook $notebookId", e)
             }
         }
     }
@@ -1620,14 +1691,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setPrimaryBackupFolder(uriString: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             notebookBackupManager.setPrimaryFolder(uriString)
             // Reload history from the new primary source of truth
             val primaryHistory = notebookRepository.loadActiveHistory()
-            database.wordHistoryDao().clearAll()
-            if (primaryHistory.isNotEmpty()) {
-                database.wordHistoryDao().insertAll(primaryHistory)
-            }
+            repository.reloadRoomWithItems(primaryHistory)
         }
     }
 
@@ -1894,42 +1962,54 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openCreateNotebookDialog() {
         val currentLanguage = themePreferences.getAppLanguage()
-        _uiState.value = _uiState.value.copy(
-            appLanguage = currentLanguage,
-            isCreateNotebookDialogOpen = true
-        )
+        _uiState.update {
+            it.copy(
+                appLanguage = currentLanguage,
+                isCreateNotebookDialogOpen = true
+            )
+        }
     }
 
     fun closeCreateNotebookDialog() {
-        _uiState.value = _uiState.value.copy(isCreateNotebookDialogOpen = false)
+        _uiState.update { it.copy(isCreateNotebookDialogOpen = false) }
     }
 
     fun openManageNotebooksDialog() {
-        val all = notebookRepository.listAllNotebooks()
         val currentLanguage = themePreferences.getAppLanguage()
-        _uiState.value = _uiState.value.copy(
-            allNotebooks = all,
-            appLanguage = currentLanguage,
-            isManageNotebooksDialogOpen = true
-        )
+        _uiState.update {
+            it.copy(
+                appLanguage = currentLanguage,
+                isManageNotebooksDialogOpen = true
+            )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val all = notebookRepository.listAllNotebooks()
+            _uiState.update { it.copy(allNotebooks = all) }
+        }
     }
 
     fun closeManageNotebooksDialog() {
-        _uiState.value = _uiState.value.copy(isManageNotebooksDialogOpen = false)
+        _uiState.update { it.copy(isManageNotebooksDialogOpen = false) }
     }
 
     fun onOpenNotebookManagerFromSettings() {
         val currentLanguage = themePreferences.getAppLanguage()
-        _uiState.value = _uiState.value.copy(
-            isApiKeyDialogOpen = false,
-            appLanguage = currentLanguage,
-            isManageNotebooksDialogOpen = true
-        )
+        _uiState.update {
+            it.copy(
+                isApiKeyDialogOpen = false,
+                appLanguage = currentLanguage,
+                isManageNotebooksDialogOpen = true
+            )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val all = notebookRepository.listAllNotebooks()
+            _uiState.update { it.copy(allNotebooks = all) }
+        }
     }
 
     fun onThemeModeSelected(mode: String) {
         themePreferences.saveThemeMode(mode)
-        _uiState.value = _uiState.value.copy(themeMode = mode)
+        _uiState.update { it.copy(themeMode = mode) }
         val currentSettings = _uiState.value.activeNotebook?.settings
         if (currentSettings != null) {
             val updated = currentSettings.copy(themeMode = mode)
@@ -1944,7 +2024,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             else -> "de"
         }
         themePreferences.saveAppLanguage(cleanCode)
-        _uiState.value = _uiState.value.copy(appLanguage = cleanCode)
+        _uiState.update { it.copy(appLanguage = cleanCode) }
         val currentSettings = _uiState.value.activeNotebook?.settings
         if (currentSettings != null) {
             val updated = currentSettings.copy(appLanguage = cleanCode)
@@ -1958,7 +2038,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             else -> "en"
         }
         themePreferences.saveTranslationLanguage(cleanCode)
-        _uiState.value = _uiState.value.copy(translationLanguage = cleanCode)
+        _uiState.update { it.copy(translationLanguage = cleanCode) }
         val currentSettings = _uiState.value.activeNotebook?.settings
         if (currentSettings != null) {
             val updated = currentSettings.copy(translationLanguage = cleanCode)
@@ -1967,10 +2047,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveActiveNotebookSettings(settings: NotebookSettings) {
-        notebookRepository.saveActiveSettings(settings)
-        val updatedActive = _uiState.value.activeNotebook?.copy(settings = settings)
-        if (updatedActive != null) {
-            _uiState.value = _uiState.value.copy(activeNotebook = updatedActive)
+        _uiState.update { current ->
+            val updatedActive = current.activeNotebook?.copy(settings = settings)
+            if (updatedActive != null) current.copy(activeNotebook = updatedActive) else current
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            notebookRepository.saveActiveSettings(settings)
         }
     }
 

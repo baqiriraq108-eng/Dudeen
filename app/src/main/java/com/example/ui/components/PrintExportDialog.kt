@@ -314,9 +314,10 @@ fun PrintExportDialog(
                 .padding(horizontal = 14.dp, vertical = 18.dp)
                 .heightIn(max = 700.dp)
                 .testTag("export_dialog_surface"),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             color = GeoSurface,
-            tonalElevation = 6.dp
+            tonalElevation = 6.dp,
+            border = BorderStroke(1.dp, GeoBorder)
         ) {
             Column(
                 modifier = Modifier
@@ -541,19 +542,20 @@ fun PrintExportDialog(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Paper size dropdown selector
+                            // Paper size selector (arrow-free, slightly rounded)
                             var paperDropdownExpanded by remember { mutableStateOf(false) }
                             Box(modifier = Modifier.weight(0.9f)) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(30.dp)
-                                        .clip(RoundedCornerShape(6.dp))
+                                        .clip(RoundedCornerShape(8.dp))
                                         .background(GeoSurfaceVariant)
+                                        .border(0.8.dp, GeoBorder, RoundedCornerShape(8.dp))
                                         .clickable { paperDropdownExpanded = true }
-                                        .padding(horizontal = 8.dp),
+                                        .padding(horizontal = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.Center
                                 ) {
                                     Text(
                                         text = selectedBaseSize,
@@ -563,16 +565,13 @@ fun PrintExportDialog(
                                         maxLines = 1,
                                         softWrap = false
                                     )
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDropDown,
-                                        contentDescription = null,
-                                        tint = GeoOnSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
-                                    )
                                 }
                                 DropdownMenu(
                                     expanded = paperDropdownExpanded,
-                                    onDismissRequest = { paperDropdownExpanded = false }
+                                    onDismissRequest = { paperDropdownExpanded = false },
+                                    shape = RoundedCornerShape(14.dp),
+                                    containerColor = GeoSurface,
+                                    border = BorderStroke(1.dp, GeoBorder)
                                 ) {
                                     listOf("A4", "A3", "A5", "Letter").forEach { size ->
                                         DropdownMenuItem(
@@ -935,26 +934,26 @@ private fun TypographyConfigCard(
             )
         }
 
-        // Row 1: Font Type & Font Size side by side
+        // Row 1: Font Type & Font Size side by side (clean, arrow-free, slightly rounded)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Font Type Dropdown
+            // Font Type Selector
             Box(modifier = Modifier.weight(1.4f)) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(30.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(GeoSurface)
-                        .border(0.5.dp, GeoBorder, RoundedCornerShape(6.dp))
+                        .border(0.8.dp, GeoBorder, RoundedCornerShape(8.dp))
                         .clickable { fontDropdownExpanded = true }
-                        .padding(horizontal = 8.dp)
+                        .padding(horizontal = 10.dp)
                         .testTag("${testTagPrefix}_font_selector"),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.Start
                 ) {
                     Text(
                         text = currentFont,
@@ -964,17 +963,14 @@ private fun TypographyConfigCard(
                         maxLines = 1,
                         softWrap = false
                     )
-                    Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = null,
-                        tint = GeoOnSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
                 }
 
                 DropdownMenu(
                     expanded = fontDropdownExpanded,
-                    onDismissRequest = { fontDropdownExpanded = false }
+                    onDismissRequest = { fontDropdownExpanded = false },
+                    shape = RoundedCornerShape(14.dp),
+                    containerColor = GeoSurface,
+                    border = BorderStroke(1.dp, GeoBorder)
                 ) {
                     DeclensionHistoryExportHelper.AVAILABLE_FONTS.forEach { font ->
                         val itemComposeFont = remember(font) {
@@ -1011,54 +1007,49 @@ private fun TypographyConfigCard(
                 }
             }
 
-            // Font Size Selector (Triggers Bottom Sheet)
+            // Font Size Selector (Triggers Font Size Dialog — no arrow icon)
             val sizeDisplay = if (currentSize % 1.0f == 0.0f) "${currentSize.toInt()} pt" else "$currentSize pt"
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .height(30.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(GeoSurface)
-                    .border(0.5.dp, GeoBorder, RoundedCornerShape(6.dp))
+                    .border(0.8.dp, GeoBorder, RoundedCornerShape(8.dp))
                     .clickable { onSizeSelectorClicked() }
-                    .padding(horizontal = 8.dp)
+                    .padding(horizontal = 10.dp)
                     .testTag("${testTagPrefix}_size_selector"),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = sizeDisplay,
                     fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
                     color = GeoOnSurface,
                     maxLines = 1,
                     softWrap = false
                 )
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                    tint = GeoOnSurfaceVariant,
-                    modifier = Modifier.size(16.dp)
-                )
             }
         }
 
-        // Row 2: Color Picker Trigger
+        // Row 2: Color Picker Trigger (clean, arrow-free)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(30.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(GeoSurface)
-                .border(0.5.dp, GeoBorder, RoundedCornerShape(6.dp))
+                .border(0.8.dp, GeoBorder, RoundedCornerShape(8.dp))
                 .clickable { onColorPickerRequested() }
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = 10.dp)
                 .testTag("${testTagPrefix}_color_selector"),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.Start
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -1075,12 +1066,6 @@ private fun TypographyConfigCard(
                     softWrap = false
                 )
             }
-            Icon(
-                imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = null,
-                tint = GeoOnSurfaceVariant,
-                modifier = Modifier.size(16.dp)
-            )
         }
     }
 }
@@ -1170,10 +1155,10 @@ private fun FontSizePickerDialog(
                     ) { focusManager.clearFocus() }
                     .testTag("font_size_dialog")
                     .testTag("font_size_sheet"),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceContainer,
                 tonalElevation = 6.dp,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                border = BorderStroke(1.dp, GeoBorder)
             ) {
                 Column(
                     modifier = Modifier

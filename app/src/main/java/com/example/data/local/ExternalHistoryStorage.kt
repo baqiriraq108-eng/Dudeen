@@ -360,15 +360,26 @@ class ExternalHistoryStorage(private val context: Context) {
 
         try {
             val jsonArray = JSONArray(trimmed)
+            val usedIds = HashSet<Long>(jsonArray.length())
+            var nextFallbackId = 1L
             for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
+                val obj = jsonArray.optJSONObject(i) ?: continue
                 val rawWord = obj.optSafeString("word").ifBlank {
                     obj.optSafeString("verb").ifBlank {
                         obj.optSafeString("infinitiv")
                     }
                 }
-                val data = obj.optSafeString("data").ifBlank { obj.toString() }
-                val rawJsonResult = obj.optSafeString("rawJsonResult").ifBlank { data }
+                val explicitData = obj.optSafeString("data")
+                val explicitRaw = obj.optSafeString("rawJsonResult")
+                val baseJson = explicitData.ifBlank { explicitRaw }.ifBlank {
+                    // Strip wrapper fields if falling back to obj.toString() to prevent recursive bloat
+                    val clone = JSONObject(obj.toString())
+                    clone.remove("data")
+                    clone.remove("rawJsonResult")
+                    clone.toString()
+                }
+                val data = explicitData.ifBlank { baseJson }
+                val rawJsonResult = explicitRaw.ifBlank { data }
                 val type = obj.optSafeString("type", "Nomen")
                 val cleanWord = sanitizeHistoryWord(rawWord, data.ifBlank { rawJsonResult }, type)
                 if (cleanWord.isBlank() || cleanWord.equals("null", ignoreCase = true)) {
@@ -389,9 +400,17 @@ class ExternalHistoryStorage(private val context: Context) {
                     .ifBlank { obj.optSafeString("subtitles") }
                     .ifBlank { obj.optSafeString("custom_translation") }
 
+                var parsedId = obj.optLong("id", 0L)
+                if (parsedId <= 0L || !usedIds.add(parsedId)) {
+                    while (!usedIds.add(nextFallbackId)) {
+                        nextFallbackId++
+                    }
+                    parsedId = nextFallbackId
+                }
+
                 result.add(
                     WordHistoryEntity(
-                        id = obj.optLong("id", 0L),
+                        id = parsedId,
                         word = cleanWord,
                         type = type,
                         data = data,

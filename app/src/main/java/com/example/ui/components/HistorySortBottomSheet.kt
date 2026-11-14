@@ -443,22 +443,15 @@ fun HistorySortBottomSheet(
                                     softWrap = false
                                 )
                             }
-
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                tint = GeoOnSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
                         }
 
                         // Dropdown Menu for Genus options
                         DropdownMenu(
                             expanded = isGenusDropdownExpanded,
                             onDismissRequest = { isGenusDropdownExpanded = false },
-                            modifier = Modifier
-                                .background(GeoSurface)
-                                .border(1.dp, GeoBorder, RoundedCornerShape(8.dp))
+                            shape = RoundedCornerShape(14.dp),
+                            containerColor = GeoSurface,
+                            border = BorderStroke(1.dp, GeoBorder)
                         ) {
                             GenderSortTarget.entries.forEach { target ->
                                 DropdownMenuItem(

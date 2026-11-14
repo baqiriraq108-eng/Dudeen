@@ -14,7 +14,10 @@ import com.example.data.model.withResolvedWordExamples
 import com.example.data.remote.GeminiDeclensionService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class WordRepository(
@@ -25,7 +28,10 @@ class WordRepository(
     val externalHistoryStorage: ExternalHistoryStorage? = null,
     val notebookRepository: com.example.data.notebook.NotebookRepository? = null
 ) {
+    private val historyMutex = Mutex()
+
     val searchHistory: Flow<List<WordHistoryEntity>> = historyDao.getAllHistory()
+        .catch { emit(emptyList()) }
 
     val recentSearchQueries: Flow<List<SearchQueryEntity>> =
         searchQueryDao?.getAllRecentQueries() ?: flowOf(emptyList())
@@ -199,24 +205,35 @@ class WordRepository(
         translationLang: String = "en"
     ): com.example.data.model.GrammarResult = withContext(Dispatchers.IO) {
         val trimmedInput = word.trim()
-        val cacheKey = buildCacheKey(trimmedInput, type, translationLang)
+        val startingNotebookId = notebookRepository?.getActiveNotebookId()
+        val cacheKey = buildCacheKey("${startingNotebookId.orEmpty()}_$trimmedInput", type, translationLang)
 
         // 1. Check fast in-memory cache first (<1ms)
         memoryGrammarCache[cacheKey]?.let { cachedResult ->
-            val existingEntity = historyDao.findByWordAndType(cachedResult.word.ifBlank { trimmedInput }, type.displayName)
-                ?: historyDao.findByWordAndType(trimmedInput, type.displayName)
+            val existingEntity = historyMutex.withLock {
+                runCatching {
+                    historyDao.findByWordAndType(cachedResult.word.ifBlank { trimmedInput }, type.displayName)
+                        ?: historyDao.findByWordAndType(trimmedInput, type.displayName)
+                }.getOrNull()
+            }
             if (existingEntity != null) {
-                val refreshed = existingEntity.copy(timestamp = System.currentTimeMillis())
-                historyDao.insert(refreshed)
-                externalHistoryStorage?.appendOrUpdateItem(refreshed)
-                notebookRepository?.appendOrUpdateItemInActiveHistory(refreshed)
-                recordSearchQuery(existingEntity.word, type)
+                historyMutex.withLock {
+                    if (startingNotebookId == null || notebookRepository?.getActiveNotebookId() == startingNotebookId) {
+                        val refreshed = existingEntity.copy(timestamp = System.currentTimeMillis())
+                        runCatching { historyDao.insert(refreshed) }
+                        externalHistoryStorage?.appendOrUpdateItem(refreshed)
+                        notebookRepository?.appendOrUpdateItemInActiveHistory(refreshed)
+                        runCatching { recordSearchQuery(existingEntity.word, type) }
+                    }
+                }
                 return@withContext cachedResult
             }
         }
 
         // 2. Check local Room history database for an existing analyzed entry matching (word, type, translationLang)
-        val localExisting = historyDao.findByWordAndType(trimmedInput, type.displayName)
+        val localExisting = historyMutex.withLock {
+            runCatching { historyDao.findByWordAndType(trimmedInput, type.displayName) }.getOrNull()
+        }
         if (localExisting != null && localExisting.translationLanguage.equals(translationLang, ignoreCase = true)) {
             val rawJson = localExisting.data.ifBlank { localExisting.rawJsonResult }
             if (rawJson.isNotBlank()) {
@@ -230,12 +247,16 @@ class WordRepository(
 
                 if (parsedLocal != null) {
                     memoryGrammarCache[cacheKey] = parsedLocal
-                    memoryGrammarCache[buildCacheKey(localExisting.word, type, translationLang)] = parsedLocal
-                    val refreshed = localExisting.copy(timestamp = System.currentTimeMillis())
-                    historyDao.insert(refreshed)
-                    externalHistoryStorage?.appendOrUpdateItem(refreshed)
-                    notebookRepository?.appendOrUpdateItemInActiveHistory(refreshed)
-                    recordSearchQuery(localExisting.word, type)
+                    memoryGrammarCache[buildCacheKey("${startingNotebookId.orEmpty()}_${localExisting.word}", type, translationLang)] = parsedLocal
+                    historyMutex.withLock {
+                        if (startingNotebookId == null || notebookRepository?.getActiveNotebookId() == startingNotebookId) {
+                            val refreshed = localExisting.copy(timestamp = System.currentTimeMillis())
+                            runCatching { historyDao.insert(refreshed) }
+                            externalHistoryStorage?.appendOrUpdateItem(refreshed)
+                            notebookRepository?.appendOrUpdateItemInActiveHistory(refreshed)
+                            runCatching { recordSearchQuery(localExisting.word, type) }
+                        }
+                    }
                     return@withContext parsedLocal
                 }
             }
@@ -265,7 +286,7 @@ class WordRepository(
 
         memoryGrammarCache[cacheKey] = result
         if (cleanResultWord.isNotBlank()) {
-            memoryGrammarCache[buildCacheKey(cleanResultWord, type, translationLang)] = result
+            memoryGrammarCache[buildCacheKey("${startingNotebookId.orEmpty()}_$cleanResultWord", type, translationLang)] = result
         }
 
         if (cleanResultWord.isBlank() || cleanResultWord.equals("null", ignoreCase = true)) {
@@ -347,32 +368,35 @@ class WordRepository(
             }
         }
 
-        val existing = historyDao.findByWordAndType(cleanResultWord, type.displayName)
-        var preservedManualTranslation = existing?.manualTranslation.orEmpty()
-        if (preservedManualTranslation.isBlank()) {
-            preservedManualTranslation = notebookRepository?.loadActiveHistory()
-                ?.find { it.word.equals(cleanResultWord, ignoreCase = true) && it.type.equals(type.displayName, ignoreCase = true) }
-                ?.manualTranslation.orEmpty()
-        }
-        if (preservedManualTranslation.isBlank()) {
-            preservedManualTranslation = externalHistoryStorage?.loadHistory()
-                ?.find { it.word.equals(cleanResultWord, ignoreCase = true) && it.type.equals(type.displayName, ignoreCase = true) }
-                ?.manualTranslation.orEmpty()
-        }
-        val entityToSave = if (preservedManualTranslation.isNotBlank()) {
-            entity.copy(manualTranslation = preservedManualTranslation)
-        } else {
-            entity
-        }
+        historyMutex.withLock {
+            // Only persist to Room & active notebook if the active notebook did not change while network request was in flight
+            if (startingNotebookId == null || notebookRepository?.getActiveNotebookId() == startingNotebookId) {
+                val existing = runCatching { historyDao.findByWordAndType(cleanResultWord, type.displayName) }.getOrNull()
+                var preservedManualTranslation = existing?.manualTranslation.orEmpty()
+                if (preservedManualTranslation.isBlank()) {
+                    preservedManualTranslation = notebookRepository?.loadActiveHistory()
+                        ?.find { it.word.equals(cleanResultWord, ignoreCase = true) && it.type.equals(type.displayName, ignoreCase = true) }
+                        ?.manualTranslation.orEmpty()
+                }
+                if (preservedManualTranslation.isBlank()) {
+                    preservedManualTranslation = externalHistoryStorage?.loadHistory()
+                        ?.find { it.word.equals(cleanResultWord, ignoreCase = true) && it.type.equals(type.displayName, ignoreCase = true) }
+                        ?.manualTranslation.orEmpty()
+                }
+                val entityToSave = if (preservedManualTranslation.isNotBlank()) {
+                    entity.copy(manualTranslation = preservedManualTranslation)
+                } else {
+                    entity
+                }
 
-        historyDao.deleteByWordAndType(cleanResultWord, type.displayName)
-        val insertedId = historyDao.insert(entityToSave)
-        val savedEntity = entityToSave.copy(id = insertedId)
-        externalHistoryStorage?.appendOrUpdateItem(savedEntity)
-        notebookRepository?.appendOrUpdateItemInActiveHistory(savedEntity)
-
-        // Track user search query in local Room storage
-        recordSearchQuery(cleanResultWord, type)
+                runCatching { historyDao.deleteByWordAndType(cleanResultWord, type.displayName) }
+                val insertedId = runCatching { historyDao.insert(entityToSave) }.getOrDefault(0L)
+                val savedEntity = entityToSave.copy(id = insertedId)
+                externalHistoryStorage?.appendOrUpdateItem(savedEntity)
+                notebookRepository?.appendOrUpdateItemInActiveHistory(savedEntity)
+                runCatching { recordSearchQuery(cleanResultWord, type) }
+            }
+        }
 
         return@withContext result
     }
@@ -383,24 +407,11 @@ class WordRepository(
      * Skips redundant disk/Room rewrites when Room and notebook storage are already in sync.
      */
     suspend fun syncHistoryOnStartup() = withContext(Dispatchers.IO) {
-        historyDao.deleteCorruptedNullEntries()
+        historyMutex.withLock {
+            runCatching { historyDao.deleteCorruptedNullEntries() }
 
-        val rawRoomItems = historyDao.getAllHistoryList()
-        val roomItems = rawRoomItems.mapNotNull { item ->
-            val sanitized = com.example.data.model.sanitizeHistoryWord(item.word, item.data.ifBlank { item.rawJsonResult }, item.type)
-            if (sanitized.isBlank() || sanitized.equals("null", ignoreCase = true)) null
-            else {
-                var repaired = item
-                if (sanitized != item.word) repaired = repaired.copy(word = sanitized)
-                if (repaired.genderArticle.equals("null", ignoreCase = true)) repaired = repaired.copy(genderArticle = "")
-                if (repaired.gender.equals("null", ignoreCase = true)) repaired = repaired.copy(gender = "")
-                repaired
-            }
-        }
-
-        if (notebookRepository != null) {
-            val rawNotebookItems = notebookRepository.loadActiveHistory()
-            val notebookItems = rawNotebookItems.mapNotNull { item ->
+            val rawRoomItems = runCatching { historyDao.getAllHistoryList() }.getOrElse { emptyList() }
+            val roomItems = rawRoomItems.mapNotNull { item ->
                 val sanitized = com.example.data.model.sanitizeHistoryWord(item.word, item.data.ifBlank { item.rawJsonResult }, item.type)
                 if (sanitized.isBlank() || sanitized.equals("null", ignoreCase = true)) null
                 else {
@@ -412,55 +423,70 @@ class WordRepository(
                 }
             }
 
-            if (notebookItems.isEmpty() && roomItems.isNotEmpty()) {
-                notebookRepository.saveActiveHistory(roomItems)
+            if (notebookRepository != null) {
+                val rawNotebookItems = notebookRepository.loadActiveHistory()
+                val notebookItems = rawNotebookItems.mapNotNull { item ->
+                    val sanitized = com.example.data.model.sanitizeHistoryWord(item.word, item.data.ifBlank { item.rawJsonResult }, item.type)
+                    if (sanitized.isBlank() || sanitized.equals("null", ignoreCase = true)) null
+                    else {
+                        var repaired = item
+                        if (sanitized != item.word) repaired = repaired.copy(word = sanitized)
+                        if (repaired.genderArticle.equals("null", ignoreCase = true)) repaired = repaired.copy(genderArticle = "")
+                        if (repaired.gender.equals("null", ignoreCase = true)) repaired = repaired.copy(gender = "")
+                        repaired
+                    }
+                }
+
+                if (notebookItems.isEmpty() && roomItems.isNotEmpty()) {
+                    notebookRepository.saveActiveHistory(roomItems)
+                    withContext(Dispatchers.Default) {
+                        com.example.ui.components.HistoryQuickDetailsCache.prewarm(roomItems)
+                    }
+                } else if (notebookItems.isNotEmpty()) {
+                    val merged = mergeHistoryLists(notebookItems, roomItems)
+                    if (!areHistoryListsSynced(roomItems, merged)) {
+                        runCatching { historyDao.replaceAllHistory(merged) }
+                    }
+                    if (!areHistoryListsSynced(notebookItems, merged)) {
+                        notebookRepository.saveActiveHistory(merged)
+                    }
+                    withContext(Dispatchers.Default) {
+                        com.example.ui.components.HistoryQuickDetailsCache.prewarm(merged)
+                    }
+                }
+                return@withLock
+            }
+
+            val storage = externalHistoryStorage ?: return@withLock
+            val rawExternalItems = storage.loadHistory()
+            val externalItems = rawExternalItems.mapNotNull { item ->
+                val sanitized = com.example.data.model.sanitizeHistoryWord(item.word, item.data.ifBlank { item.rawJsonResult }, item.type)
+                if (sanitized.isBlank() || sanitized.equals("null", ignoreCase = true)) null
+                else if (sanitized != item.word) item.copy(word = sanitized)
+                else item
+            }
+
+            if (externalItems.isNotEmpty() && roomItems.isEmpty()) {
+                runCatching { historyDao.replaceAllHistory(externalItems) }
+                withContext(Dispatchers.Default) {
+                    com.example.ui.components.HistoryQuickDetailsCache.prewarm(externalItems)
+                }
+            } else if (roomItems.isNotEmpty() && externalItems.isEmpty()) {
+                storage.saveHistory(roomItems)
                 withContext(Dispatchers.Default) {
                     com.example.ui.components.HistoryQuickDetailsCache.prewarm(roomItems)
                 }
-            } else if (notebookItems.isNotEmpty()) {
-                val merged = mergeHistoryLists(notebookItems, roomItems)
+            } else if (externalItems.isNotEmpty() || roomItems.isNotEmpty()) {
+                val merged = mergeHistoryLists(externalItems, roomItems)
                 if (!areHistoryListsSynced(roomItems, merged)) {
-                    historyDao.replaceAllHistory(merged)
+                    runCatching { historyDao.replaceAllHistory(merged) }
                 }
-                if (!areHistoryListsSynced(notebookItems, merged)) {
-                    notebookRepository.saveActiveHistory(merged)
+                if (!areHistoryListsSynced(externalItems, merged)) {
+                    storage.saveHistory(merged)
                 }
                 withContext(Dispatchers.Default) {
                     com.example.ui.components.HistoryQuickDetailsCache.prewarm(merged)
                 }
-            }
-            return@withContext
-        }
-
-        val storage = externalHistoryStorage ?: return@withContext
-        val rawExternalItems = storage.loadHistory()
-        val externalItems = rawExternalItems.mapNotNull { item ->
-            val sanitized = com.example.data.model.sanitizeHistoryWord(item.word, item.data.ifBlank { item.rawJsonResult }, item.type)
-            if (sanitized.isBlank() || sanitized.equals("null", ignoreCase = true)) null
-            else if (sanitized != item.word) item.copy(word = sanitized)
-            else item
-        }
-
-        if (externalItems.isNotEmpty() && roomItems.isEmpty()) {
-            historyDao.replaceAllHistory(externalItems)
-            withContext(Dispatchers.Default) {
-                com.example.ui.components.HistoryQuickDetailsCache.prewarm(externalItems)
-            }
-        } else if (roomItems.isNotEmpty() && externalItems.isEmpty()) {
-            storage.saveHistory(roomItems)
-            withContext(Dispatchers.Default) {
-                com.example.ui.components.HistoryQuickDetailsCache.prewarm(roomItems)
-            }
-        } else if (externalItems.isNotEmpty() || roomItems.isNotEmpty()) {
-            val merged = mergeHistoryLists(externalItems, roomItems)
-            if (!areHistoryListsSynced(roomItems, merged)) {
-                historyDao.replaceAllHistory(merged)
-            }
-            if (!areHistoryListsSynced(externalItems, merged)) {
-                storage.saveHistory(merged)
-            }
-            withContext(Dispatchers.Default) {
-                com.example.ui.components.HistoryQuickDetailsCache.prewarm(merged)
             }
         }
     }
@@ -522,8 +548,10 @@ class WordRepository(
     }
 
     suspend fun reloadRoomWithItems(items: List<WordHistoryEntity>) = withContext(Dispatchers.IO) {
-        memoryGrammarCache.clear()
-        historyDao.replaceAllHistory(items)
+        historyMutex.withLock {
+            memoryGrammarCache.clear()
+            runCatching { historyDao.replaceAllHistory(items) }
+        }
         withContext(Dispatchers.Default) {
             com.example.ui.components.HistoryQuickDetailsCache.prewarm(items)
         }
@@ -551,30 +579,37 @@ class WordRepository(
     }
 
     suspend fun deleteHistoryItem(id: Long) = withContext(Dispatchers.IO) {
-        val entity = historyDao.findById(id)
-        if (entity != null) {
-            val prefix = "${entity.word.trim().lowercase()}|${entity.type.trim().lowercase()}|"
-            memoryGrammarCache.keys.removeIf { it.startsWith(prefix) }
+        historyMutex.withLock {
+            val entity = runCatching { historyDao.findById(id) }.getOrNull()
+            if (entity != null) {
+                val segment = "_${entity.word.trim().lowercase()}|${entity.type.trim().lowercase()}|"
+                val prefix = "${entity.word.trim().lowercase()}|${entity.type.trim().lowercase()}|"
+                memoryGrammarCache.keys.removeIf { it.startsWith(prefix) || it.contains(segment) }
+            }
+            runCatching { historyDao.deleteById(id) }
+            externalHistoryStorage?.deleteItem(id, entity?.word, entity?.type)
+            notebookRepository?.deleteItemInActiveHistory(id, entity?.word, entity?.type)
         }
-        historyDao.deleteById(id)
-        externalHistoryStorage?.deleteItem(id)
-        notebookRepository?.deleteItemInActiveHistory(id, entity?.word, entity?.type)
     }
 
     suspend fun clearAllHistory() = withContext(Dispatchers.IO) {
-        memoryGrammarCache.clear()
-        historyDao.clearAll()
-        externalHistoryStorage?.clearHistory()
-        notebookRepository?.clearActiveHistory()
+        historyMutex.withLock {
+            memoryGrammarCache.clear()
+            runCatching { historyDao.clearAll() }
+            externalHistoryStorage?.clearHistory()
+            notebookRepository?.clearActiveHistory()
+        }
     }
 
     suspend fun clearHistoryByType(type: com.example.data.model.GrammarType) = withContext(Dispatchers.IO) {
-        val typeSegment = "|${type.displayName.lowercase()}|"
-        memoryGrammarCache.keys.removeIf { it.contains(typeSegment) }
-        historyDao.clearByType(type.displayName)
-        val remaining = historyDao.getAllHistoryList()
-        externalHistoryStorage?.saveHistory(remaining)
-        notebookRepository?.saveActiveHistory(remaining)
+        historyMutex.withLock {
+            val typeSegment = "|${type.displayName.lowercase()}|"
+            memoryGrammarCache.keys.removeIf { it.contains(typeSegment) }
+            runCatching { historyDao.clearByType(type.displayName) }
+            val remaining = runCatching { historyDao.getAllHistoryList() }.getOrElse { emptyList() }
+            externalHistoryStorage?.saveHistory(remaining)
+            notebookRepository?.saveActiveHistory(remaining)
+        }
     }
 
     fun hasHistoryFolder(): Boolean {
@@ -585,44 +620,49 @@ class WordRepository(
         return externalHistoryStorage?.getFolderName() ?: "Kein Ordner ausgewählt"
     }
 
-    suspend fun onFolderSelected(uri: android.net.Uri): Int {
-        val storage = externalHistoryStorage ?: return 0
+    suspend fun onFolderSelected(uri: android.net.Uri): Int = withContext(Dispatchers.IO) {
+        val storage = externalHistoryStorage ?: return@withContext 0
         storage.saveFolderUri(uri)
         // Automatically import history from history.json if it exists in the selected folder
         syncHistoryOnStartup()
-        return historyDao.getAllHistoryList().size
+        runCatching { historyDao.getAllHistoryList().size }.getOrDefault(0)
     }
 
-    suspend fun importHistoryFromFile(fileUri: android.net.Uri, replace: Boolean): Int {
-        val storage = externalHistoryStorage ?: return 0
+    suspend fun importHistoryFromFile(fileUri: android.net.Uri, replace: Boolean): Int = withContext(Dispatchers.IO) {
+        val storage = externalHistoryStorage ?: return@withContext 0
         val importedItems = storage.readHistoryFromUri(fileUri)
-        if (importedItems.isEmpty()) return 0
+        if (importedItems.isEmpty()) return@withContext 0
 
-        val currentNotebookItems = notebookRepository?.loadActiveHistory() ?: historyDao.getAllHistoryList()
-        val updatedList = if (replace) {
-            importedItems
-        } else {
-            // Merge into active notebook ONLY
-            val currentKeyMap = currentNotebookItems.associateBy { "${it.word.trim().lowercase()}_${it.type.trim().lowercase()}" }.toMutableMap()
-            for (item in importedItems) {
-                val key = "${item.word.trim().lowercase()}_${item.type.trim().lowercase()}"
-                currentKeyMap[key] = item
+        val updatedList = historyMutex.withLock {
+            val currentNotebookItems = notebookRepository?.loadActiveHistory()
+                ?: runCatching { historyDao.getAllHistoryList() }.getOrElse { emptyList() }
+            val list = if (replace) {
+                importedItems
+            } else {
+                // Merge into active notebook ONLY
+                val currentKeyMap = currentNotebookItems.associateBy { "${it.word.trim().lowercase()}_${it.type.trim().lowercase()}" }.toMutableMap()
+                for (item in importedItems) {
+                    val key = "${item.word.trim().lowercase()}_${item.type.trim().lowercase()}"
+                    currentKeyMap[key] = item
+                }
+                currentKeyMap.values.sortedByDescending { it.timestamp }
             }
-            currentKeyMap.values.sortedByDescending { it.timestamp }
+
+            // Save strictly to the active notebook without touching any other notebooks
+            notebookRepository?.saveActiveHistory(list)
+
+            // Reload Room with active notebook items only
+            runCatching { historyDao.replaceAllHistory(list) }
+
+            // Update external storage for active notebook if configured
+            storage.saveHistory(list)
+            list
         }
 
-        // Save strictly to the active notebook without touching any other notebooks
-        notebookRepository?.saveActiveHistory(updatedList)
-
-        // Reload Room with active notebook items only
-        historyDao.replaceAllHistory(updatedList)
         withContext(Dispatchers.Default) {
             com.example.ui.components.HistoryQuickDetailsCache.prewarm(updatedList)
         }
-
-        // Update external storage for active notebook if configured
-        storage.saveHistory(updatedList)
-        return importedItems.size
+        importedItems.size
     }
 
     suspend fun updateManualTranslation(
@@ -644,106 +684,109 @@ class WordRepository(
             null -> null
         }
 
-        if (!resolvedType.isNullOrBlank()) {
-            historyDao.updateManualTranslationByWordAndType(cleanWord, resolvedType, cleanManual)
-        } else {
-            // Strictly check if only one type exists to prevent polluting different parts of speech
-            val matches = historyDao.getAllHistoryList().filter { it.word.equals(cleanWord, ignoreCase = true) }
-            if (matches.size == 1) {
-                historyDao.updateManualTranslationByWordAndType(cleanWord, matches[0].type, cleanManual)
-            }
-        }
-
-        var updated = if (!resolvedType.isNullOrBlank()) {
-            historyDao.findByWordAndType(cleanWord, resolvedType)
-        } else null
-
-        // If not in database yet, create and insert it so the user's manual translation is permanently saved
-        if (updated == null && grammarResult != null) {
-            val rawGrWord = grammarResult.word.takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) } ?: cleanWord
-            val grWord = com.example.data.model.sanitizeHistoryWord(rawGrWord, grammarResult.rawJson, type).ifBlank { cleanWord }
-            if (grWord.isNotBlank() && !grWord.equals("null", ignoreCase = true)) {
-                val entity = when (grammarResult) {
-                    is com.example.data.model.GrammarResult.Noun -> {
-                        val declension = grammarResult.declension
-                        WordHistoryEntity(
-                            word = grWord,
-                            type = com.example.data.model.GrammarType.NOMEN.displayName,
-                            data = declension.rawJson,
-                            gender = declension.gender.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            genderArticle = declension.genderArticle.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            meaningEnglish = declension.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            rawJsonResult = declension.rawJson,
-                            timestamp = System.currentTimeMillis(),
-                            manualTranslation = cleanManual
-                        )
-                    }
-                    is com.example.data.model.GrammarResult.Verb -> {
-                        val conjugation = grammarResult.conjugation
-                        WordHistoryEntity(
-                            word = grWord,
-                            type = com.example.data.model.GrammarType.VERB.displayName,
-                            data = conjugation.rawJson,
-                            gender = conjugation.hilfsverb.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            genderArticle = conjugation.partizip2.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            meaningEnglish = conjugation.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            rawJsonResult = conjugation.rawJson,
-                            timestamp = System.currentTimeMillis(),
-                            manualTranslation = cleanManual
-                        )
-                    }
-                    is com.example.data.model.GrammarResult.Sentence -> {
-                        val declension = grammarResult.declension
-                        WordHistoryEntity(
-                            word = grWord,
-                            type = com.example.data.model.GrammarType.SENTENCE.displayName,
-                            data = declension.rawJson,
-                            gender = "–",
-                            genderArticle = "",
-                            meaningEnglish = declension.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            rawJsonResult = declension.rawJson,
-                            timestamp = System.currentTimeMillis(),
-                            manualTranslation = cleanManual
-                        )
-                    }
-                    is com.example.data.model.GrammarResult.NomenList -> {
-                        val declension = grammarResult.declension
-                        WordHistoryEntity(
-                            word = grWord,
-                            type = com.example.data.model.GrammarType.NOMEN_LIST.displayName,
-                            data = declension.rawJson,
-                            gender = if (com.example.data.model.isMultipleWordsInput(declension.word)) "Wörter" else "Wort",
-                            genderArticle = "",
-                            meaningEnglish = declension.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            rawJsonResult = declension.rawJson,
-                            timestamp = System.currentTimeMillis(),
-                            manualTranslation = cleanManual
-                        )
-                    }
-                    is com.example.data.model.GrammarResult.Adjektiv -> {
-                        val adj = grammarResult.result
-                        WordHistoryEntity(
-                            word = grWord,
-                            type = com.example.data.model.GrammarType.ADJEKTIV.displayName,
-                            data = adj.rawJson,
-                            gender = "Adjektiv",
-                            genderArticle = "",
-                            meaningEnglish = adj.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
-                            rawJsonResult = adj.rawJson,
-                            timestamp = System.currentTimeMillis(),
-                            manualTranslation = cleanManual
-                        )
-                    }
+        historyMutex.withLock {
+            if (!resolvedType.isNullOrBlank()) {
+                runCatching { historyDao.updateManualTranslationByWordAndType(cleanWord, resolvedType, cleanManual) }
+            } else {
+                // Strictly check if only one type exists to prevent polluting different parts of speech
+                val matches = runCatching { historyDao.getAllHistoryList() }.getOrElse { emptyList() }
+                    .filter { it.word.equals(cleanWord, ignoreCase = true) }
+                if (matches.size == 1) {
+                    runCatching { historyDao.updateManualTranslationByWordAndType(cleanWord, matches[0].type, cleanManual) }
                 }
-                val id = historyDao.insert(entity)
-                updated = entity.copy(id = id)
             }
-        }
 
-        if (updated != null) {
-            val finalEntity = updated.copy(manualTranslation = cleanManual)
-            externalHistoryStorage?.appendOrUpdateItem(finalEntity)
-            notebookRepository?.appendOrUpdateItemInActiveHistory(finalEntity)
+            var updated = if (!resolvedType.isNullOrBlank()) {
+                runCatching { historyDao.findByWordAndType(cleanWord, resolvedType) }.getOrNull()
+            } else null
+
+            // If not in database yet, create and insert it so the user's manual translation is permanently saved
+            if (updated == null && grammarResult != null) {
+                val rawGrWord = grammarResult.word.takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) } ?: cleanWord
+                val grWord = com.example.data.model.sanitizeHistoryWord(rawGrWord, grammarResult.rawJson, type).ifBlank { cleanWord }
+                if (grWord.isNotBlank() && !grWord.equals("null", ignoreCase = true)) {
+                    val entity = when (grammarResult) {
+                        is com.example.data.model.GrammarResult.Noun -> {
+                            val declension = grammarResult.declension
+                            WordHistoryEntity(
+                                word = grWord,
+                                type = com.example.data.model.GrammarType.NOMEN.displayName,
+                                data = declension.rawJson,
+                                gender = declension.gender.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                genderArticle = declension.genderArticle.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                meaningEnglish = declension.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                rawJsonResult = declension.rawJson,
+                                timestamp = System.currentTimeMillis(),
+                                manualTranslation = cleanManual
+                            )
+                        }
+                        is com.example.data.model.GrammarResult.Verb -> {
+                            val conjugation = grammarResult.conjugation
+                            WordHistoryEntity(
+                                word = grWord,
+                                type = com.example.data.model.GrammarType.VERB.displayName,
+                                data = conjugation.rawJson,
+                                gender = conjugation.hilfsverb.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                genderArticle = conjugation.partizip2.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                meaningEnglish = conjugation.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                rawJsonResult = conjugation.rawJson,
+                                timestamp = System.currentTimeMillis(),
+                                manualTranslation = cleanManual
+                            )
+                        }
+                        is com.example.data.model.GrammarResult.Sentence -> {
+                            val declension = grammarResult.declension
+                            WordHistoryEntity(
+                                word = grWord,
+                                type = com.example.data.model.GrammarType.SENTENCE.displayName,
+                                data = declension.rawJson,
+                                gender = "–",
+                                genderArticle = "",
+                                meaningEnglish = declension.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                rawJsonResult = declension.rawJson,
+                                timestamp = System.currentTimeMillis(),
+                                manualTranslation = cleanManual
+                            )
+                        }
+                        is com.example.data.model.GrammarResult.NomenList -> {
+                            val declension = grammarResult.declension
+                            WordHistoryEntity(
+                                word = grWord,
+                                type = com.example.data.model.GrammarType.NOMEN_LIST.displayName,
+                                data = declension.rawJson,
+                                gender = if (com.example.data.model.isMultipleWordsInput(declension.word)) "Wörter" else "Wort",
+                                genderArticle = "",
+                                meaningEnglish = declension.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                rawJsonResult = declension.rawJson,
+                                timestamp = System.currentTimeMillis(),
+                                manualTranslation = cleanManual
+                            )
+                        }
+                        is com.example.data.model.GrammarResult.Adjektiv -> {
+                            val adj = grammarResult.result
+                            WordHistoryEntity(
+                                word = grWord,
+                                type = com.example.data.model.GrammarType.ADJEKTIV.displayName,
+                                data = adj.rawJson,
+                                gender = "Adjektiv",
+                                genderArticle = "",
+                                meaningEnglish = adj.meaningEnglish.takeUnless { it.equals("null", ignoreCase = true) }.orEmpty(),
+                                rawJsonResult = adj.rawJson,
+                                timestamp = System.currentTimeMillis(),
+                                manualTranslation = cleanManual
+                            )
+                        }
+                    }
+                    val id = runCatching { historyDao.insert(entity) }.getOrDefault(0L)
+                    updated = entity.copy(id = id)
+                }
+            }
+
+            if (updated != null) {
+                val finalEntity = updated.copy(manualTranslation = cleanManual)
+                externalHistoryStorage?.appendOrUpdateItem(finalEntity)
+                notebookRepository?.appendOrUpdateItemInActiveHistory(finalEntity)
+            }
         }
     }
 }

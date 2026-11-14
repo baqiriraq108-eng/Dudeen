@@ -187,6 +187,8 @@ import com.example.ui.theme.GeoSecondary
 import com.example.ui.theme.GeoSurface
 import com.example.ui.theme.GeoSurfaceVariant
 
+private val SCREEN_WORD_SPLIT_REGEX = Regex("[\\s,;]+")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -273,6 +275,9 @@ fun MainScreen(
         initialValue = historyList,
         keys = arrayOf(historyList, uiState.selectedHistoryFilter, historySearchQuery, currentSortOption)
     ) {
+        if (historySearchQuery.isNotBlank()) {
+            kotlinx.coroutines.delay(50)
+        }
         withContext(Dispatchers.Default) {
             val filtered = com.example.util.HistoryFilterHelper.filterAndSortHistory(
                 items = historyList,
@@ -280,22 +285,29 @@ fun MainScreen(
                 query = historySearchQuery,
                 sortOption = currentSortOption
             )
-            val sanitized = filtered.mapNotNull { item ->
+            val seenCompositeKeys = HashSet<String>(filtered.size * 2)
+            val sanitized = ArrayList<WordHistoryEntity>(filtered.size)
+            var syntheticIdCounter = -1L
+            for (item in filtered) {
                 val cleanWord = com.example.data.model.sanitizeHistoryWord(
                     item.word,
                     item.data.ifBlank { item.rawJsonResult },
                     item.type
                 )
-                if (cleanWord.isBlank() || cleanWord.equals("null", ignoreCase = true)) null
-                else {
-                    var repaired = item
-                    if (cleanWord != item.word) repaired = repaired.copy(word = cleanWord)
-                    if (repaired.genderArticle.equals("null", ignoreCase = true)) repaired = repaired.copy(genderArticle = "")
-                    if (repaired.gender.equals("null", ignoreCase = true)) repaired = repaired.copy(gender = "")
-                    repaired
+                if (cleanWord.isBlank() || cleanWord.equals("null", ignoreCase = true)) continue
+                var repaired = item
+                if (cleanWord != item.word) repaired = repaired.copy(word = cleanWord)
+                if (repaired.genderArticle.equals("null", ignoreCase = true)) repaired = repaired.copy(genderArticle = "")
+                if (repaired.gender.equals("null", ignoreCase = true)) repaired = repaired.copy(gender = "")
+                if (repaired.id == 0L) {
+                    repaired = repaired.copy(id = syntheticIdCounter--)
+                }
+                val compositeKey = "${repaired.id}_${repaired.word.lowercase(Locale.ROOT)}_${repaired.type.lowercase(Locale.ROOT)}_${repaired.timestamp}"
+                if (seenCompositeKeys.add(compositeKey)) {
+                    sanitized.add(repaired)
                 }
             }
-            HistoryQuickDetailsCache.prewarm(sanitized)
+            HistoryQuickDetailsCache.prewarm(sanitized, maxItems = minOf(sanitized.size, 500))
             value = sanitized
         }
     }
@@ -452,6 +464,12 @@ fun MainScreen(
         ) { innerPadding ->
             val lazyListState = rememberLazyListState()
             val coroutineScope = rememberCoroutineScope()
+
+            LaunchedEffect(uiState.activeNotebook?.id) {
+                if (lazyListState.firstVisibleItemIndex > 0) {
+                    lazyListState.scrollToItem(0)
+                }
+            }
 
             // Quick Scroll conditions: stable and independent of layout jitter
             val showScrollToTop by remember {
@@ -822,7 +840,7 @@ fun MainScreen(
                                         strings.translatingWordsStatus
                                     } else if (uiState.selectedGrammarType == GrammarType.ADJEKTIV) {
                                         strings.analyzingAdjectivesStatus
-                                    } else if (uiState.searchQuery.trim().split(Regex("[\\s,;]+")).filter { it.isNotBlank() }.size >= 2) {
+                                    } else if (uiState.searchQuery.trim().split(SCREEN_WORD_SPLIT_REGEX).filter { it.isNotBlank() }.size >= 2) {
                                         strings.translatingSentenceStatus
                                     } else if (uiState.selectedGrammarType == GrammarType.VERB) {
                                         strings.analyzingConjugationStatus
@@ -916,7 +934,7 @@ fun MainScreen(
                                         nounRes.gender.equals("Nomen", ignoreCase = true)
                                     val isSentence = !isNomenList && (nounRes.gender.equals("Satz", ignoreCase = true) ||
                                         nounRes.gender == "–" ||
-                                        nounRes.word.trim().split(Regex("[\\s,;]+")).filter { it.isNotBlank() }.size >= 2)
+                                        nounRes.word.trim().split(SCREEN_WORD_SPLIT_REGEX).filter { it.isNotBlank() }.size >= 2)
                                     if (isNomenList) {
                                         NomenListResultView(
                                             result = nounRes,
@@ -1301,7 +1319,14 @@ fun MainScreen(
 
     // Print & Export Dialog (Unified PDF / Excel)
     if (uiState.isExportDialogOpen) {
-        val (nouns, verbs, adjectives) = viewModel.getUnifiedHistoryForExport()
+        val unifiedExportData by produceState(
+            initialValue = MainViewModel.UnifiedExportData(emptyList(), emptyList(), emptyList()),
+            keys = arrayOf(historyList, uiState.currentGrammarResult, uiState.currentResult, uiState.currentManualTranslation)
+        ) {
+            value = withContext(Dispatchers.Default) {
+                viewModel.getUnifiedHistoryForExport()
+            }
+        }
         val initialScope = when (uiState.selectedGrammarType) {
             GrammarType.NOMEN -> com.example.util.DeclensionHistoryExportHelper.ExportScope.NOMEN
             GrammarType.VERB -> com.example.util.DeclensionHistoryExportHelper.ExportScope.VERB
@@ -1311,9 +1336,9 @@ fun MainScreen(
         }
         PrintExportDialog(
             currentGrammarResult = uiState.currentGrammarResult,
-            nounHistory = nouns,
-            verbHistory = verbs,
-            adjektivHistory = adjectives,
+            nounHistory = unifiedExportData.nouns,
+            verbHistory = unifiedExportData.verbs,
+            adjektivHistory = unifiedExportData.adjectives,
             initialScope = initialScope,
             notebookName = uiState.activeNotebook?.name ?: "",
             appLanguage = uiState.appLanguage,
@@ -1332,6 +1357,7 @@ private fun AutoShrinkTabLabel(
     modifier: Modifier = Modifier
 ) {
     var fontSize by remember(text, isSelected) { mutableStateOf(if (text.length > 8) 10.5.sp else 11.sp) }
+    var shrinkSteps by remember(text, isSelected) { mutableIntStateOf(0) }
     var readyToDraw by remember(text, isSelected) { mutableStateOf(false) }
 
     Text(
@@ -1346,9 +1372,10 @@ private fun AutoShrinkTabLabel(
         softWrap = false,
         overflow = TextOverflow.Clip,
         onTextLayout = { textLayoutResult ->
-            if (textLayoutResult.hasVisualOverflow && fontSize > 8.sp) {
+            if (!readyToDraw && textLayoutResult.hasVisualOverflow && fontSize > 8.sp && shrinkSteps < 8) {
+                shrinkSteps += 1
                 fontSize = (fontSize.value - 0.5f).sp
-            } else {
+            } else if (!readyToDraw) {
                 readyToDraw = true
             }
         }
@@ -1453,6 +1480,7 @@ private fun FastScrollbar(
         // Draggable Thumb Handle:
         // Placed ONLY at thumbOffsetDp with fixedThumbHeightDp.
         // pointerInput is ONLY on this handle, so the rest of the screen is 100% free of touch interception!
+        var lastScrolledItem by remember { mutableIntStateOf(-1) }
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -1463,9 +1491,16 @@ private fun FastScrollbar(
                         detectVerticalDragGestures(
                             onDragStart = {
                                 isDragging = true
+                                lastScrolledItem = -1
                             },
-                            onDragEnd = { isDragging = false },
-                            onDragCancel = { isDragging = false },
+                            onDragEnd = {
+                                isDragging = false
+                                lastScrolledItem = -1
+                            },
+                            onDragCancel = {
+                                isDragging = false
+                                lastScrolledItem = -1
+                            },
                             onVerticalDrag = { change, dragAmount ->
                                 change.consume()
                                 val usable = currentUsableTrackPx
@@ -1477,8 +1512,11 @@ private fun FastScrollbar(
                                     val total = currentTotalCount
                                     if (total > 0) {
                                         val targetItem = (newProgress * (total - 1)).roundToInt().coerceIn(0, total - 1)
-                                        coroutineScope.launch {
-                                            lazyListState.scrollToItem(targetItem)
+                                        if (targetItem != lastScrolledItem) {
+                                            lastScrolledItem = targetItem
+                                            coroutineScope.launch {
+                                                lazyListState.scrollToItem(targetItem)
+                                            }
                                         }
                                     }
                                 }
@@ -1487,6 +1525,7 @@ private fun FastScrollbar(
                     } finally {
                         // GUARANTEED to execute on release, cancel, or coroutine cancellation!
                         isDragging = false
+                        lastScrolledItem = -1
                     }
                 },
             contentAlignment = Alignment.CenterEnd

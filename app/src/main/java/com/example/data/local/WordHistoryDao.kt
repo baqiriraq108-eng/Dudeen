@@ -28,7 +28,20 @@ interface WordHistoryDao {
     suspend fun replaceAllHistory(entities: List<WordHistoryEntity>) {
         clearAll()
         if (entities.isNotEmpty()) {
-            insertAll(entities)
+            val seen = HashSet<String>(entities.size)
+            val normalized = ArrayList<WordHistoryEntity>(entities.size)
+            for (entity in entities) {
+                val cleanWord = entity.word.trim()
+                if (cleanWord.isBlank() || cleanWord.equals("null", ignoreCase = true)) continue
+                val dedupKey = "${cleanWord.lowercase()}_${entity.type.trim().lowercase()}"
+                if (seen.add(dedupKey)) {
+                    // Reset id = 0L so Room auto-generates strictly unique primary keys without overwriting colliding IDs
+                    normalized.add(entity.copy(id = 0L, word = cleanWord))
+                }
+            }
+            for (chunk in normalized.chunked(250)) {
+                insertAll(chunk)
+            }
         }
     }
 

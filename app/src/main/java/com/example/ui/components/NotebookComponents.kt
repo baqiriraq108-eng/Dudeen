@@ -178,21 +178,16 @@ fun NotebookSwitcher(
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis
                     )
-
-                    Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = strings.myNotebooksTitle,
-                        tint = GeoOnSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
                 }
             }
 
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
+                shape = RoundedCornerShape(14.dp),
+                containerColor = GeoSurface,
+                border = BorderStroke(1.dp, GeoBorder),
                 modifier = Modifier
-                    .background(GeoSurface)
                     .widthIn(min = 220.dp, max = 300.dp)
             ) {
                 CompositionLocalProvider(LocalLayoutDirection provides strings.language.layoutDirection) {
@@ -556,7 +551,7 @@ fun CreateNotebookDialog(
                 }
             },
             containerColor = GeoSurface,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(14.dp)
         )
     }
 }
@@ -576,6 +571,7 @@ fun AutoSizingText(
     step: Float = 0.5f
 ) {
     var scaledFontSize by remember(text, maxFontSize) { mutableStateOf(maxFontSize) }
+    var shrinkSteps by remember(text, maxFontSize) { mutableStateOf(0) }
     var readyToDraw by remember(text, maxFontSize) { mutableStateOf(false) }
 
     Text(
@@ -590,14 +586,15 @@ fun AutoSizingText(
         softWrap = false,
         overflow = TextOverflow.Ellipsis,
         onTextLayout = { textLayoutResult ->
-            if (textLayoutResult.didOverflowWidth && scaledFontSize.value > minFontSize.value) {
+            if (!readyToDraw && textLayoutResult.didOverflowWidth && scaledFontSize.value > minFontSize.value && shrinkSteps < 8) {
                 val nextVal = (scaledFontSize.value - step).coerceAtLeast(minFontSize.value)
-                if (nextVal != scaledFontSize.value) {
+                if (nextVal < scaledFontSize.value) {
+                    shrinkSteps += 1
                     scaledFontSize = nextVal.sp
                 } else {
                     readyToDraw = true
                 }
-            } else {
+            } else if (!readyToDraw) {
                 readyToDraw = true
             }
         }
@@ -665,7 +662,7 @@ fun NotebookManagerDialog(
                         .fillMaxWidth(0.95f)
                         .heightIn(max = maxDialogHeight)
                         .testTag("notebook_manager_dialog"),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer
                     ),
@@ -811,26 +808,6 @@ fun NotebookManagerDialog(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
-
-                                    // Trailing Outline-Only Action Pill (matching Notebook Card Öffnen Pill)
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = Color.Transparent,
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                                contentDescription = strings.newNotebookButton,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
                                 }
                             }
 
@@ -890,26 +867,6 @@ fun NotebookManagerDialog(
                                             softWrap = false,
                                             overflow = TextOverflow.Ellipsis
                                         )
-                                    }
-
-                                    // Trailing Outline-Only Action Pill (matching Notebook Card Öffnen Pill)
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = Color.Transparent,
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                                contentDescription = strings.loadFromJsonButton,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -990,12 +947,6 @@ fun NotebookManagerDialog(
                                             overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.weight(1f)
                                         )
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(16.dp)
-                                        )
                                     }
                                 }
 
@@ -1033,12 +984,6 @@ fun NotebookManagerDialog(
                                             overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.weight(1f)
                                         )
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(16.dp)
-                                        )
                                     }
                                 }
 
@@ -1075,12 +1020,6 @@ fun NotebookManagerDialog(
                                             softWrap = false,
                                             overflow = TextOverflow.Ellipsis,
                                             modifier = Modifier.weight(1f)
-                                        )
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
                                 }
@@ -1153,14 +1092,6 @@ fun NotebookManagerDialog(
                                                     fontWeight = FontWeight.Medium
                                                 )
                                             }
-                                            Icon(
-                                                imageVector = Icons.Default.ArrowDropDown,
-                                                contentDescription = if (isBackupSectionExpanded) strings.collapseDesc else strings.expandDesc,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier
-                                                    .size(20.dp)
-                                                    .rotate(if (isBackupSectionExpanded) 180f else 0f)
-                                            )
                                         }
                                     }
                                 }
@@ -1644,12 +1575,6 @@ fun NotebookManagerDialog(
                                                             maxLines = 1,
                                                             softWrap = false
                                                         )
-                                                        Icon(
-                                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                                            contentDescription = strings.activateNotebookAction,
-                                                            tint = MaterialTheme.colorScheme.primary,
-                                                            modifier = Modifier.size(12.dp)
-                                                        )
                                                     }
                                                 }
                                             }
@@ -1670,7 +1595,9 @@ fun NotebookManagerDialog(
                                                 DropdownMenu(
                                                     expanded = showMenu,
                                                     onDismissRequest = { showMenu = false },
-                                                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+                                                    shape = RoundedCornerShape(14.dp),
+                                                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                                    border = BorderStroke(1.dp, GeoBorder)
                                                 ) {
                                                     DropdownMenuItem(
                                                         text = { Text(strings.renameNotebookAction, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface) },
@@ -1742,6 +1669,8 @@ fun NotebookManagerDialog(
         CompositionLocalProvider(LocalLayoutDirection provides strings.language.layoutDirection) {
             AlertDialog(
                 onDismissRequest = { notebookToRename = null },
+                shape = RoundedCornerShape(14.dp),
+                containerColor = GeoSurface,
                 title = {
                     Text(
                         text = strings.renameDialogTitle,
@@ -1827,6 +1756,8 @@ fun NotebookManagerDialog(
         CompositionLocalProvider(LocalLayoutDirection provides strings.language.layoutDirection) {
             AlertDialog(
                 onDismissRequest = { notebookToDelete = null },
+                shape = RoundedCornerShape(14.dp),
+                containerColor = GeoSurface,
                 title = {
                     Text(
                         text = strings.deleteNotebookDialogTitle,
@@ -1899,6 +1830,8 @@ fun NotebookManagerDialog(
         CompositionLocalProvider(LocalLayoutDirection provides strings.language.layoutDirection) {
             AlertDialog(
                 onDismissRequest = { folderToSetPrimary = null },
+                shape = RoundedCornerShape(14.dp),
+                containerColor = GeoSurface,
                 title = {
                     Text(
                         text = strings.setPrimaryConfirmTitle,
@@ -2005,7 +1938,7 @@ fun JsonExportActionDialog(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .testTag("json_export_action_dialog"),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(14.dp),
             containerColor = GeoSurface,
             title = {
                 Column(
@@ -2468,7 +2401,7 @@ fun SelectNotebooksExportDialog(
                 }
             },
             containerColor = GeoSurface,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(14.dp)
         )
     }
 }
@@ -2630,7 +2563,7 @@ fun ImportSingleChoiceDialog(
                 }
             },
             containerColor = GeoSurface,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(14.dp)
         )
     }
 }
@@ -2788,7 +2721,7 @@ fun ImportMultiChoiceDialog(
                 }
             },
             containerColor = GeoSurface,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(14.dp)
         )
     }
 }
@@ -2937,7 +2870,7 @@ fun PostImportApiKeyDialog(
                 }
             },
             containerColor = GeoSurface,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(14.dp)
         )
     }
 }

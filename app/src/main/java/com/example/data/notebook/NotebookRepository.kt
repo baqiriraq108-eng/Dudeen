@@ -41,11 +41,11 @@ class NotebookRepository(private val context: Context) {
     @Volatile
     private var cachedRootDir: File? = null
 
-    private val wordCountCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Int>>()
+    @Volatile
+    private var isInitialized: Boolean = false
 
-    init {
-        ensureInitialized()
-    }
+    private val wordCountCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Int>>()
+    private val fileNameSanitizeRegex = Regex("[\\\\/:*?\"<>|]")
 
     /**
      * Checks if a directory exists or can be created, and is writable and readable.
@@ -115,6 +115,7 @@ class NotebookRepository(private val context: Context) {
      */
     @Synchronized
     fun ensureInitialized() {
+        if (isInitialized) return
         val root = getRootDirectory()
         val notebookDirs = try {
             root.listFiles { file -> file.isDirectory }
@@ -167,9 +168,11 @@ class NotebookRepository(private val context: Context) {
 
             prefs.edit().putString(PREF_ACTIVE_NOTEBOOK, DEFAULT_NOTEBOOK_ID).apply()
         }
+        isInitialized = true
     }
 
     fun getActiveNotebookId(): String {
+        ensureInitialized()
         val saved = prefs.getString(PREF_ACTIVE_NOTEBOOK, null)
         if (!saved.isNullOrBlank()) {
             val folder = File(getRootDirectory(), saved)
@@ -195,6 +198,7 @@ class NotebookRepository(private val context: Context) {
      */
     @Synchronized
     fun listAllNotebooks(): List<Notebook> {
+        ensureInitialized()
         val root = getRootDirectory()
         val dirs = try {
             root.listFiles { file -> file.isDirectory } ?: emptyArray()
@@ -246,6 +250,7 @@ class NotebookRepository(private val context: Context) {
         }.sortedByDescending { it.lastModified }
 
         if (list.isEmpty()) {
+            isInitialized = false
             ensureInitialized()
             val recheckedDirs = try {
                 root.listFiles { file -> file.isDirectory } ?: emptyArray()
@@ -915,7 +920,7 @@ class NotebookRepository(private val context: Context) {
     }
 
     private fun sanitizeFileName(name: String): String {
-        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+        return name.replace(fileNameSanitizeRegex, "_").trim()
     }
 
     fun serializeHistoryToJson(items: List<WordHistoryEntity>): JSONArray {
@@ -970,15 +975,25 @@ class NotebookRepository(private val context: Context) {
 
         try {
             val jsonArray = JSONArray(trimmed)
+            val usedIds = HashSet<Long>(jsonArray.length())
+            var nextFallbackId = 1L
             for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
+                val obj = jsonArray.optJSONObject(i) ?: continue
                 val rawWord = obj.optSafeString("word").ifBlank {
                     obj.optSafeString("verb").ifBlank {
                         obj.optSafeString("infinitiv")
                     }
                 }
-                val data = obj.optSafeString("data").ifBlank { obj.toString() }
-                val rawJsonResult = obj.optSafeString("rawJsonResult").ifBlank { data }
+                val explicitData = obj.optSafeString("data")
+                val explicitRaw = obj.optSafeString("rawJsonResult")
+                val baseJson = explicitData.ifBlank { explicitRaw }.ifBlank {
+                    val clone = JSONObject(obj.toString())
+                    clone.remove("data")
+                    clone.remove("rawJsonResult")
+                    clone.toString()
+                }
+                val data = explicitData.ifBlank { baseJson }
+                val rawJsonResult = explicitRaw.ifBlank { data }
                 val type = obj.optSafeString("type", "Nomen")
                 val cleanWord = sanitizeHistoryWord(rawWord, data.ifBlank { rawJsonResult }, type)
                 if (cleanWord.isBlank() || cleanWord.equals("null", ignoreCase = true)) {
@@ -999,9 +1014,17 @@ class NotebookRepository(private val context: Context) {
                     .ifBlank { obj.optSafeString("subtitles") }
                     .ifBlank { obj.optSafeString("custom_translation") }
 
+                var parsedId = obj.optLong("id", 0L)
+                if (parsedId <= 0L || !usedIds.add(parsedId)) {
+                    while (!usedIds.add(nextFallbackId)) {
+                        nextFallbackId++
+                    }
+                    parsedId = nextFallbackId
+                }
+
                 result.add(
                     WordHistoryEntity(
-                        id = obj.optLong("id", 0L),
+                        id = parsedId,
                         word = cleanWord,
                         type = type,
                         data = data,

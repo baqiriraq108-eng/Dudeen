@@ -1,5 +1,19 @@
 package com.example.util
 
+private val MULTI_WHITESPACE_REGEX = Regex("\\s+")
+private val ARABIC_DIACRITICS_REGEX = Regex("[\u064B-\u065F\u0670]")
+private val ARABIC_ALEF_REGEX = Regex("[أإآٱ]")
+
+private val TRANSLATION_PREFIXES = listOf(
+    "الترجمة العربية :", "الترجمة العربية:", "الترجمة:", "الترجمة :", "ترجمة:",
+    "Arabisch:", "Arab.:", "Arab:", "Arabic:",
+    "English:", "Eng.:", "Eng:"
+)
+
+private val ALT_TRANSLATION_PREFIXES = listOf(
+    "Alt.:", "Alt:", "Alt.: ", "Alt: ", "(Alt.:", "(Alt:"
+)
+
 /**
  * Checks if a string contains any Arabic characters (Unicode ranges for Arabic script).
  */
@@ -24,17 +38,12 @@ fun isArabicText(text: String?): Boolean {
 fun cleanTranslationText(rawMeaning: String?, isArabic: Boolean): String {
     if (rawMeaning.isNullOrBlank()) return ""
     var raw = rawMeaning.trim()
-    val prefixes = listOf(
-        "الترجمة العربية :", "الترجمة العربية:", "الترجمة:", "الترجمة :", "ترجمة:",
-        "Arabisch:", "Arab.:", "Arab:", "Arabic:",
-        "English:", "Eng.:", "Eng:"
-    )
-    for (p in prefixes) {
+    for (p in TRANSLATION_PREFIXES) {
         if (raw.startsWith(p, ignoreCase = true)) {
             raw = raw.substring(p.length).trim()
         }
     }
-    return raw.replace(Regex("\\s+"), " ").trim()
+    return raw.replace(MULTI_WHITESPACE_REGEX, " ").trim()
 }
 
 /**
@@ -49,11 +58,11 @@ fun normalizeArabic(text: String?): String {
     if (text.isNullOrBlank()) return ""
     var s = text.trim()
     // Remove diacritics (fatha, damma, kasra, sukun, shadda, tanween, etc.)
-    s = s.replace(Regex("[\u064B-\u065F\u0670]"), "")
+    s = s.replace(ARABIC_DIACRITICS_REGEX, "")
     // Remove tatweel
     s = s.replace("\u0640", "")
     // Normalize Alef
-    s = s.replace(Regex("[أإآٱ]"), "ا")
+    s = s.replace(ARABIC_ALEF_REGEX, "ا")
     // Normalize Taa Marbuta
     s = s.replace("ة", "ه")
     // Normalize Yaa
@@ -74,8 +83,7 @@ fun parseManualTranslations(raw: String?): List<String> {
         if (trimmed.isNotBlank()) {
             val isAr = isArabicText(trimmed)
             var cleaned = cleanTranslationText(trimmed, isAr)
-            val altPrefixes = listOf("Alt.:", "Alt:", "Alt.: ", "Alt: ", "(Alt.:", "(Alt:")
-            for (prefix in altPrefixes) {
+            for (prefix in ALT_TRANSLATION_PREFIXES) {
                 if (cleaned.startsWith(prefix, ignoreCase = true)) {
                     cleaned = cleaned.substring(prefix.length).trim().removeSuffix(")")
                 }

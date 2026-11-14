@@ -636,14 +636,14 @@ fun NatureGradientSphereColorPicker(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Card(
-            shape = RoundedCornerShape(22.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = cardBg),
             border = BorderStroke(1.2.dp, borderColor),
             modifier = modifier
                 .fillMaxWidth(0.95f)
                 .widthIn(max = 520.dp)
                 .heightIn(max = maxDialogHeight)
-                .shadow(12.dp, RoundedCornerShape(22.dp))
+                .shadow(12.dp, RoundedCornerShape(14.dp))
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 BotanicalAtmosphereBackground(
@@ -910,13 +910,6 @@ fun NatureGradientSphereColorPicker(
                                     color = textDark
                                 )
                             }
-
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                tint = textMuted,
-                                modifier = Modifier.size(15.dp)
-                            )
                         }
 
                         // Standard document & theme preset swatches row
@@ -1072,13 +1065,6 @@ fun NatureGradientSphereColorPicker(
                                             )
                                     )
                                 }
-
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = strings.savedColorsTitle,
-                                    tint = textMuted,
-                                    modifier = Modifier.size(15.dp)
-                                )
                             }
                         }
                     }
@@ -1307,6 +1293,7 @@ fun NatureGradientSphereColorPicker(
         val targetHex = colorToDelete!!
         AlertDialog(
             onDismissRequest = { colorToDelete = null },
+            shape = RoundedCornerShape(14.dp),
             containerColor = cardBg,
             title = {
                 Text(
@@ -1976,14 +1963,14 @@ private fun SavedColorsManagementDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = cardBg),
             border = BorderStroke(1.2.dp, borderColor),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .widthIn(max = 460.dp)
                 .padding(12.dp)
-                .shadow(12.dp, RoundedCornerShape(20.dp))
+                .shadow(12.dp, RoundedCornerShape(14.dp))
         ) {
             Column(
                 modifier = Modifier

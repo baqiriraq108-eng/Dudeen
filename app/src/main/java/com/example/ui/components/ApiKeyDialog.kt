@@ -167,7 +167,7 @@ fun ApiKeyDialog(
                 .fillMaxWidth(0.95f)
                 .heightIn(max = 680.dp)
                 .testTag("api_key_dialog"),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             containerColor = GeoSurface,
             title = {
                 Row(
@@ -400,7 +400,7 @@ fun ApiKeyDialog(
                                         modifier = Modifier
                                             .height(28.dp)
                                             .testTag("model_dropdown_button"),
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         border = BorderStroke(1.dp, GeoBorder),
                                         colors = ButtonDefaults.outlinedButtonColors(
                                             containerColor = GeoSurface,
@@ -408,7 +408,7 @@ fun ApiKeyDialog(
                                         ),
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                                     ) {
-                                        Text(text = "${strings.selectModelButton} ▼", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(text = strings.selectModelButton, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                     }
                                 }
                             }
@@ -475,10 +475,12 @@ fun ApiKeyDialog(
                                     modelDropdownExpanded = false
                                     modelSearchQuery = ""
                                 },
+                                shape = RoundedCornerShape(14.dp),
+                                containerColor = GeoSurface,
+                                border = BorderStroke(1.dp, GeoBorder),
                                 modifier = Modifier
                                     .fillMaxWidth(0.90f)
                                     .heightIn(max = 360.dp)
-                                    .background(GeoSurface)
                             ) {
                                 Column(
                                     modifier = Modifier

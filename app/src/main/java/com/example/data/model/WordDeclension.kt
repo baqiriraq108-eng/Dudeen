@@ -32,6 +32,13 @@ enum class GrammarType(val displayName: String, val apiPromptType: String) {
     }
 }
 
+private val DECLENSION_WHITESPACE_REGEX = Regex("\\s+")
+private val DECLENSION_WHITESPACE_COMMA_REGEX = Regex("[\\s,;]+")
+private val DECLENSION_WORD_LIST_SPLIT_REGEX = Regex("[,;،/\\n]+")
+private val LEADING_NULL_REGEX = Regex("(?i)^null\\s+")
+private val TRAILING_NULL_REGEX = Regex("(?i)\\s+null$")
+private val ARABIC_STRIP_REGEX = Regex("[\\u0600-\\u06FF]")
+
 /**
  * Utility to determine if input text represents multiple words or a single word.
  */
@@ -39,7 +46,7 @@ fun isMultipleWordsInput(text: String?): Boolean {
     if (text.isNullOrBlank()) return false
     val trimmed = text.trim()
     if (trimmed.contains(",") || trimmed.contains("،") || trimmed.contains("/") || trimmed.contains(";") || trimmed.contains("-")) return true
-    val words = trimmed.split(Regex("\\s+")).filter { it.isNotBlank() }
+    val words = trimmed.split(DECLENSION_WHITESPACE_REGEX).filter { it.isNotBlank() }
     return words.size > 1
 }
 
@@ -194,7 +201,7 @@ data class WordDeclensionResult(
                     typeStr.equals("Sentence", ignoreCase = true) ||
                     rawGender.equals("Satz", ignoreCase = true) ||
                     rawGender == "–" ||
-                    rawWord.split(Regex("[\\s,;]+")).filter { it.isNotBlank() }.size >= 2
+                    rawWord.split(DECLENSION_WHITESPACE_COMMA_REGEX).filter { it.isNotBlank() }.size >= 2
             )
 
             val gender = if (isSentence) "–" else rawGender
@@ -370,7 +377,7 @@ fun resolveWordExamples(
         "baum" to "Der alte Baum spendet angenehmen kühlen Schatten."
     )
 
-    val words = word.split(Regex("[,;،/\\n]+"))
+    val words = word.split(DECLENSION_WORD_LIST_SPLIT_REGEX)
         .map { it.trim().trim('.', '!', '?', '-', '•') }
         .filter { it.isNotBlank() }
 
@@ -493,7 +500,7 @@ fun resolveSentenceExamples(
     }
 
     // Dynamic generation for general sentences
-    val words = trimmed.split(Regex("\\s+")).filter { it.length > 2 }
+    val words = trimmed.split(DECLENSION_WHITESPACE_REGEX).filter { it.length > 2 }
     val primaryWord = words.firstOrNull { it.first().isUpperCase() } ?: words.firstOrNull() ?: trimmed
 
     return listOf(
@@ -663,7 +670,7 @@ data class VerbConjugationResult(
                 praeteritum = praetObj?.optSafeString("erSieEs", praetObj.optSafeString("ich", "")).orEmpty().trim()
             }
             if (praeteritum.contains(" ")) {
-                val tokens = praeteritum.split("\\s+".toRegex())
+                val tokens = praeteritum.split(DECLENSION_WHITESPACE_REGEX)
                 if (tokens.size >= 2 && (tokens[0].equals("er", true) || tokens[0].contains("/"))) {
                     praeteritum = tokens.last()
                 }
@@ -814,7 +821,7 @@ fun extractVerbQuickDetails(
             ?: ""
     }
     if (praeteritum.contains(" ")) {
-        val tokens = praeteritum.split("\\s+".toRegex())
+        val tokens = praeteritum.split(DECLENSION_WHITESPACE_REGEX)
         if (tokens.size >= 2 && (tokens[0].equals("er", true) || tokens[0].contains("/"))) {
             praeteritum = tokens.last()
         }
@@ -1010,8 +1017,8 @@ fun extractNounQuickDetails(
         }
     }
     singularDefinite = singularDefinite
-        .replace(Regex("(?i)^null\\s+"), "")
-        .replace(Regex("(?i)\\s+null$"), "")
+        .replace(LEADING_NULL_REGEX, "")
+        .replace(TRAILING_NULL_REGEX, "")
         .trim()
     if (singularDefinite.equals("null", ignoreCase = true) || singularDefinite == "-") {
         singularDefinite = ""
@@ -1022,7 +1029,7 @@ fun extractNounQuickDetails(
         jsonWord
     } else {
         cleanInputWord
-    }).replace(Regex("(?i)^null\\s+"), "").replace(Regex("(?i)\\s+null$"), "").trim()
+    }).replace(LEADING_NULL_REGEX, "").replace(TRAILING_NULL_REGEX, "").trim()
 
     val rawSingular = when {
         singularDefinite.isNotBlank() && !singularDefinite.equals("null", ignoreCase = true) && singularDefinite != "-" -> {
@@ -1040,8 +1047,8 @@ fun extractNounQuickDetails(
     }
 
     val singular = rawSingular
-        .replace(Regex("(?i)^null\\s+"), "")
-        .replace(Regex("(?i)\\s+null$"), "")
+        .replace(LEADING_NULL_REGEX, "")
+        .replace(TRAILING_NULL_REGEX, "")
         .trim()
         .takeUnless { it.equals("null", ignoreCase = true) }
         .orEmpty()
@@ -1097,7 +1104,7 @@ fun extractNounQuickDetails(
     englishMeaning = englishMeaning.removePrefix("Eng.:").removePrefix("Eng:").removePrefix("Eng.").trim()
     if (englishMeaning.equals("null", ignoreCase = true)) englishMeaning = ""
     // Strip any Arabic characters completely
-    englishMeaning = englishMeaning.replace(Regex("[\\u0600-\\u06FF]"), "").replace(Regex("\\s+"), " ").trim()
+    englishMeaning = englishMeaning.replace(ARABIC_STRIP_REGEX, "").replace(DECLENSION_WHITESPACE_REGEX, " ").trim()
     if (englishMeaning.startsWith("/") || englishMeaning.endsWith("/")) {
         englishMeaning = englishMeaning.trim('/', ' ')
     }
@@ -1194,7 +1201,7 @@ sealed class GrammarResult {
                     (typeStr.equals("Satz", ignoreCase = true) ||
                     typeStr.equals("Sentence", ignoreCase = true) ||
                     fallbackType == GrammarType.SENTENCE ||
-                    effectiveWord.split(Regex("[\\s,;]+")).filter { it.isNotBlank() }.size >= 2)
+                    effectiveWord.split(DECLENSION_WHITESPACE_COMMA_REGEX).filter { it.isNotBlank() }.size >= 2)
 
             val isVerb = !isAdjektiv && (typeStr.equals("Verb", ignoreCase = true) ||
                     root.has("tenses") || root.has("infinitiv") ||

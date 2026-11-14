@@ -154,9 +154,11 @@ object HistoryFormatterCache {
 }
 
 object HistoryQuickDetailsCache {
-    private val nounCache = LruCache<String, com.example.data.model.NounQuickDetails>(1024)
-    private val verbCache = LruCache<String, com.example.data.model.VerbQuickDetails>(1024)
-    private val pluralCache = LruCache<String, String>(1024)
+    private val nounCache = LruCache<String, com.example.data.model.NounQuickDetails>(2048)
+    private val verbCache = LruCache<String, com.example.data.model.VerbQuickDetails>(2048)
+    private val pluralCache = LruCache<String, String>(2048)
+    private val adjektivCache = LruCache<String, AdjektivQuickDetails>(2048)
+    private val fallbackTranslationCache = LruCache<String, String>(2048)
 
     private fun keyFor(item: WordHistoryEntity): String =
         "${item.id}_${item.timestamp}_${item.word.hashCode()}_${item.rawJsonResult.hashCode()}"
@@ -197,25 +199,67 @@ object HistoryQuickDetailsCache {
         return computed
     }
 
-    fun prewarm(items: List<WordHistoryEntity>, maxItems: Int = 120) {
+    internal fun getAdjektivDetails(item: WordHistoryEntity): AdjektivQuickDetails {
+        val key = keyFor(item)
+        synchronized(adjektivCache) {
+            adjektivCache.get(key)?.let { return it }
+        }
+        val computed = extractAdjektivQuickDetails(item)
+        synchronized(adjektivCache) {
+            adjektivCache.put(key, computed)
+        }
+        return computed
+    }
+
+    fun getFallbackTranslation(item: WordHistoryEntity): String {
+        val direct = item.meaningEnglish.trim()
+        if (direct.isNotBlank()) return direct
+        if (item.rawJsonResult.isBlank()) return ""
+        val key = keyFor(item)
+        synchronized(fallbackTranslationCache) {
+            fallbackTranslationCache.get(key)?.let { return it }
+        }
+        val computed = try {
+            val obj = JSONObject(item.rawJsonResult)
+            obj.optString("meaningEnglish", obj.optString("english", obj.optString("meaning", ""))).trim()
+        } catch (_: Exception) {
+            ""
+        }
+        synchronized(fallbackTranslationCache) {
+            fallbackTranslationCache.put(key, computed)
+        }
+        return computed
+    }
+
+    fun prewarm(items: List<WordHistoryEntity>, maxItems: Int = 500) {
         val limit = minOf(items.size, maxItems)
         for (i in 0 until limit) {
             val item = items[i]
+            com.example.util.HistoryFilterHelper.getIndexedItem(item)
             val isVerb = com.example.util.HistoryFilterHelper.isVerbItem(item)
             val isAdjektiv = com.example.util.HistoryFilterHelper.isAdjektivItem(item)
             val isNomenList = com.example.util.HistoryFilterHelper.isNomenListItem(item)
             val isSentence = com.example.util.HistoryFilterHelper.isSentenceItem(item)
             HistoryFormatterCache.formatDate(item.timestamp)
             HistoryFormatterCache.formatShortDate(item.timestamp)
-            if (isVerb) {
-                getVerbDetails(item)
-            } else if (!isAdjektiv && !isSentence && !isNomenList) {
-                getNounDetails(item)
-                getPluralForm(item)
+            when {
+                isVerb -> getVerbDetails(item)
+                isAdjektiv -> {
+                    getAdjektivDetails(item)
+                    getFallbackTranslation(item)
+                }
+                isSentence || isNomenList -> getFallbackTranslation(item)
+                else -> {
+                    getNounDetails(item)
+                    getPluralForm(item)
+                }
             }
         }
     }
 }
+
+private val LEADING_NULL_WORD_REGEX = Regex("(?i)^null\\s+")
+private val TRAILING_NULL_WORD_REGEX = Regex("(?i)\\s+null$")
 
 internal data class HistoryBadgeInfo(
     val bg: Color,
@@ -625,6 +669,7 @@ fun ClearHistoryConfirmDialog(
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(14.dp),
         containerColor = GeoSurface,
         icon = {
             Icon(
@@ -703,6 +748,7 @@ fun DeleteHistoryItemConfirmDialog(
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(14.dp),
         containerColor = GeoSurface,
         icon = {
             Icon(
@@ -827,7 +873,7 @@ fun LazyListScope.historySectionItems(
     } else {
         items(
             items = filteredList,
-            key = { it.id },
+            key = { item -> "${item.id}_${item.word.lowercase(Locale.ROOT)}_${item.type.lowercase(Locale.ROOT)}_${item.timestamp}" },
             contentType = { "history_item_card" }
         ) { item ->
             HistoryItemCard(
@@ -917,14 +963,8 @@ fun HistoryItemCard(
         val prefix = if (isArabic) "الترجمة العربية : " else "Eng.: "
         val greenColor = if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
 
-        val rawAiTranslation = remember(item.meaningEnglish, item.rawJsonResult, isArabic) {
-            var raw = item.meaningEnglish.trim()
-            if (raw.isBlank() && item.rawJsonResult.isNotBlank()) {
-                try {
-                    val obj = JSONObject(item.rawJsonResult)
-                    raw = obj.optString("meaningEnglish", obj.optString("english", obj.optString("meaning", ""))).trim()
-                } catch (_: Exception) {}
-            }
+        val rawAiTranslation = remember(item.id, item.timestamp, item.meaningEnglish, item.rawJsonResult, isArabic) {
+            val raw = HistoryQuickDetailsCache.getFallbackTranslation(item)
             cleanTranslationText(raw, isArabic)
         }
 
@@ -1597,13 +1637,13 @@ fun HistoryItemCard(
             ) {
                 val titleWord = remember(nounDetails, singularDisplay, item.word) {
                     val fromNoun = nounDetails?.singular
-                        ?.replace(Regex("(?i)^null\\s+"), "")
-                        ?.replace(Regex("(?i)\\s+null$"), "")
+                        ?.replace(LEADING_NULL_WORD_REGEX, "")
+                        ?.replace(TRAILING_NULL_WORD_REGEX, "")
                         ?.trim()
                         ?.takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
                     val fromSingularDisplay = singularDisplay
-                        .replace(Regex("(?i)^null\\s+"), "")
-                        .replace(Regex("(?i)\\s+null$"), "")
+                        .replace(LEADING_NULL_WORD_REGEX, "")
+                        .replace(TRAILING_NULL_WORD_REGEX, "")
                         .trim()
                         .takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
                     val fromItemWord = item.word.trim().takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
@@ -1944,8 +1984,8 @@ fun AdjektivHistoryCard(
     // Fixed turquoise color (does not change with app theme)
     val turquoiseLabelColor = Color(0xFF00897B)
 
-    val adjDetails = remember(item.rawJsonResult) {
-        extractAdjektivQuickDetails(item)
+    val adjDetails = remember(item.id, item.timestamp, item.rawJsonResult) {
+        HistoryQuickDetailsCache.getAdjektivDetails(item)
     }
 
     val isArabic = remember(item) {
@@ -1954,14 +1994,8 @@ fun AdjektivHistoryCard(
     val prefix = if (isArabic) "الترجمة العربية : " else "Eng.: "
     val greenColor = if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
 
-    val rawAiTranslation = remember(item.meaningEnglish, item.rawJsonResult, isArabic) {
-        var raw = item.meaningEnglish.trim()
-        if (raw.isBlank() && item.rawJsonResult.isNotBlank()) {
-            try {
-                val obj = JSONObject(item.rawJsonResult)
-                raw = obj.optString("meaningEnglish", obj.optString("english", obj.optString("meaning", ""))).trim()
-            } catch (_: Exception) {}
-        }
+    val rawAiTranslation = remember(item.id, item.timestamp, item.meaningEnglish, item.rawJsonResult, isArabic) {
+        val raw = HistoryQuickDetailsCache.getFallbackTranslation(item)
         cleanTranslationText(raw, isArabic)
     }
 

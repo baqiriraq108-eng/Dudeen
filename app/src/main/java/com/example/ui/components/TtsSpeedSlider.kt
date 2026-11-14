@@ -16,6 +16,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,18 +26,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -67,6 +72,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.R
 import com.example.ui.i18n.AppStrings
 import com.example.ui.i18n.LocalAppLanguage
@@ -171,7 +178,7 @@ fun HoldRepeatStepButton(
     enabled: Boolean = true,
     initialDelayMillis: Long = 220L,
     repeatIntervalMillis: Long = 100L,
-    shape: Shape = RoundedCornerShape(8.dp),
+    shape: Shape = RoundedCornerShape(10.dp),
     containerColor: Color = GeoSurface,
     activeContainerColor: Color = GeoPrimary.copy(alpha = 0.16f),
     borderColor: Color = GeoPrimary.copy(alpha = 0.35f),
@@ -241,6 +248,265 @@ fun HoldRepeatStepButton(
             )
     ) {
         content()
+    }
+}
+
+/**
+ * Unified Speech Speed Selection Popup Dialog (used in both the main screen Sprech-Tempo bar
+ * and the Grammar Tables header). Uses the standardized slightly-rounded 14.dp popup border.
+ */
+@Composable
+fun SpeechSpeedSelectionDialog(
+    initialSpeed: Float,
+    onConfirmSpeed: (Float) -> Unit,
+    onDismiss: () -> Unit,
+    appLanguage: String = LocalAppLanguage.current
+) {
+    var tempSpeed by remember(initialSpeed) {
+        mutableFloatStateOf(initialSpeed.coerceIn(MIN_SPEECH_SPEED, MAX_SPEECH_SPEED))
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+            border = BorderStroke(1.dp, GeoBorder),
+            modifier = Modifier
+                .widthIn(max = 340.dp)
+                .fillMaxWidth(0.9f)
+                .padding(16.dp)
+                .testTag("speech_speed_selection_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = when (appLanguage.lowercase()) {
+                        "en" -> "Select speech rate"
+                        "ar" -> "اختيار سرعة النطق"
+                        else -> "Sprechtempo wählen"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                // Preset buttons grid: 0.25x..2.00x in rows of 4
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val presetRows = PRESET_SPEECH_RATES.chunked(4)
+
+                    presetRows.forEach { rowPresets ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            rowPresets.forEach { preset ->
+                                val isSelected = (round(tempSpeed * 20f) == round(preset * 20f))
+                                Surface(
+                                    onClick = { tempSpeed = preset },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    border = BorderStroke(
+                                        if (isSelected) 1.5.dp else 1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary else GeoBorder
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp)
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 4.dp)
+                                    ) {
+                                        FixedTabularSpeedText(
+                                            speedText = formatSpeechSpeed(preset),
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                            maxFontSize = 12.sp,
+                                            minFontSize = 9.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                }
+                            }
+                            val remaining = 4 - rowPresets.size
+                            if (remaining > 0) {
+                                repeat(remaining) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(
+                    thickness = 0.8.dp,
+                    color = GeoBorder.copy(alpha = 0.6f)
+                )
+
+                // Fine-tuning section: Eigene Geschwindigkeit (±0.25x steps + hold-to-repeat)
+                val canDecreaseCustom = tempSpeed > MIN_SPEECH_SPEED + 0.01f
+                val canIncreaseCustom = tempSpeed < MAX_SPEECH_SPEED - 0.01f
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = when (appLanguage.lowercase()) {
+                            "en" -> "Custom speed (±0.25x):"
+                            "ar" -> "سرعة مخصصة (±0.25x):"
+                            else -> "Eigene Geschwindigkeit (±0,25x):"
+                        },
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HoldRepeatStepButton(
+                            onStep = {
+                                tempSpeed = stepSpeechSpeed(tempSpeed, -SPEECH_SPEED_STEP)
+                            },
+                            enabled = canDecreaseCustom,
+                            shape = RoundedCornerShape(10.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                            borderColor = GeoBorder,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .testTag("grammar_speed_minus")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "Langsamer",
+                                tint = if (canDecreaseCustom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
+                            modifier = Modifier
+                                .width(96.dp)
+                                .height(40.dp)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 6.dp)
+                            ) {
+                                FixedTabularSpeedText(
+                                    speedText = formatSpeechSpeed(tempSpeed),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxFontSize = 14.5.sp,
+                                    minFontSize = 10.sp,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        HoldRepeatStepButton(
+                            onStep = {
+                                tempSpeed = stepSpeechSpeed(tempSpeed, +SPEECH_SPEED_STEP)
+                            },
+                            enabled = canIncreaseCustom,
+                            shape = RoundedCornerShape(10.dp),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                            borderColor = GeoBorder,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .testTag("grammar_speed_plus")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Schneller",
+                                tint = if (canIncreaseCustom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Action buttons: [ Abbrechen / Cancel ] [ Bestätigen / Confirm ]
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        AutoSizingText(
+                            text = when (appLanguage.lowercase()) {
+                                "en" -> "Cancel"
+                                "ar" -> "إلغاء"
+                                else -> "Abbrechen"
+                            },
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            onConfirmSpeed(tempSpeed)
+                            onDismiss()
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, GeoBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        AutoSizingText(
+                            text = when (appLanguage.lowercase()) {
+                                "en" -> "Confirm"
+                                "ar" -> "تأكيد"
+                                else -> "Bestätigen"
+                            },
+                            maxFontSize = 13.sp,
+                            minFontSize = 9.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -381,8 +647,10 @@ fun SmoothLinearSpeedSlider(
 
 /**
  * Speech speed control container:
- * Smooth, jitter-free continuous scrubbing (0.25x - 2.00x), fast +/- 0.25x hold-to-repeat buttons,
- * and a completely fixed-width two-decimal tabular value pill that never resizes or shifts layout.
+ * - No +/- buttons on the bar so the smooth slider stretches across the full middle width.
+ * - Clean vertical divider line separating "Sprech-Tempo" from the slider track.
+ * - Fixed-width, slightly rounded (10.dp), arrow-free speed value box ("1.00x") that opens
+ *   the unified SpeechSpeedSelectionDialog on tap.
  */
 @Composable
 fun SprechTempoControl(
@@ -394,7 +662,7 @@ fun SprechTempoControl(
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     var rawSliderValue by remember { mutableFloatStateOf(speed.coerceIn(MIN_SPEECH_SPEED, MAX_SPEECH_SPEED)) }
     var isDragging by remember { mutableStateOf(false) }
-    var showPresetMenu by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(speed) {
         if (!isDragging) {
@@ -407,9 +675,6 @@ fun SprechTempoControl(
             (round(rawSliderValue * 20f) / 20f).coerceIn(MIN_SPEECH_SPEED, MAX_SPEECH_SPEED)
         }
     }
-
-    val canDecrease = displaySpeed > MIN_SPEECH_SPEED + 0.01f
-    val canIncrease = displaySpeed < MAX_SPEECH_SPEED - 0.01f
 
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -427,11 +692,11 @@ fun SprechTempoControl(
                 .fillMaxWidth()
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_playback_speed),
@@ -453,28 +718,24 @@ fun SprechTempoControl(
                 )
             }
 
-            // Fast Minus Button (0.25x step decrement + hold-to-repeat down to 0.25x)
-            HoldRepeatStepButton(
-                onStep = {
-                    val prevSpeed = stepSpeechSpeed(displaySpeed, -SPEECH_SPEED_STEP)
-                    rawSliderValue = prevSpeed
-                    onSpeedChange(prevSpeed)
-                },
-                enabled = canDecrease,
-                shape = RoundedCornerShape(8.dp),
+            // Styled Vertical Divider separating "Sprech-Tempo" from the slider track
+            Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .testTag("sprech_tempo_minus")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Remove,
-                    contentDescription = strings.slowerDesc,
-                    tint = if (canDecrease) GeoPrimary else GeoOnSurfaceVariant.copy(alpha = 0.38f),
-                    modifier = Modifier.size(15.dp)
-                )
-            }
+                    .width(1.dp)
+                    .height(20.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                GeoBorder.copy(alpha = 0.2f),
+                                GeoPrimary.copy(alpha = 0.45f),
+                                GeoBorder.copy(alpha = 0.2f)
+                            )
+                        )
+                    )
+                    .testTag("sprech_tempo_divider")
+            )
 
-            // Smooth, Jitter-Free Linear Slider
+            // Full-Length Smooth, Jitter-Free Linear Slider
             SmoothLinearSpeedSlider(
                 value = rawSliderValue,
                 onValueChange = { raw ->
@@ -492,116 +753,58 @@ fun SprechTempoControl(
                     .testTag("sprech_tempo_slider")
             )
 
-            // Fast Plus Button (0.25x step increment + hold-to-repeat up to 2.00x)
-            HoldRepeatStepButton(
-                onStep = {
-                    val nextSpeed = stepSpeechSpeed(displaySpeed, +SPEECH_SPEED_STEP)
-                    rawSliderValue = nextSpeed
-                    onSpeedChange(nextSpeed)
-                },
-                enabled = canIncrease,
-                shape = RoundedCornerShape(8.dp),
+            // Fixed-Width Speech Speed Value Box (slightly rounded 10.dp, zero arrows, opens unified dialog)
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(28.dp)
-                    .testTag("sprech_tempo_plus")
+                    .width(56.dp)
+                    .height(28.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(GeoPrimary.copy(alpha = 0.12f))
+                    .border(1.dp, GeoPrimary.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                    .clickable { showSpeedDialog = true }
+                    .padding(horizontal = 4.dp)
+                    .testTag("sprech_tempo_value")
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = strings.fasterDesc,
-                    tint = if (canIncrease) GeoPrimary else GeoOnSurfaceVariant.copy(alpha = 0.38f),
-                    modifier = Modifier.size(15.dp)
+                FixedTabularSpeedText(
+                    speedText = formatSpeechSpeed(displaySpeed),
+                    color = GeoPrimary,
+                    maxFontSize = 11.5.sp,
+                    minFontSize = 8.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
-
-            // Fixed-Width Speech Speed Pill (56.dp fixed width so 0.25x..2.00x never resizes or shifts the slider)
-            Box {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .width(56.dp)
-                        .height(28.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(GeoPrimary.copy(alpha = 0.12f))
-                        .border(0.9.dp, GeoPrimary.copy(alpha = 0.32f), RoundedCornerShape(8.dp))
-                        .clickable { showPresetMenu = true }
-                        .padding(horizontal = 4.dp)
-                        .testTag("sprech_tempo_value")
-                ) {
-                    FixedTabularSpeedText(
-                        speedText = formatSpeechSpeed(displaySpeed),
-                        color = GeoPrimary,
-                        maxFontSize = 11.5.sp,
-                        minFontSize = 8.sp,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = showPresetMenu,
-                    onDismissRequest = { showPresetMenu = false }
-                ) {
-                    PRESET_SPEECH_RATES.forEach { preset ->
-                        val isSelected = (round(preset * 20f) == round(displaySpeed * 20f))
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .then(
-                                            if (isSelected) {
-                                                Modifier
-                                                    .border(1.5.dp, GeoPrimary, RoundedCornerShape(8.dp))
-                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                            } else {
-                                                Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                            }
-                                        )
-                                ) {
-                                    Text(
-                                        text = formatSpeechSpeed(preset),
-                                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (isSelected) GeoPrimary else GeoOnSurface
-                                    )
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = GeoPrimary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                            },
-                            onClick = {
-                                rawSliderValue = preset
-                                onSpeedChange(preset)
-                                showPresetMenu = false
-                            }
-                        )
-                    }
-                }
-            }
         }
+    }
+
+    if (showSpeedDialog) {
+        SpeechSpeedSelectionDialog(
+            initialSpeed = displaySpeed,
+            onConfirmSpeed = { newSpeed ->
+                rawSliderValue = newSpeed
+                onSpeedChange(newSpeed)
+            },
+            onDismiss = { showSpeedDialog = false },
+            appLanguage = appLanguage
+        )
     }
 }
 
 /**
- * Compact smooth Playback Speed Slider with +/- 0.25x hold-to-repeat step buttons
- * and a fixed-width tabular speed label.
+ * Compact smooth Playback Speed Slider with full-length track and a fixed-width
+ * slightly rounded (10.dp) tabular speed label (without +/- buttons or arrows).
  */
 @Composable
 fun TtsSpeedSlider(
     speed: Float,
     onSpeedChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    sliderWidth: Dp = 150.dp
+    sliderWidth: Dp = 180.dp
 ) {
-    val strings = AppStrings.get(LocalAppLanguage.current)
+    val appLanguage = LocalAppLanguage.current
     var rawSliderValue by remember { mutableFloatStateOf(speed.coerceIn(MIN_SPEECH_SPEED, MAX_SPEECH_SPEED)) }
     var isDragging by remember { mutableStateOf(false) }
+    var showSpeedDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(speed) {
         if (!isDragging) {
@@ -615,36 +818,13 @@ fun TtsSpeedSlider(
         }
     }
 
-    val canDecrease = displaySpeed > MIN_SPEECH_SPEED + 0.01f
-    val canIncrease = displaySpeed < MAX_SPEECH_SPEED - 0.01f
-
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
             .wrapContentHeight()
             .testTag("tts_speed_control_container")
     ) {
-        HoldRepeatStepButton(
-            onStep = {
-                val prevSpeed = stepSpeechSpeed(displaySpeed, -SPEECH_SPEED_STEP)
-                rawSliderValue = prevSpeed
-                onSpeedChange(prevSpeed)
-            },
-            enabled = canDecrease,
-            shape = RoundedCornerShape(7.dp),
-            modifier = Modifier
-                .size(26.dp)
-                .testTag("tts_speed_minus")
-        ) {
-            Icon(
-                imageVector = Icons.Default.Remove,
-                contentDescription = strings.slowerDesc,
-                tint = if (canDecrease) GeoPrimary else GeoOnSurfaceVariant.copy(alpha = 0.38f),
-                modifier = Modifier.size(14.dp)
-            )
-        }
-
         SmoothLinearSpeedSlider(
             value = rawSliderValue,
             onValueChange = { raw ->
@@ -662,35 +842,16 @@ fun TtsSpeedSlider(
                 .testTag("tts_speed_slider")
         )
 
-        HoldRepeatStepButton(
-            onStep = {
-                val nextSpeed = stepSpeechSpeed(displaySpeed, +SPEECH_SPEED_STEP)
-                rawSliderValue = nextSpeed
-                onSpeedChange(nextSpeed)
-            },
-            enabled = canIncrease,
-            shape = RoundedCornerShape(7.dp),
-            modifier = Modifier
-                .size(26.dp)
-                .testTag("tts_speed_plus")
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = strings.fasterDesc,
-                tint = if (canIncrease) GeoPrimary else GeoOnSurfaceVariant.copy(alpha = 0.38f),
-                modifier = Modifier.size(14.dp)
-            )
-        }
-
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .width(52.dp)
-                .height(26.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .background(GeoPrimary.copy(alpha = 0.10f))
-                .border(0.8.dp, GeoPrimary.copy(alpha = 0.28f), RoundedCornerShape(7.dp))
-                .padding(horizontal = 3.dp)
+                .width(54.dp)
+                .height(28.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(GeoPrimary.copy(alpha = 0.12f))
+                .border(1.dp, GeoPrimary.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                .clickable { showSpeedDialog = true }
+                .padding(horizontal = 4.dp)
                 .testTag("tts_speed_value_label")
         ) {
             FixedTabularSpeedText(
@@ -701,5 +862,17 @@ fun TtsSpeedSlider(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+
+    if (showSpeedDialog) {
+        SpeechSpeedSelectionDialog(
+            initialSpeed = displaySpeed,
+            onConfirmSpeed = { newSpeed ->
+                rawSliderValue = newSpeed
+                onSpeedChange(newSpeed)
+            },
+            onDismiss = { showSpeedDialog = false },
+            appLanguage = appLanguage
+        )
     }
 }

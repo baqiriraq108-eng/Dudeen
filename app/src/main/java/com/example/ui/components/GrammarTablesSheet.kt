@@ -397,252 +397,14 @@ fun GrammarTablesSheet(
                 }
             }
 
-            // Popup Dialog for Speech Rate Selection
+            // Unified Popup Dialog for Speech Rate Selection
             if (showSpeedDialog) {
-                var tempSpeed by remember(ttsSpeed, showSpeedDialog) { mutableFloatStateOf(ttsSpeed) }
-
-                Dialog(
-                    onDismissRequest = { showSpeedDialog = false },
-                    properties = DialogProperties(usePlatformDefaultWidth = false)
-                ) {
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                        modifier = Modifier
-                            .widthIn(max = 340.dp)
-                            .fillMaxWidth(0.9f)
-                            .padding(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            // Title
-                            Text(
-                                text = when (appLanguage.lowercase()) {
-                                    "en" -> "Select speech rate"
-                                    "ar" -> "اختيار سرعة النطق"
-                                    else -> "Sprechtempo wählen"
-                                },
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            // Preset buttons grid: 0.25x..2.0x in rows of 4
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                val presetRows = PRESET_SPEECH_RATES.chunked(4)
-
-                                presetRows.forEach { rowPresets ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        rowPresets.forEach { preset ->
-                                            val isSelected = (round(tempSpeed * 20f) == round(preset * 20f))
-                                            Surface(
-                                                onClick = { tempSpeed = preset },
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                border = BorderStroke(
-                                                    if (isSelected) 1.5.dp else 1.dp,
-                                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                                ),
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(38.dp)
-                                            ) {
-                                                Box(
-                                                    contentAlignment = Alignment.Center,
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                        .padding(horizontal = 4.dp)
-                                                ) {
-                                                    FixedTabularSpeedText(
-                                                        speedText = formatSpeechSpeed(preset),
-                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                                        maxFontSize = 12.sp,
-                                                        minFontSize = 9.sp,
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        val remaining = 4 - rowPresets.size
-                                        if (remaining > 0) {
-                                            repeat(remaining) {
-                                                Spacer(modifier = Modifier.weight(1f))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            HorizontalDivider(
-                                thickness = 0.8.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                            )
-
-                            // Fine-tuning section: Eigene Geschwindigkeit (0.25x steps + hold-to-repeat)
-                            val canDecreaseCustom = tempSpeed > MIN_SPEECH_SPEED + 0.01f
-                            val canIncreaseCustom = tempSpeed < MAX_SPEECH_SPEED - 0.01f
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = when (appLanguage.lowercase()) {
-                                        "en" -> "Custom speed (±0.25x):"
-                                        "ar" -> "سرعة مخصصة (±0.25x):"
-                                        else -> "Eigene Geschwindigkeit (±0,25x):"
-                                    },
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    HoldRepeatStepButton(
-                                        onStep = {
-                                            tempSpeed = stepSpeechSpeed(tempSpeed, -SPEECH_SPEED_STEP)
-                                        },
-                                        enabled = canDecreaseCustom,
-                                        shape = RoundedCornerShape(10.dp),
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(40.dp)
-                                            .testTag("grammar_speed_minus")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Remove,
-                                            contentDescription = "Langsamer",
-                                            tint = if (canDecreaseCustom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
-                                        modifier = Modifier
-                                            .width(96.dp)
-                                            .height(40.dp)
-                                    ) {
-                                        Box(
-                                            contentAlignment = Alignment.Center,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(horizontal = 6.dp)
-                                        ) {
-                                            FixedTabularSpeedText(
-                                                speedText = formatSpeechSpeed(tempSpeed),
-                                                color = MaterialTheme.colorScheme.primary,
-                                                maxFontSize = 14.5.sp,
-                                                minFontSize = 10.sp,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                        }
-                                    }
-
-                                    HoldRepeatStepButton(
-                                        onStep = {
-                                            tempSpeed = stepSpeechSpeed(tempSpeed, +SPEECH_SPEED_STEP)
-                                        },
-                                        enabled = canIncreaseCustom,
-                                        shape = RoundedCornerShape(10.dp),
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        activeContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(40.dp)
-                                            .testTag("grammar_speed_plus")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Add,
-                                            contentDescription = "Schneller",
-                                            tint = if (canIncreaseCustom) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Action buttons: [ Abbrechen / Cancel ] [ Bestätigen / Confirm ]
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedButton(
-                                    onClick = { showSpeedDialog = false },
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(42.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp)
-                                ) {
-                                    AutoSizingText(
-                                        text = when (appLanguage.lowercase()) {
-                                            "en" -> "Cancel"
-                                            "ar" -> "إلغاء"
-                                            else -> "Abbrechen"
-                                        },
-                                        maxFontSize = 13.sp,
-                                        minFontSize = 9.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        onTtsSpeedChange(tempSpeed)
-                                        showSpeedDialog = false
-                                    },
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(42.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp)
-                                ) {
-                                    AutoSizingText(
-                                        text = when (appLanguage.lowercase()) {
-                                            "en" -> "Confirm"
-                                            "ar" -> "تأكيد"
-                                            else -> "Bestätigen"
-                                        },
-                                        maxFontSize = 13.sp,
-                                        minFontSize = 9.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                SpeechSpeedSelectionDialog(
+                    initialSpeed = ttsSpeed,
+                    onConfirmSpeed = onTtsSpeedChange,
+                    onDismiss = { showSpeedDialog = false },
+                    appLanguage = appLanguage
+                )
             }
 
             // Category Tabs: [ Pronouns ]  [ Prepositions ]  [ Pronunciation Guide ]
@@ -1196,18 +958,6 @@ fun PremiumPrepositionCaseTableCard(
                     }
                 }
             }
-
-            // Anwendungsbeispiele: Clean list with individual small speaker buttons
-            if (group.examples.isNotEmpty()) {
-                CleanExamplesList(
-                    examples = group.examples,
-                    appLanguage = appLanguage,
-                    kasusAccentColor = kasusAccentColor,
-                    onSpeak = onSpeak,
-                    currentlySpokenId = currentlySpokenId,
-                    idPrefix = "group_${group.kasusId}"
-                )
-            }
         }
     }
 }
@@ -1240,24 +990,32 @@ fun PremiumTwoWayPrepositionsTableCard(
         "ar" -> "المعنى"
         else -> "Bedeutung"
     }
-    val akkHeader = "Akkusativ (Wohin? - Bewegung)"
-    val datHeader = "Dativ (Wo? - Zustand)"
+    val akkHeader = when (appLanguage.lowercase()) {
+        "en" -> "Akkusativ (Where to?)"
+        "ar" -> "Akkusativ (إلى أين؟)"
+        else -> "Akkusativ (Wohin?)"
+    }
+    val datHeader = when (appLanguage.lowercase()) {
+        "en" -> "Dativ (Where?)"
+        "ar" -> "Dativ (أين؟)"
+        else -> "Dativ (Wo?)"
+    }
 
     val prepColWidth = remember(items, prepHeader) {
         val maxLen = maxOf(prepHeader.length, items.maxOfOrNull { it.word.length } ?: 8)
-        maxOf(120.dp, (maxLen * 10 + 48).dp)
+        maxOf(105.dp, (maxLen * 9.5f + 42).dp)
     }
     val meaningColWidth = remember(items, appLanguage, meaningHeader) {
-        val maxLen = maxOf(meaningHeader.length, items.maxOfOrNull { it.localizedMeaning(appLanguage).length } ?: 12)
-        maxOf(140.dp, (maxLen * 8.5f + 32).dp)
+        val maxLen = maxOf(meaningHeader.length, items.maxOfOrNull { it.localizedMeaning(appLanguage).length } ?: 10)
+        maxOf(115.dp, (maxLen * 8f + 26).dp)
     }
     val akkColWidth = remember(items, akkHeader) {
-        val maxLen = maxOf(akkHeader.length, items.maxOfOrNull { it.akkusativGerman.length } ?: 25)
-        maxOf(300.dp, (maxLen * 8.5f + 56).dp)
+        val maxLen = maxOf(akkHeader.length, items.maxOfOrNull { it.akkusativGerman.length } ?: 22)
+        maxOf(240.dp, (maxLen * 8f + 48).dp)
     }
     val datColWidth = remember(items, datHeader) {
-        val maxLen = maxOf(datHeader.length, items.maxOfOrNull { it.dativGerman.length } ?: 25)
-        maxOf(300.dp, (maxLen * 8.5f + 56).dp)
+        val maxLen = maxOf(datHeader.length, items.maxOfOrNull { it.dativGerman.length } ?: 22)
+        maxOf(240.dp, (maxLen * 8f + 48).dp)
     }
 
     Card(
@@ -1280,18 +1038,18 @@ fun PremiumTwoWayPrepositionsTableCard(
             Column(modifier = Modifier.fillMaxWidth()) {
                 ScrollableCardTitle(
                     text = when (appLanguage.lowercase()) {
-                        "en" -> "Wechselpräpositionen (Dual-Case Prepositions)"
+                        "en" -> "Wechselpräpositionen"
                         "ar" -> "حروف الجر المشتركة (Wechselpräpositionen)"
-                        else -> "Wechselpräpositionen (Akkusativ vs. Dativ)"
+                        else -> "Wechselpräpositionen"
                     },
                     color = accentColor
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 ScrollableCardSubtitle(
                     text = when (appLanguage.lowercase()) {
-                        "en" -> "Wohin? (Movement = Accusative) vs. Wo? (Location = Dative)"
-                        "ar" -> "Wohin? (حركة = Akkusativ) مقابل Wo? (سكون = Dativ)"
-                        else -> "Wohin? (Richtung = Akkusativ) vs. Wo? (Ort = Dativ)"
+                        "en" -> "Wohin? → Akkusativ  |  Wo? → Dativ"
+                        "ar" -> "Wohin? (حركة) → Akkusativ  |  Wo? (سكون) → Dativ"
+                        else -> "Wohin? → Akkusativ  |  Wo? → Dativ"
                     }
                 )
             }
@@ -1566,13 +1324,13 @@ fun PremiumGrammarReferenceTableCard(
         (0 until numCols).map { colIndex ->
             val headerLen = localizedHeaders.getOrNull(colIndex)?.length ?: 8
             val maxCellLen = if (colIndex == 0) {
-                table.rows.maxOfOrNull { it.localizedLabel(appLanguage).length } ?: 10
+                table.rows.maxOfOrNull { it.localizedLabel(appLanguage).length } ?: 8
             } else {
                 table.rows.maxOfOrNull { it.cells.getOrNull(colIndex - 1)?.length ?: 0 } ?: 8
             }
             val maxCharLen = maxOf(headerLen, maxCellLen)
-            val baseMin = if (colIndex == 0) 170.dp else 145.dp
-            val computed = (maxCharLen * 9.5f + 48).dp
+            val baseMin = if (colIndex == 0) 115.dp else 110.dp
+            val computed = (maxCharLen * 9f + 44).dp
             if (computed > baseMin) computed else baseMin
         }
     }
