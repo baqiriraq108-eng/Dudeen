@@ -24,6 +24,7 @@ import com.example.data.notebook.NotebookSettings
 import com.example.data.notebook.ImportedJsonResult
 import com.example.data.notebook.ImportedNotebookPackage
 import com.example.data.notebook.BackupFolder
+import com.example.data.notebook.BackupNotebookEntry
 import com.example.data.notebook.NotebookBackupManager
 import com.example.data.remote.GeminiDeclensionService
 import com.example.data.repository.WordRepository
@@ -124,6 +125,8 @@ data class MainUiState(
     val isCreateNotebookDialogOpen: Boolean = false,
     val isManageNotebooksDialogOpen: Boolean = false,
     val backupFolders: List<BackupFolder> = emptyList(),
+    val backupNotebooks: List<BackupNotebookEntry> = emptyList(),
+    val isLoadingBackupNotebooks: Boolean = false,
     val isBackingUp: Boolean = false,
     val activeJsonExportTarget: JsonExportTarget? = null,
     val isSelectNotebooksExportDialogOpen: Boolean = false,
@@ -1581,7 +1584,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val notebook = notebookRepository.listAllNotebooks().find { it.id == notebookId } ?: return@launch
             val json = notebookRepository.exportNotebookToJsonString(notebookId)
-            val fileName = "${notebook.name}.json"
+            val fileName = ExportSharingManager.buildNotebookFileName(notebook.name)
             withContext(Dispatchers.Main) {
                 _uiState.value = _uiState.value.copy(
                     activeJsonExportTarget = JsonExportTarget(
@@ -1685,27 +1688,63 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ==============================================================
 
     fun addBackupFolder(uri: Uri) {
-        viewModelScope.launch {
-            notebookBackupManager.addFolder(uri)
+        viewModelScope.launch(Dispatchers.IO) {
+            val added = notebookBackupManager.addFolder(uri)
+            if (added.isPrimary) {
+                val primaryHistory = notebookRepository.loadActiveHistory()
+                repository.reloadRoomWithItems(primaryHistory)
+                val updatedAll = notebookRepository.listAllNotebooks()
+                val active = notebookRepository.getActiveNotebook()
+                _uiState.update {
+                    it.copy(
+                        allNotebooks = updatedAll,
+                        activeNotebook = active
+                    )
+                }
+            }
+            refreshBackupNotebooks()
         }
     }
 
     fun setPrimaryBackupFolder(uriString: String) {
         viewModelScope.launch(Dispatchers.IO) {
             notebookBackupManager.setPrimaryFolder(uriString)
-            // Reload history from the new primary source of truth
+            // Reload history from the newly promoted Primary source of truth (Fresh Baseline Rule)
             val primaryHistory = notebookRepository.loadActiveHistory()
             repository.reloadRoomWithItems(primaryHistory)
+            val updatedAll = notebookRepository.listAllNotebooks()
+            val active = notebookRepository.getActiveNotebook()
+            _uiState.update {
+                it.copy(
+                    allNotebooks = updatedAll,
+                    activeNotebook = active
+                )
+            }
+            refreshBackupNotebooks()
         }
     }
 
     fun removeBackupFolder(uriString: String) {
-        notebookBackupManager.removeFolder(uriString)
+        viewModelScope.launch(Dispatchers.IO) {
+            notebookBackupManager.removeFolder(uriString)
+            val primaryHistory = notebookRepository.loadActiveHistory()
+            repository.reloadRoomWithItems(primaryHistory)
+            val updatedAll = notebookRepository.listAllNotebooks()
+            val active = notebookRepository.getActiveNotebook()
+            _uiState.update {
+                it.copy(
+                    allNotebooks = updatedAll,
+                    activeNotebook = active
+                )
+            }
+            refreshBackupNotebooks()
+        }
     }
 
     fun backupNow(onResult: ((Boolean, String) -> Unit)? = null) {
         viewModelScope.launch {
             val result = notebookBackupManager.backupAllNotebooks()
+            refreshBackupNotebooks()
             withContext(Dispatchers.Main) {
                 if (result.totalFolders == 0) {
                     onResult?.invoke(false, "Keine Backup-Ordner registriert")
@@ -1713,6 +1752,107 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     onResult?.invoke(true, "${result.totalWritten} Notizbücher in ${result.successfulFolders} Ordner(n) gesichert")
                 } else {
                     onResult?.invoke(false, "${result.successfulFolders}/${result.totalFolders} Ordner erfolgreich gesichert")
+                }
+            }
+        }
+    }
+
+    fun refreshBackupNotebooks() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(isLoadingBackupNotebooks = true) }
+            try {
+                val discovered = notebookBackupManager.listAllBackupNotebooks()
+                _uiState.update {
+                    it.copy(
+                        backupNotebooks = discovered,
+                        isLoadingBackupNotebooks = false
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w("MainViewModel", "Error refreshing backup notebooks: ${e.message}")
+                _uiState.update { it.copy(isLoadingBackupNotebooks = false) }
+            }
+        }
+    }
+
+    fun promoteBackupNotebook(entry: BackupNotebookEntry) {
+        cancelSearch()
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val (snapshotWords, snapshotSettings) = notebookBackupManager.readBackupNotebookSnapshot(entry)
+                val promoted = notebookRepository.promoteBackupSnapshot(
+                    displayName = entry.displayName,
+                    words = snapshotWords,
+                    importedSettings = snapshotSettings
+                )
+                val activeHistory = notebookRepository.loadNotebookHistoryLocalOnly(promoted.id)
+                repository.reloadRoomWithItems(activeHistory)
+                val updatedAll = notebookRepository.listAllNotebooks()
+                val settings = promoted.settings
+                val theme = AppThemePackage.fromId(settings.themeColorId)
+                themePreferences.saveSelectedTheme(theme)
+                themePreferences.saveThemeMode(settings.themeMode)
+                val globalLanguage = themePreferences.getAppLanguage()
+                val effectiveLanguage = if (globalLanguage.isNotBlank()) globalLanguage else settings.appLanguage.ifBlank { "de" }
+                themePreferences.saveAppLanguage(effectiveLanguage)
+
+                val provider = ModelProvider.fromId(settings.selectedProvider)
+                repository.saveSelectedProvider(provider)
+                val effectiveModel = settings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
+                val effectiveGeminiKey = settings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
+                val effectiveOpenRouterKey = settings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
+                val isConfigured = settings.customApiKey.isNotBlank() ||
+                    settings.openRouterApiKey.isNotBlank() ||
+                    repository.isApiKeyConfigured()
+                val (remaining, total) = repository.getDailyUsage(provider, effectiveModel)
+
+                _uiState.update { current ->
+                    current.copy(
+                        allNotebooks = updatedAll,
+                        activeNotebook = promoted,
+                        selectedTheme = theme,
+                        themeMode = settings.themeMode,
+                        appLanguage = effectiveLanguage,
+                        selectedProvider = provider,
+                        selectedModel = effectiveModel,
+                        availableModels = repository.getAvailableModelsForProvider(provider),
+                        hasApiKey = isConfigured,
+                        remainingDailyRequests = remaining,
+                        totalDailyQuota = total,
+                        apiKeyInput = effectiveGeminiKey,
+                        geminiApiKeyInput = effectiveGeminiKey,
+                        openRouterApiKeyInput = effectiveOpenRouterKey,
+                        otherApiKeyInput = effectiveOpenRouterKey,
+                        currentResult = null,
+                        currentGrammarResult = null,
+                        searchQuery = "",
+                        importStatusMessage = "'${promoted.name}' (${snapshotWords.size}) -> Primär",
+                        isManageNotebooksDialogOpen = false
+                    )
+                }
+                refreshBackupNotebooks()
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed promoting backup notebook ${entry.displayName}", e)
+                _uiState.update {
+                    it.copy(errorMessage = e.localizedMessage ?: "Backup activation failed")
+                }
+            }
+        }
+    }
+
+    fun prepareBackupNotebookExport(entry: BackupNotebookEntry) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val rawJson = notebookBackupManager.readBackupNotebookRawJson(entry) ?: return@launch
+            val exportName = ExportSharingManager.buildNotebookFileName(entry.displayName)
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        activeJsonExportTarget = JsonExportTarget(
+                            fileName = exportName,
+                            jsonContent = rawJson,
+                            title = "Notizbuch exportieren: ${entry.displayName}"
+                        )
+                    )
                 }
             }
         }
@@ -1737,7 +1877,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         withContext(Dispatchers.Main) {
                             _uiState.value = _uiState.value.copy(
                                 importSingleChoice = ImportSingleChoice(
-                                    detectedName = result.detectedName,
+                                    detectedName = ExportSharingManager.stripNotebookPrefix(result.detectedName)
+                                        .ifBlank { result.detectedName },
                                     words = result.words,
                                     settings = result.settings
                                 )
@@ -1749,7 +1890,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             _uiState.value = _uiState.value.copy(
                                 importMultiChoice = ImportMultiChoice(
                                     packages = result.packages,
-                                    fallbackName = fileName.removeSuffix(".json").removeSuffix(".JSON")
+                                    fallbackName = ExportSharingManager.stripNotebookPrefix(
+                                        fileName.removeSuffix(".json").removeSuffix(".JSON")
+                                    ).ifBlank { "Importiertes_Notizbuch" }
                                 )
                             )
                         }
@@ -1986,6 +2129,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val all = notebookRepository.listAllNotebooks()
             _uiState.update { it.copy(allNotebooks = all) }
         }
+        refreshBackupNotebooks()
     }
 
     fun closeManageNotebooksDialog() {
@@ -2005,6 +2149,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val all = notebookRepository.listAllNotebooks()
             _uiState.update { it.copy(allNotebooks = all) }
         }
+        refreshBackupNotebooks()
     }
 
     fun onThemeModeSelected(mode: String) {

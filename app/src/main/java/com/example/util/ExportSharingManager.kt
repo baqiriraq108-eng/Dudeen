@@ -23,6 +23,89 @@ object ExportSharingManager {
         XLSX("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     }
 
+    const val ROOT_DEKLINATION_DIR = "Deklination"
+    const val SUBFOLDER_NOTEBOOKS = "Notebooks"
+    const val SUBFOLDER_EXPORTS = "Exports"
+    const val SUBFOLDER_SYSTEM_BACKUPS = "System_Backups"
+    const val NOTEBOOK_FILE_PREFIX = "Notebook_"
+
+    /**
+     * Strips any leading "Notebook_" prefix (case-insensitive, even if repeated)
+     * and any trailing ".json" extension so in-app display names remain clean (e.g. "A1.1", "Allgemein").
+     */
+    fun stripNotebookPrefix(rawName: String): String {
+        var cleaned = rawName.trim()
+            .replace(Regex("""\.json$""", RegexOption.IGNORE_CASE), "")
+            .trim()
+        val prefixRegex = Regex("""^(?:notebook[_\-\s]+)+""", RegexOption.IGNORE_CASE)
+        cleaned = cleaned.replace(prefixRegex, "").trim()
+        return cleaned.ifBlank { rawName.trim().replace(Regex("""\.json$""", RegexOption.IGNORE_CASE), "").trim() }
+    }
+
+    /**
+     * Builds the standardized on-disk filename for an active notebook inside `Notebooks/`:
+     * `Notebook_<Name>.json` (e.g. `Notebook_A1.1.json`, `Notebook_Allgemein.json`).
+     */
+    fun buildNotebookFileName(notebookName: String, defaultName: String = "Allgemein"): String {
+        val cleanDisplay = stripNotebookPrefix(notebookName).ifBlank { defaultName }
+        val safeBase = sanitizeFileName(cleanDisplay, defaultName = defaultName)
+        return "${NOTEBOOK_FILE_PREFIX}${safeBase}.json"
+    }
+
+    /**
+     * Builds the standardized default base filename (without extension) for PDF and Excel exports:
+     * - PDF: `PDF_<NotebookName>_YYYY-MM-DD`
+     * - XLSX: `Excel_<NotebookName>_YYYY-MM-DD`
+     */
+    fun buildDefaultExportBaseName(
+        format: ExportFormat,
+        notebookName: String,
+        timestampMillis: Long = System.currentTimeMillis()
+    ): String {
+        val cleanNb = stripNotebookPrefix(notebookName).ifBlank { "Allgemein" }
+        val safeNb = sanitizeFileName(cleanNb, defaultName = "Allgemein")
+        val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .format(java.util.Date(timestampMillis))
+        val prefix = when (format) {
+            ExportFormat.PDF -> "PDF"
+            ExportFormat.XLSX -> "Excel"
+        }
+        return "${prefix}_${safeNb}_${dateStr}"
+    }
+
+    /**
+     * Resolves the dedicated `Exports/` subfolder inside `Documents/Deklination/Exports/`.
+     */
+    fun getExportsDirectory(context: Context? = null): File {
+        try {
+            val publicDocs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+            if (publicDocs != null) {
+                val exportsDir = File(File(publicDocs, ROOT_DEKLINATION_DIR), SUBFOLDER_EXPORTS)
+                if (exportsDir.exists() || exportsDir.mkdirs()) {
+                    return exportsDir
+                }
+            }
+        } catch (_: Throwable) {}
+
+        if (context != null) {
+            try {
+                val extDocs = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+                if (extDocs != null) {
+                    val exportsDir = File(File(extDocs, ROOT_DEKLINATION_DIR), SUBFOLDER_EXPORTS)
+                    exportsDir.mkdirs()
+                    return exportsDir
+                }
+            } catch (_: Throwable) {}
+            val internalExports = File(File(context.filesDir, ROOT_DEKLINATION_DIR), SUBFOLDER_EXPORTS)
+            internalExports.mkdirs()
+            return internalExports
+        }
+
+        val fallback = File(Environment.getExternalStorageDirectory(), "$ROOT_DEKLINATION_DIR/$SUBFOLDER_EXPORTS")
+        try { fallback.mkdirs() } catch (_: Throwable) {}
+        return fallback
+    }
+
     /**
      * Sanitizes a base file name by removing invalid file system characters,
      * stripping any file extensions (.pdf, .xlsx), and removing any leading dots (.)
@@ -65,7 +148,7 @@ object ExportSharingManager {
         notebookName: String = ""
     ): String {
         var safeBase = sanitizeFileName(baseName)
-        val cleanNb = notebookName.trim().trimStart('.', '_', ' ')
+        val cleanNb = stripNotebookPrefix(notebookName).trim().trimStart('.', '_', ' ')
         if (cleanNb.isNotBlank()) {
             val sanitizedNb = sanitizeFileName(cleanNb)
             if (sanitizedNb.isNotBlank() && !safeBase.contains(sanitizedNb, ignoreCase = true)) {
@@ -120,7 +203,12 @@ object ExportSharingManager {
     ) {
         DeclensionHistoryExportHelper.initFonts(context)
         val tempFile = File.createTempFile("export_", ".tmp", context.cacheDir)
-        val safeBaseName = sanitizeFileName(customBaseName)
+        val resolvedBase = if (customBaseName.isBlank() || customBaseName == "Suchverlauf_Deutsch") {
+            buildDefaultExportBaseName(format, notebookName)
+        } else {
+            customBaseName
+        }
+        val safeBaseName = sanitizeFileName(resolvedBase)
         try {
             when (format) {
                 ExportFormat.PDF -> DeclensionHistoryExportHelper.createUnifiedPdfFile(tempFile, nouns, verbs, adjectives, scope, safeBaseName, paperSize, typography, notebookName)
@@ -130,6 +218,12 @@ object ExportSharingManager {
                 input.copyTo(outputStream)
             }
             outputStream.flush()
+            // Also mirror a copy into Documents/Deklination/Exports/
+            try {
+                val exportsDir = getExportsDirectory(context)
+                val exportFileName = buildFileName(safeBaseName, format, notebookName)
+                tempFile.copyTo(File(exportsDir, exportFileName), overwrite = true)
+            } catch (_: Throwable) {}
         } finally {
             tempFile.delete()
         }
@@ -207,7 +301,12 @@ object ExportSharingManager {
             }
 
             DeclensionHistoryExportHelper.initFonts(context)
-            val safeBaseName = sanitizeFileName(customBaseName)
+            val resolvedBase = if (customBaseName.isBlank() || customBaseName == "Suchverlauf_Deutsch") {
+                buildDefaultExportBaseName(format, notebookName)
+            } else {
+                customBaseName
+            }
+            val safeBaseName = sanitizeFileName(resolvedBase)
             val fileName = buildFileName(safeBaseName, format, notebookName)
             val file = File(exportDir, fileName)
 
@@ -215,6 +314,11 @@ object ExportSharingManager {
                 ExportFormat.PDF -> DeclensionHistoryExportHelper.createUnifiedPdfFile(file, nouns, verbs, adjectives, scope, safeBaseName, paperSize, typography, notebookName)
                 ExportFormat.XLSX -> DeclensionHistoryExportHelper.createUnifiedXlsxFile(file, nouns, verbs, adjectives, scope, safeBaseName, typography, notebookName)
             }
+
+            try {
+                val publicExportsDir = getExportsDirectory(context)
+                file.copyTo(File(publicExportsDir, fileName), overwrite = true)
+            } catch (_: Throwable) {}
 
             val contentUri: Uri = FileProvider.getUriForFile(
                 context,
@@ -275,7 +379,7 @@ object ExportSharingManager {
     }
 
     /**
-     * Unified fallback save for Downloads directory.
+     * Unified fallback save for Exports/ and Downloads directory.
      */
     fun saveUnifiedToDownloads(
         context: Context,
@@ -308,7 +412,12 @@ object ExportSharingManager {
             }
 
             DeclensionHistoryExportHelper.initFonts(context)
-            val safeBaseName = sanitizeFileName(customBaseName)
+            val resolvedBase = if (customBaseName.isBlank() || customBaseName == "Suchverlauf_Deutsch") {
+                buildDefaultExportBaseName(format, notebookName)
+            } else {
+                customBaseName
+            }
+            val safeBaseName = sanitizeFileName(resolvedBase)
             val fileName = buildFileName(safeBaseName, format, notebookName)
             val file = File(exportDir, fileName)
 
@@ -316,6 +425,11 @@ object ExportSharingManager {
                 ExportFormat.PDF -> DeclensionHistoryExportHelper.createUnifiedPdfFile(file, nouns, verbs, adjectives, scope, safeBaseName, paperSize, typography, notebookName)
                 ExportFormat.XLSX -> DeclensionHistoryExportHelper.createUnifiedXlsxFile(file, nouns, verbs, adjectives, scope, safeBaseName, typography, notebookName)
             }
+
+            try {
+                val publicExportsDir = getExportsDirectory(context)
+                file.copyTo(File(publicExportsDir, fileName), overwrite = true)
+            } catch (_: Throwable) {}
 
             var savedToDownloads = false
             try {
@@ -354,9 +468,9 @@ object ExportSharingManager {
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
             val msg = if (savedToDownloads) {
-                "In Downloads gespeichert: $fileName"
+                "In Exports & Downloads gespeichert: $fileName"
             } else {
-                "Gespeichert: $fileName"
+                "Gespeichert in Exports: $fileName"
             }
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
 

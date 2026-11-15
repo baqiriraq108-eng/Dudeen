@@ -223,3 +223,29 @@ data class ImportedNotebookPackage(
     val settings: NotebookSettings? = null
 )
 
+/**
+ * Origin storage type for a discovered backup notebook snapshot.
+ */
+enum class BackupNotebookSourceType {
+    SYSTEM_BACKUP,
+    EXTERNAL_FOLDER
+}
+
+/**
+ * Represents a notebook snapshot discovered inside internal `System_Backups/`
+ * or a registered external Backup folder.
+ */
+data class BackupNotebookEntry(
+    val uniqueKey: String,
+    val notebookId: String,
+    val displayName: String,
+    val wordCount: Int,
+    val lastModified: Long,
+    val themeColorId: String,
+    val sourceType: BackupNotebookSourceType,
+    val sourceLabel: String,
+    val sourceFolderUri: String? = null,
+    val fileName: String
+)
+
+

@@ -98,4 +98,47 @@ class FileNameSanitizationTest {
         )
         assertEquals("Suchverlauf_B2_Prüfung.xlsx", alreadyHasIt)
     }
+
+    @Test
+    fun `test stripNotebookPrefix and buildNotebookFileName keep in-app names clean`() {
+        assertEquals("A1.1", ExportSharingManager.stripNotebookPrefix("Notebook_A1.1.json"))
+        assertEquals("A1.1", ExportSharingManager.stripNotebookPrefix("Notebook_A1.1"))
+        assertEquals("Allgemein", ExportSharingManager.stripNotebookPrefix("notebook_Allgemein.JSON"))
+        assertEquals("A1.1", ExportSharingManager.stripNotebookPrefix("A1.1.json"))
+
+        assertEquals("Notebook_A1.1.json", ExportSharingManager.buildNotebookFileName("A1.1"))
+        assertEquals("Notebook_A1.1.json", ExportSharingManager.buildNotebookFileName("Notebook_A1.1.json"))
+        assertEquals("Notebook_Allgemein.json", ExportSharingManager.buildNotebookFileName("Allgemein"))
+    }
+
+    @Test
+    fun `test buildDefaultExportBaseName produces PDF and Excel date-prefixed names`() {
+        // Fixed timestamp: 2026-11-15T12:00:00Z
+        val cal = java.util.Calendar.getInstance(java.util.Locale.US).apply {
+            set(2026, java.util.Calendar.NOVEMBER, 15, 12, 0, 0)
+        }
+        val ts = cal.timeInMillis
+
+        val pdfBase = ExportSharingManager.buildDefaultExportBaseName(
+            format = ExportSharingManager.ExportFormat.PDF,
+            notebookName = "Notebook_A1.1",
+            timestampMillis = ts
+        )
+        assertEquals("PDF_A1.1_2026-11-15", pdfBase)
+        assertEquals(
+            "PDF_A1.1_2026-11-15.pdf",
+            ExportSharingManager.buildFileName(pdfBase, ExportSharingManager.ExportFormat.PDF, "A1.1")
+        )
+
+        val excelBase = ExportSharingManager.buildDefaultExportBaseName(
+            format = ExportSharingManager.ExportFormat.XLSX,
+            notebookName = "Allgemein",
+            timestampMillis = ts
+        )
+        assertEquals("Excel_Allgemein_2026-11-15", excelBase)
+        assertEquals(
+            "Excel_Allgemein_2026-11-15.xlsx",
+            ExportSharingManager.buildFileName(excelBase, ExportSharingManager.ExportFormat.XLSX, "Allgemein")
+        )
+    }
 }

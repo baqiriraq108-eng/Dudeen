@@ -438,6 +438,62 @@ class SettingsStrings(
         AppLanguage.AR -> "أسرع"
         AppLanguage.DE -> "Schneller"
     }
+
+    val managerTabNotebooks: String get() = when (language) {
+        AppLanguage.EN -> "Notebooks"
+        AppLanguage.AR -> "الدفاتر"
+        AppLanguage.DE -> "Notizbücher"
+    }
+    val managerTabBackups: String get() = when (language) {
+        AppLanguage.EN -> "Backups"
+        AppLanguage.AR -> "النسخ"
+        AppLanguage.DE -> "Backups"
+    }
+    val managerTabExport: String get() = when (language) {
+        AppLanguage.EN -> "Export"
+        AppLanguage.AR -> "التصدير"
+        AppLanguage.DE -> "Export"
+    }
+    val primaryNotebooksTab: String get() = when (language) {
+        AppLanguage.EN -> "Primary"
+        AppLanguage.AR -> "الأساسي"
+        AppLanguage.DE -> "Primär"
+    }
+    val reserveNotebooksTab: String get() = when (language) {
+        AppLanguage.EN -> "Reserve Storage"
+        AppLanguage.AR -> "التخزين الاحتياطي"
+        AppLanguage.DE -> "Reserve"
+    }
+    val backupNotebooksTab: String get() = when (language) {
+        AppLanguage.EN -> "Backup"
+        AppLanguage.AR -> "الباكاب"
+        AppLanguage.DE -> "Backup"
+    }
+    val reserveNotebooksEmpty: String get() = when (language) {
+        AppLanguage.EN -> "No reserve notebooks found in internal System_Backups."
+        AppLanguage.AR -> "لا توجد دفاتر في التخزين الاحتياطي الداخلي (System_Backups)."
+        AppLanguage.DE -> "Keine Reserve-Notizbücher im internen Speicher (System_Backups) gefunden."
+    }
+    val backupNotebooksEmpty: String get() = when (language) {
+        AppLanguage.EN -> "No backup notebooks found in selected backup folders."
+        AppLanguage.AR -> "لم يتم العثور على دفاتر في مجلدات النسخ الاحتياطي (الباكاب)."
+        AppLanguage.DE -> "Keine Backup-Notizbücher in den ausgewählten Backup-Ordnern gefunden."
+    }
+    val backupNotebooksLoading: String get() = when (language) {
+        AppLanguage.EN -> "Scanning backup notebooks..."
+        AppLanguage.AR -> "جارٍ فحص الدفاتر الاحتياطية..."
+        AppLanguage.DE -> "Suche Backup-Notizbücher..."
+    }
+    val promoteBackupConfirmTitle: String get() = when (language) {
+        AppLanguage.EN -> "Activate Backup as Primary?"
+        AppLanguage.AR -> "تفعيل النسخة الاحتياطية كأساسي؟"
+        AppLanguage.DE -> "Backup als Primär aktivieren?"
+    }
+    fun promoteBackupConfirmMessage(name: String, source: String, words: Int): String = when (language) {
+        AppLanguage.EN -> "Do you want to promote '$name' ($words words) from '$source' as the active Primary notebook? Its contents will become the clean baseline for both Primary and Backups with no retroactive deletions."
+        AppLanguage.AR -> "هل تريد تفعيل '$name' ($words كلمة) من '$source' كدفتر أساسي نشط؟ ستُعتمد محتوياته فوراً كخط أساس نظيف للتخزين الأساسي والاحتياطي دون أي حذف بأثر رجعي."
+        AppLanguage.DE -> "Möchten Sie '$name' ($words Wörter) aus '$source' als aktives Primär-Notizbuch übernehmen? Der aktuelle Stand wird ohne rückwirkende Löschungen als neue saubere Basis für Primär und Backups gesetzt."
+    }
 }
 
 /**
@@ -528,7 +584,7 @@ object AppStrings {
 
         myNotebooksTitle = "Meine Notizbücher",
         activeNotebookBadge = "Aktiv",
-        newNotebookButton = "Neues Notizbuch",
+        newNotebookButton = "Neues Buch",
         newNotebookSubtitle = "Leeres Notizbuch anlegen",
         manageNotebooksButton = "Notizbücher verwalten",
         createNotebookTitle = "Neues Notizbuch erstellen",
@@ -537,7 +593,7 @@ object AppStrings {
         notebookColorLabel = "Farbe:",
         createButton = "Bestätigen",
         notebookManagerTitle = "Notizbücher verwalten",
-        loadFromJsonButton = "Aus JSON laden",
+        loadFromJsonButton = "JSON Import",
         loadFromJsonSubtitle = "Vollständiges Notizbuch mit Einstellungen",
         exportOptionsSectionTitle = "Export-Optionen",
         exportSecurityNote = "Ohne API-Schlüssel",
@@ -789,7 +845,7 @@ object AppStrings {
 
         myNotebooksTitle = "My Notebooks",
         activeNotebookBadge = "Active",
-        newNotebookButton = "New Notebook",
+        newNotebookButton = "New Book",
         newNotebookSubtitle = "Create empty notebook",
         manageNotebooksButton = "Manage Notebooks",
         createNotebookTitle = "Create New Notebook",
@@ -798,7 +854,7 @@ object AppStrings {
         notebookColorLabel = "Color:",
         createButton = "Confirm",
         notebookManagerTitle = "Manage Notebooks",
-        loadFromJsonButton = "Load from JSON",
+        loadFromJsonButton = "JSON Import",
         loadFromJsonSubtitle = "Import full notebook with settings",
         exportOptionsSectionTitle = "Export Options",
         exportSecurityNote = "Without API keys",
@@ -1059,7 +1115,7 @@ object AppStrings {
         notebookColorLabel = "اللون:",
         createButton = "تأكيد",
         notebookManagerTitle = "إدارة دفاتر الملاحظات",
-        loadFromJsonButton = "تحميل من JSON",
+        loadFromJsonButton = "استيراد JSON",
         loadFromJsonSubtitle = "استيراد دفتر كامل مع الإعدادات",
         exportOptionsSectionTitle = "خيارات التصدير",
         exportSecurityNote = "بدون مفاتيح API",

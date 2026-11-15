@@ -32,6 +32,7 @@ class ExternalHistoryStorage(private val context: Context) {
     companion object {
         private const val TAG = "ExternalHistoryStorage"
         const val SUBDIR_NAME = "Deklination"
+        const val SYSTEM_BACKUPS_SUBFOLDER = "System_Backups"
         const val FILE_NAME = "history.json"
         const val PREFS_NAME = "history_folder_prefs"
         const val PREF_FOLDER_URI = "folder_tree_uri"
@@ -40,6 +41,14 @@ class ExternalHistoryStorage(private val context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    init {
+        try {
+            migrateLegacyRootHistoryIfNeeded()
+        } catch (e: Exception) {
+            Log.w(TAG, "Initial history migration check note: ${e.message}")
+        }
+    }
 
     fun hasFolderUri(): Boolean {
         val uriString = prefs.getString(PREF_FOLDER_URI, null)
@@ -94,9 +103,18 @@ class ExternalHistoryStorage(private val context: Context) {
     }
 
     /**
-     * Resolves the primary public external file: Documents/Deklination/history.json
+     * Resolves the primary public external file: Documents/Deklination/System_Backups/history.json
      */
     fun getHistoryFile(): File {
+        val publicDocs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+        val systemBackupsDir = File(File(publicDocs, SUBDIR_NAME), SYSTEM_BACKUPS_SUBFOLDER)
+        return File(systemBackupsDir, FILE_NAME)
+    }
+
+    /**
+     * Legacy root file location: Documents/Deklination/history.json
+     */
+    fun getLegacyRootHistoryFile(): File {
         val publicDocs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
         val deklinationDir = File(publicDocs, SUBDIR_NAME)
         return File(deklinationDir, FILE_NAME)
@@ -107,26 +125,129 @@ class ExternalHistoryStorage(private val context: Context) {
      */
     private fun getFallbackFile(): File {
         val extDir = Environment.getExternalStorageDirectory()
-        return File(File(extDir, SUBDIR_NAME), FILE_NAME)
+        return File(File(File(extDir, SUBDIR_NAME), SYSTEM_BACKUPS_SUBFOLDER), FILE_NAME)
     }
 
     /**
-     * Loads the search history from the user-selected folder or Documents/Deklination/history.json.
-     * If the file does not exist or is empty, returns an empty list.
+     * Safely migrates legacy root `Documents/Deklination/history.json` into
+     * `Documents/Deklination/System_Backups/history.json`, verifies the written file is valid JSON,
+     * and cleans up the root file so no clutter remains in the root directory.
+     */
+    @Synchronized
+    fun migrateLegacyRootHistoryIfNeeded() {
+        try {
+            val legacyFile = getLegacyRootHistoryFile()
+            if (!legacyFile.exists() || !legacyFile.isFile) return
+
+            val targetFile = getHistoryFile()
+            val systemBackupsDir = targetFile.parentFile ?: return
+            if (!systemBackupsDir.exists()) {
+                systemBackupsDir.mkdirs()
+            }
+
+            val legacyText = try {
+                legacyFile.readText(Charsets.UTF_8).trim()
+            } catch (_: Exception) {
+                ""
+            }
+
+            if (legacyText.isEmpty()) {
+                legacyFile.delete()
+                return
+            }
+
+            val destFile = if (!targetFile.exists() || targetFile.length() == 0L) {
+                targetFile
+            } else {
+                // Target already exists; check if target is empty JSON "[]" while legacy has real items
+                val currentTargetText = try { targetFile.readText(Charsets.UTF_8).trim() } catch (_: Exception) { "" }
+                if ((currentTargetText.isEmpty() || currentTargetText == "[]") && legacyText != "[]") {
+                    targetFile
+                } else {
+                    File(systemBackupsDir, "legacy_root_history.json")
+                }
+            }
+
+            val tempFile = File(systemBackupsDir, ".tmp_migrate_${System.nanoTime()}.json")
+            tempFile.writeText(legacyText, Charsets.UTF_8)
+
+            // Verify written content is complete and valid
+            val verifyText = tempFile.readText(Charsets.UTF_8).trim()
+            val isValidJson = verifyText.isNotEmpty() && try {
+                if (verifyText.startsWith("[")) {
+                    JSONArray(verifyText)
+                    true
+                } else if (verifyText.startsWith("{")) {
+                    JSONObject(verifyText)
+                    true
+                } else false
+            } catch (_: Exception) {
+                false
+            }
+
+            if (isValidJson) {
+                tempFile.copyTo(destFile, overwrite = true)
+                tempFile.delete()
+                if (destFile.exists() && destFile.length() > 0L) {
+                    legacyFile.delete()
+                }
+            } else {
+                tempFile.delete()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error during legacy root history migration: ${e.message}")
+        }
+    }
+
+    /**
+     * Loads the search history from the user-selected folder or Documents/Deklination/System_Backups/history.json.
+     * Supports fallback reading from legacy root history.json if needed.
      */
     @Synchronized
     fun loadHistory(): List<WordHistoryEntity> {
+        migrateLegacyRootHistoryIfNeeded()
+
         // 1. Try reading from the user-selected SAF folder if available
         val folderUri = getFolderUri()
         if (folderUri != null) {
             try {
                 val docDir = DocumentFile.fromTreeUri(context, folderUri)
                 if (docDir != null && docDir.exists()) {
-                    val historyDoc = docDir.findFile(FILE_NAME)
-                    if (historyDoc != null && historyDoc.exists() && historyDoc.length() > 0L) {
-                        val content = context.contentResolver.openInputStream(historyDoc.uri)?.bufferedReader()?.use { it.readText() }
+                    // Check System_Backups/history.json first
+                    val sysBackupDir = docDir.findFile(SYSTEM_BACKUPS_SUBFOLDER)
+                    val sysHistoryDoc = sysBackupDir?.findFile(FILE_NAME)
+                    if (sysHistoryDoc != null && sysHistoryDoc.exists() && sysHistoryDoc.length() > 0L) {
+                        val content = context.contentResolver.openInputStream(sysHistoryDoc.uri)?.bufferedReader()?.use { it.readText() }
                         if (!content.isNullOrBlank()) {
                             val items = parseJsonHistory(content)
+                            if (items.isNotEmpty()) return items
+                        }
+                    }
+
+                    // Fallback to legacy root history.json in SAF folder
+                    val legacyRootDoc = docDir.findFile(FILE_NAME)
+                    if (legacyRootDoc != null && legacyRootDoc.exists() && legacyRootDoc.length() > 0L) {
+                        val content = context.contentResolver.openInputStream(legacyRootDoc.uri)?.bufferedReader()?.use { it.readText() }
+                        if (!content.isNullOrBlank()) {
+                            val items = parseJsonHistory(content)
+                            // Safely migrate to System_Backups/ inside SAF folder if writable
+                            if (docDir.canWrite()) {
+                                try {
+                                    val targetSub = docDir.findFile(SYSTEM_BACKUPS_SUBFOLDER)
+                                        ?: docDir.createDirectory(SYSTEM_BACKUPS_SUBFOLDER)
+                                    val migratedDoc = targetSub?.findFile(FILE_NAME)
+                                        ?: targetSub?.createFile("application/json", FILE_NAME)
+                                    if (migratedDoc != null) {
+                                        context.contentResolver.openOutputStream(migratedDoc.uri, "wt")?.bufferedWriter()?.use { w ->
+                                            w.write(content)
+                                            w.flush()
+                                        }
+                                        if (migratedDoc.length() > 0L) {
+                                            legacyRootDoc.delete()
+                                        }
+                                    }
+                                } catch (_: Exception) {}
+                            }
                             if (items.isNotEmpty()) return items
                         }
                     }
@@ -136,13 +257,16 @@ class ExternalHistoryStorage(private val context: Context) {
             }
         }
 
-        // 2. Fallback to direct file on public external storage
+        // 2. Fallback to direct file on public external storage (System_Backups/history.json or legacy root)
         val file = getHistoryFile()
-        val targetFile = if (file.exists() && file.length() > 0L) {
-            file
-        } else {
-            val fallback = getFallbackFile()
-            if (fallback.exists() && fallback.length() > 0L) fallback else file
+        val legacyRoot = getLegacyRootHistoryFile()
+        val targetFile = when {
+            file.exists() && file.length() > 0L -> file
+            legacyRoot.exists() && legacyRoot.length() > 0L -> legacyRoot
+            else -> {
+                val fallback = getFallbackFile()
+                if (fallback.exists() && fallback.length() > 0L) fallback else file
+            }
         }
 
         if (!targetFile.exists() || targetFile.length() == 0L) {
@@ -169,6 +293,7 @@ class ExternalHistoryStorage(private val context: Context) {
 
     /**
      * Reads history items from any JSON file selected via ACTION_OPEN_DOCUMENT.
+     * Supports both legacy/raw JSON arrays (`history.json`) and unified notebook objects (`Notebook_<Name>.json`).
      */
     fun readHistoryFromUri(uri: Uri): List<WordHistoryEntity> {
         return try {
@@ -185,24 +310,27 @@ class ExternalHistoryStorage(private val context: Context) {
     }
 
     /**
-     * Saves the entire list of WordHistoryEntity to the user-selected folder
-     * and to Documents/Deklination/history.json.
+     * Saves the entire list of WordHistoryEntity to the user-selected folder (under System_Backups/)
+     * and to Documents/Deklination/System_Backups/history.json.
      */
     @Synchronized
     fun saveHistory(items: List<WordHistoryEntity>): Boolean {
         val jsonArray = serializeHistoryToJson(items)
         val jsonContent = jsonArray.toString(2)
 
-        // 1. Write to user-selected SAF folder if configured
+        // 1. Write to user-selected SAF folder (under System_Backups/) if configured
         var writtenToSaf = false
         val folderUri = getFolderUri()
         if (folderUri != null) {
             try {
                 val docDir = DocumentFile.fromTreeUri(context, folderUri)
                 if (docDir != null && docDir.exists() && docDir.canWrite()) {
-                    var historyDoc = docDir.findFile(FILE_NAME)
+                    val sysBackupDir = docDir.findFile(SYSTEM_BACKUPS_SUBFOLDER)
+                        ?: docDir.createDirectory(SYSTEM_BACKUPS_SUBFOLDER)
+                        ?: docDir
+                    var historyDoc = sysBackupDir.findFile(FILE_NAME)
                     if (historyDoc == null) {
-                        historyDoc = docDir.createFile("application/json", FILE_NAME)
+                        historyDoc = sysBackupDir.createFile("application/json", FILE_NAME)
                     }
                     historyDoc?.let { target ->
                         context.contentResolver.openOutputStream(target.uri, "wt")?.bufferedWriter()?.use { writer ->
@@ -211,13 +339,17 @@ class ExternalHistoryStorage(private val context: Context) {
                         }
                         writtenToSaf = true
                     }
+                    // Clean up legacy root history.json in SAF folder if it was migrated to System_Backups
+                    if (writtenToSaf && sysBackupDir != docDir) {
+                        docDir.findFile(FILE_NAME)?.delete()
+                    }
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Writing to SAF folder failed: ${e.message}")
             }
         }
 
-        // 2. Also write to direct file in Documents/Deklination for local persistence & tests
+        // 2. Also write to direct file in Documents/Deklination/System_Backups/history.json
         var writtenDirectly = false
         try {
             val file = getHistoryFile()
@@ -231,8 +363,13 @@ class ExternalHistoryStorage(private val context: Context) {
                 writer.flush()
             }
             writtenDirectly = true
+            // Clean up legacy root history.json if present
+            val legacyRoot = getLegacyRootHistoryFile()
+            if (legacyRoot.exists() && file.exists() && file.length() > 0L) {
+                legacyRoot.delete()
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "Direct write to Documents/Deklination/history.json failed, trying fallback: ${e.message}")
+            Log.w(TAG, "Direct write to Documents/Deklination/System_Backups/history.json failed, trying fallback: ${e.message}")
             try {
                 val fallback = getFallbackFile()
                 fallback.parentFile?.let { if (!it.exists()) it.mkdirs() }
@@ -259,26 +396,93 @@ class ExternalHistoryStorage(private val context: Context) {
     }
 
     /**
-     * Appends or updates an item in the persistent history file.
-     * Deduplicates by word and type (case-insensitive), prepending the newest entry.
+     * Appends a new item or updates an existing item in-place in the persistent history file.
+     * Deduplicates by word and type (case-insensitive).
+     * If the item already exists, it stays in its original position with its original timestamp
+     * (updating fields such as manualTranslation/meaningEnglish in-place without duplicating).
      */
     @Synchronized
     fun appendOrUpdateItem(item: WordHistoryEntity): Boolean {
         val currentItems = loadHistory().toMutableList()
-        val existing = currentItems.find {
-            it.word.equals(item.word, ignoreCase = true) &&
-            it.type.equals(item.type, ignoreCase = true)
+        val existingIndex = currentItems.indexOfFirst {
+            it.word.trim().equals(item.word.trim(), ignoreCase = true) &&
+            it.type.trim().equals(item.type.trim(), ignoreCase = true)
         }
-        val effectiveItem = if (item.manualTranslation.isBlank() && existing != null && existing.manualTranslation.isNotBlank()) {
-            item.copy(manualTranslation = existing.manualTranslation)
+        if (existingIndex >= 0) {
+            val existing = currentItems[existingIndex]
+            val effectiveManual = if (item.manualTranslation.isNotBlank()) {
+                item.manualTranslation
+            } else {
+                existing.manualTranslation
+            }
+            val updatedInPlace = existing.copy(
+                meaningEnglish = item.meaningEnglish.ifBlank { existing.meaningEnglish },
+                data = item.data.ifBlank { existing.data },
+                rawJsonResult = item.rawJsonResult.ifBlank { existing.rawJsonResult },
+                gender = item.gender.ifBlank { existing.gender },
+                genderArticle = item.genderArticle.ifBlank { existing.genderArticle },
+                manualTranslation = effectiveManual
+            )
+            if (updatedInPlace == existing) {
+                return true
+            }
+            currentItems[existingIndex] = updatedInPlace
+            return saveHistory(currentItems)
         } else {
-            item
+            currentItems.add(0, item)
+            return saveHistory(currentItems)
         }
-        currentItems.removeAll {
-            it.word.equals(item.word, ignoreCase = true) &&
-            it.type.equals(item.type, ignoreCase = true)
+    }
+
+    /**
+     * Cumulatively adds a truly new entry to the backup history ONLY if it does not already exist.
+     * Existing entries are never duplicated, overwritten, or reordered.
+     */
+    @Synchronized
+    fun appendIfAbsent(item: WordHistoryEntity): Boolean {
+        val currentItems = loadHistory().toMutableList()
+        val exists = currentItems.any {
+            it.word.trim().equals(item.word.trim(), ignoreCase = true) &&
+            it.type.trim().equals(item.type.trim(), ignoreCase = true)
         }
-        currentItems.add(0, effectiveItem)
+        if (exists) {
+            return true
+        }
+        currentItems.add(0, item)
+        return saveHistory(currentItems)
+    }
+
+    /**
+     * Cumulatively merges a list of items into the backup history without losing older backup items
+     * and without duplicating or reordering existing entries.
+     */
+    @Synchronized
+    fun mergeHistoryCumulatively(incomingItems: List<WordHistoryEntity>): Boolean {
+        if (incomingItems.isEmpty()) return true
+        val currentItems = loadHistory().toMutableList()
+        val existingKeys = currentItems.mapTo(HashSet()) {
+            "${it.word.trim().lowercase()}_${it.type.trim().lowercase()}"
+        }
+        val newToPrepend = mutableListOf<WordHistoryEntity>()
+        for (candidate in incomingItems) {
+            val key = "${candidate.word.trim().lowercase()}_${candidate.type.trim().lowercase()}"
+            if (existingKeys.add(key)) {
+                newToPrepend.add(candidate)
+            } else {
+                // If manualTranslation was added on candidate, preserve it in-place on existing item
+                if (candidate.manualTranslation.isNotBlank()) {
+                    val idx = currentItems.indexOfFirst {
+                        "${it.word.trim().lowercase()}_${it.type.trim().lowercase()}" == key
+                    }
+                    if (idx >= 0 && currentItems[idx].manualTranslation != candidate.manualTranslation) {
+                        currentItems[idx] = currentItems[idx].copy(manualTranslation = candidate.manualTranslation)
+                    }
+                }
+            }
+        }
+        if (newToPrepend.isNotEmpty()) {
+            currentItems.addAll(0, newToPrepend)
+        }
         return saveHistory(currentItems)
     }
 
@@ -356,10 +560,20 @@ class ExternalHistoryStorage(private val context: Context) {
     private fun parseJsonHistory(jsonString: String): List<WordHistoryEntity> {
         val result = mutableListOf<WordHistoryEntity>()
         val trimmed = jsonString.trim()
-        if (trimmed.isEmpty() || trimmed == "[]") return result
+        if (trimmed.isEmpty() || trimmed == "[]" || trimmed == "{}") return result
 
         try {
-            val jsonArray = JSONArray(trimmed)
+            val jsonArray = if (trimmed.startsWith("{")) {
+                val rootObj = JSONObject(trimmed)
+                rootObj.optJSONArray("words")
+                    ?: rootObj.optJSONArray("history")
+                    ?: rootObj.optJSONArray("notebooks")?.optJSONObject(0)?.let {
+                        it.optJSONArray("words") ?: it.optJSONArray("history")
+                    }
+                    ?: return result
+            } else {
+                JSONArray(trimmed)
+            }
             val usedIds = HashSet<Long>(jsonArray.length())
             var nextFallbackId = 1L
             for (i in 0 until jsonArray.length()) {
@@ -458,7 +672,7 @@ class ExternalHistoryStorage(private val context: Context) {
             val collectionUri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val projection = arrayOf(MediaStore.MediaColumns._ID)
             val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
-            val selectionArgs = arrayOf(FILE_NAME, "Documents/$SUBDIR_NAME%")
+            val selectionArgs = arrayOf(FILE_NAME, "Documents/$SUBDIR_NAME/$SYSTEM_BACKUPS_SUBFOLDER%")
 
             var targetUri: Uri? = null
             resolver.query(collectionUri, projection, selection, selectionArgs, null)?.use { cursor ->
@@ -472,7 +686,7 @@ class ExternalHistoryStorage(private val context: Context) {
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, FILE_NAME)
                     put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/$SUBDIR_NAME/")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/$SUBDIR_NAME/$SYSTEM_BACKUPS_SUBFOLDER/")
                 }
                 targetUri = resolver.insert(collectionUri, contentValues)
             }

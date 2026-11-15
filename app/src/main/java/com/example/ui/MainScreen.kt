@@ -353,7 +353,10 @@ fun MainScreen(
                             onSelectNotebook = { viewModel.selectNotebook(it) },
                             onCreateNotebookClick = { viewModel.openCreateNotebookDialog() },
                             onManageNotebooksClick = { viewModel.openManageNotebooksDialog() },
-                            appLanguage = uiState.appLanguage
+                            appLanguage = uiState.appLanguage,
+                            backupNotebooks = uiState.backupNotebooks,
+                            onPromoteBackupNotebook = { viewModel.promoteBackupNotebook(it) },
+                            onOpenDropdown = { viewModel.refreshBackupNotebooks() }
                         )
                     },
                     navigationIcon = {
@@ -1189,6 +1192,8 @@ fun MainScreen(
                 viewModel.openSelectNotebooksExportDialog()
             },
             backupFolders = uiState.backupFolders,
+            backupNotebooks = uiState.backupNotebooks,
+            isLoadingBackupNotebooks = uiState.isLoadingBackupNotebooks,
             isBackingUp = uiState.isBackingUp,
             onAddBackupFolder = { uri ->
                 viewModel.addBackupFolder(uri)
@@ -1203,6 +1208,12 @@ fun MainScreen(
                 viewModel.backupNow { success, message ->
                     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                 }
+            },
+            onPromoteBackupNotebook = { entry ->
+                viewModel.promoteBackupNotebook(entry)
+            },
+            onExportBackupNotebookJson = { entry ->
+                viewModel.prepareBackupNotebookExport(entry)
             },
             appLanguage = uiState.appLanguage
         )

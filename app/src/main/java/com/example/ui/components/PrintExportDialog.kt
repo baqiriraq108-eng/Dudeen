@@ -178,11 +178,15 @@ fun PrintExportDialog(
 
     var selectedScope by remember { mutableStateOf(initialScope) }
     var selectedFormat by remember { mutableStateOf(ExportSharingManager.ExportFormat.XLSX) }
-    val defaultBaseName = remember(effectiveNotebookName) {
-        val cleanNb = ExportSharingManager.sanitizeFileName(effectiveNotebookName, defaultName = "")
-        if (cleanNb.isNotBlank()) "Suchverlauf_$cleanNb" else "Suchverlauf_Deutsch"
+    var hasUserEditedFileName by remember { mutableStateOf(false) }
+    val defaultBaseName = remember(effectiveNotebookName, selectedFormat) {
+        ExportSharingManager.buildDefaultExportBaseName(selectedFormat, effectiveNotebookName)
     }
-    var fileNameInput by remember(defaultBaseName) { mutableStateOf(defaultBaseName) }
+    var fileNameInput by remember(effectiveNotebookName) {
+        mutableStateOf(
+            ExportSharingManager.buildDefaultExportBaseName(selectedFormat, effectiveNotebookName)
+        )
+    }
 
     // Paper size selection for PDF (A3, A4, A5, Letter) and orientation (Landscape/Portrait)
     var selectedBaseSize by remember { mutableStateOf("A4") }
@@ -457,7 +461,15 @@ fun PrintExportDialog(
                                     color = if (isExcel) GeoPrimary else Color.Transparent,
                                     shape = RoundedCornerShape(6.dp)
                                 )
-                                .clickable { selectedFormat = ExportSharingManager.ExportFormat.XLSX }
+                                .clickable {
+                                    selectedFormat = ExportSharingManager.ExportFormat.XLSX
+                                    if (!hasUserEditedFileName) {
+                                        fileNameInput = ExportSharingManager.buildDefaultExportBaseName(
+                                            ExportSharingManager.ExportFormat.XLSX,
+                                            effectiveNotebookName
+                                        )
+                                    }
+                                }
                                 .padding(horizontal = 6.dp)
                                 .testTag("format_excel_tab"),
                             contentAlignment = Alignment.Center
@@ -497,7 +509,15 @@ fun PrintExportDialog(
                                     color = if (isPdf) GeoPrimary else Color.Transparent,
                                     shape = RoundedCornerShape(6.dp)
                                 )
-                                .clickable { selectedFormat = ExportSharingManager.ExportFormat.PDF }
+                                .clickable {
+                                    selectedFormat = ExportSharingManager.ExportFormat.PDF
+                                    if (!hasUserEditedFileName) {
+                                        fileNameInput = ExportSharingManager.buildDefaultExportBaseName(
+                                            ExportSharingManager.ExportFormat.PDF,
+                                            effectiveNotebookName
+                                        )
+                                    }
+                                }
                                 .padding(horizontal = 6.dp)
                                 .testTag("format_pdf_tab"),
                             contentAlignment = Alignment.Center
@@ -663,14 +683,17 @@ fun PrintExportDialog(
                     )
                     OutlinedTextField(
                         value = fileNameInput,
-                        onValueChange = { input -> fileNameInput = input.trimStart('.') },
+                        onValueChange = { input ->
+                            hasUserEditedFileName = true
+                            fileNameInput = input.trimStart('.')
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("file_name_input"),
                         singleLine = true,
                         placeholder = {
                             Text(
-                                text = "Suchverlauf_Deutsch",
+                                text = defaultBaseName,
                                 fontSize = 13.sp,
                                 color = GeoOnSurfaceVariant.copy(alpha = 0.6f)
                             )
