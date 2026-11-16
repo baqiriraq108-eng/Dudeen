@@ -49,6 +49,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -541,37 +542,61 @@ fun HistoryFilterPills(
 ) {
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     val categories = remember(strings) { strings.historyCategories() }
-    Row(
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 3.dp)
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .testTag("history_filter_bar"),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(1.dp, GeoBorder.copy(alpha = 0.8f))
     ) {
-        categories.forEachIndexed { index, title ->
-            val isSelected = selectedFilterIndex == index
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(GeoSurfaceVariant)
-                    .border(
-                        width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) GeoPrimary else GeoBorder,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .clickable { onFilterChanged(index) }
-                    .padding(horizontal = 11.dp, vertical = 4.dp)
-                    .testTag("history_filter_$index"),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 11.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) GeoPrimary else GeoOnSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false
-                )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+                .clip(CircleShape)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            categories.forEachIndexed { index, title ->
+                val isSelected = selectedFilterIndex == index
+                val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                val borderColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                } else {
+                    Color.Transparent
+                }
+                val contentTint = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
+                Surface(
+                    onClick = { onFilterChanged(index) },
+                    shape = CircleShape,
+                    color = bgColor,
+                    border = BorderStroke(1.dp, borderColor),
+                    modifier = Modifier
+                        .heightIn(min = 36.dp)
+                        .testTag("history_filter_$index")
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = title,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = contentTint,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                }
             }
         }
     }

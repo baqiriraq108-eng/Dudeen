@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -573,63 +574,81 @@ fun MainScreen(
                     }
                 }
 
-                // Nomen / Verb / Wörter Toggle
+                // Nomen / Verb / Wörter / Adjektive Capsule Tape (matches notebook settings segmented capsules)
                 item(key = "grammar_type_toggle") {
-                    Row(
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .testTag("grammar_type_toggle_bar"),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        border = BorderStroke(1.dp, GeoBorder.copy(alpha = 0.8f))
                     ) {
-                        val searchTypes = listOf(
-                            Triple(GrammarType.NOMEN, strings.tabExpressions, 1.25f),
-                            Triple(GrammarType.VERB, strings.tabVerb, 0.75f),
-                            Triple(GrammarType.NOMEN_LIST, strings.tabWords, 0.95f),
-                            Triple(GrammarType.ADJEKTIV, strings.tabAdjectives, 1.15f)
-                        )
-                        searchTypes.forEach { (type, label, weightVal) ->
-                            val isSelected = uiState.selectedGrammarType == type ||
-                                (type == GrammarType.NOMEN && uiState.selectedGrammarType == GrammarType.SENTENCE)
-                            val activeBorderColor = if (GeoIsBoldTheme) GeoCardRibbonColor else GeoPrimary
-                            val textColor = if (isSelected) GeoPrimary else GeoOnSurfaceVariant
-                            val icon = when (type) {
-                                GrammarType.NOMEN -> Icons.Default.Description
-                                GrammarType.VERB -> Icons.Default.Bolt
-                                GrammarType.ADJEKTIV -> Icons.Default.Sell
-                                else -> Icons.Default.Translate
-                            }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val searchTypes = listOf(
+                                Triple(GrammarType.NOMEN, strings.tabExpressions, 1.25f),
+                                Triple(GrammarType.VERB, strings.tabVerb, 0.75f),
+                                Triple(GrammarType.NOMEN_LIST, strings.tabWords, 0.95f),
+                                Triple(GrammarType.ADJEKTIV, strings.tabAdjectives, 1.15f)
+                            )
+                            searchTypes.forEach { (type, label, weightVal) ->
+                                val isSelected = uiState.selectedGrammarType == type ||
+                                    (type == GrammarType.NOMEN && uiState.selectedGrammarType == GrammarType.SENTENCE)
+                                val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                                val borderColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                                } else {
+                                    Color.Transparent
+                                }
+                                val contentTint = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                                val icon = when (type) {
+                                    GrammarType.NOMEN -> Icons.Default.Description
+                                    GrammarType.VERB -> Icons.Default.Bolt
+                                    GrammarType.ADJEKTIV -> Icons.Default.Sell
+                                    else -> Icons.Default.Translate
+                                }
 
-                            Box(
-                                modifier = Modifier
-                                    .weight(weightVal)
-                                    .height(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(GeoSurfaceVariant)
-                                    .border(
-                                        if (isSelected) 1.5.dp else 1.dp,
-                                        if (isSelected) activeBorderColor else GeoBorder,
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable { viewModel.onGrammarTypeSelected(type) }
-                                    .padding(horizontal = 2.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
+                                Surface(
+                                    onClick = { viewModel.onGrammarTypeSelected(type) },
+                                    shape = CircleShape,
+                                    color = bgColor,
+                                    border = BorderStroke(1.dp, borderColor),
+                                    modifier = Modifier
+                                        .weight(weightVal)
+                                        .heightIn(min = 44.dp)
+                                        .testTag("grammar_type_tab_${type.name.lowercase()}")
                                 ) {
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = null,
-                                        tint = textColor,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(2.5.dp))
-                                    AutoShrinkTabLabel(
-                                        text = label,
-                                        isSelected = isSelected,
-                                        textColor = textColor
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 4.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            tint = contentTint,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        AutoShrinkTabLabel(
+                                            text = label,
+                                            isSelected = isSelected,
+                                            textColor = contentTint
+                                        )
+                                    }
                                 }
                             }
                         }
