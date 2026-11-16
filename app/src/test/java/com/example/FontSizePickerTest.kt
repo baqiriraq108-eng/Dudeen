@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.example.ui.components.PrintExportDialog
 import com.example.ui.theme.MyApplicationTheme
 import org.junit.Rule
@@ -82,7 +83,7 @@ class FontSizePickerTest {
         }
 
         // Initial header size is "14 pt"
-        composeTestRule.onNodeWithTag("header_size_selector").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("header_size_selector").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("header_size_selector").assertTextContains("14 pt")
 
         // Click header size selector

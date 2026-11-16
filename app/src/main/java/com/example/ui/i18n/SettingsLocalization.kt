@@ -494,6 +494,51 @@ class SettingsStrings(
         AppLanguage.AR -> "هل تريد تفعيل '$name' ($words كلمة) من '$source' كدفتر أساسي نشط؟ ستُعتمد محتوياته فوراً كخط أساس نظيف للتخزين الأساسي والاحتياطي دون أي حذف بأثر رجعي."
         AppLanguage.DE -> "Möchten Sie '$name' ($words Wörter) aus '$source' als aktives Primär-Notizbuch übernehmen? Der aktuelle Stand wird ohne rückwirkende Löschungen als neue saubere Basis für Primär und Backups gesetzt."
     }
+    val exportTableColorTitle: String get() = when (language) {
+        AppLanguage.EN -> "Table Color (Background)"
+        AppLanguage.AR -> "لون الجدول (الخلفية)"
+        AppLanguage.DE -> "Tabellenfarbe (Hintergrund)"
+    }
+    val exportTableColorDefaultNeutral: String get() = when (language) {
+        AppLanguage.EN -> "Default Neutral"
+        AppLanguage.AR -> "افتراضي محايد"
+        AppLanguage.DE -> "Standard Neutral"
+    }
+    val exportTableColorWheelAction: String get() = when (language) {
+        AppLanguage.EN -> "Color Wheel"
+        AppLanguage.AR -> "عجلة الألوان"
+        AppLanguage.DE -> "Farbrad"
+    }
+    val exportTableColorUntouchedTextHint: String get() = when (language) {
+        AppLanguage.EN -> "4-Tier Hierarchy"
+        AppLanguage.AR -> "نظام هرمي رباعي"
+        AppLanguage.DE -> "4-Stufen-Hierarchie"
+    }
+    val exportTableHeaderCaption: String get() = when (language) {
+        AppLanguage.EN -> "Header"
+        AppLanguage.AR -> "الترويسة"
+        AppLanguage.DE -> "Kopfzeile"
+    }
+    val exportTableColorModeCalm: String get() = when (language) {
+        AppLanguage.EN -> "Calm Tones"
+        AppLanguage.AR -> "الألوان الهادئة"
+        AppLanguage.DE -> "Sanfte Töne"
+    }
+    val exportTableColorModeVivid: String get() = when (language) {
+        AppLanguage.EN -> "Actual Color"
+        AppLanguage.AR -> "اللون الفعلي"
+        AppLanguage.DE -> "Originalfarbe"
+    }
+    val exportFontColorLabel: String get() = when (language) {
+        AppLanguage.EN -> "Font Color"
+        AppLanguage.AR -> "لون الخط"
+        AppLanguage.DE -> "Schriftfarbe"
+    }
+    val exportColorResetDefault: String get() = when (language) {
+        AppLanguage.EN -> "Reset"
+        AppLanguage.AR -> "افتراضي"
+        AppLanguage.DE -> "Standard"
+    }
 }
 
 /**
@@ -690,8 +735,8 @@ object AppStrings {
         paperSizeOrientationLabel = "Papiergröße & Ausrichtung:",
         portraitOrientation = "Hochformat",
         landscapeOrientation = "Querformat",
-        typographyBodyTitle = "📝 Schriftart & -größe (Text)",
-        typographyHeaderTitle = "📝 Schriftart & -größe (Überschriften)",
+        typographyBodyTitle = "Schriftart & -größe (Text)",
+        typographyHeaderTitle = "Schriftart & -größe (Überschriften)",
         fileNameLabel = "Dateiname:",
         fontSizeDialogTitle = "Schriftgröße wählen",
         standardSizesLabel = "Standardgrößen:",
@@ -951,8 +996,8 @@ object AppStrings {
         paperSizeOrientationLabel = "Paper Size & Orientation:",
         portraitOrientation = "Portrait",
         landscapeOrientation = "Landscape",
-        typographyBodyTitle = "📝 Font & Size (Body Text)",
-        typographyHeaderTitle = "📝 Font & Size (Headers)",
+        typographyBodyTitle = "Font & Size (Body Text)",
+        typographyHeaderTitle = "Font & Size (Headers)",
         fileNameLabel = "File name:",
         fontSizeDialogTitle = "Select Font Size",
         standardSizesLabel = "Standard sizes:",
@@ -1219,8 +1264,8 @@ object AppStrings {
         paperSizeOrientationLabel = "حجم الورق والاتجاه:",
         portraitOrientation = "عمودي",
         landscapeOrientation = "أفقي",
-        typographyBodyTitle = "📝 الخط والحجم (النص)",
-        typographyHeaderTitle = "📝 الخط والحجم (العناوين)",
+        typographyBodyTitle = "الخط والحجم (النص)",
+        typographyHeaderTitle = "الخط والحجم (العناوين)",
         fileNameLabel = "اسم الملف:",
         fontSizeDialogTitle = "اختيار حجم الخط",
         standardSizesLabel = "الأحجام القياسية:",

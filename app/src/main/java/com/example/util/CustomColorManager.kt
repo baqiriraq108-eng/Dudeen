@@ -13,9 +13,78 @@ import java.util.Locale
 object CustomColorManager {
     private const val PREFS_NAME = "custom_colors_preferences"
     private const val KEY_CUSTOM_COLORS = "saved_custom_colors_list"
+    private const val KEY_EXPORT_TABLE_SEED_COLOR = "export_table_seed_color_hex"
+    private const val KEY_EXPORT_TABLE_COLOR_VIVID_MODE = "export_table_color_vivid_mode"
+    private const val KEY_EXPORT_BODY_FONT_COLOR = "export_body_font_color_hex"
+    private const val KEY_EXPORT_HEADER_FONT_COLOR = "export_header_font_color_hex"
 
     private fun getPrefs(context: Context): SharedPreferences {
         return context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    /**
+     * Retrieves the persisted Export Table Seed Color HEX (e.g. "#2979FF"), or "" for Default Neutral.
+     */
+    fun getExportTableSeedColor(context: Context): String {
+        val raw = getPrefs(context).getString(KEY_EXPORT_TABLE_SEED_COLOR, "")?.trim().orEmpty()
+        return if (raw.isNotEmpty() && isValidHex(raw)) normalizeHex(raw) else ""
+    }
+
+    /**
+     * Saves the Export Table Seed Color HEX, or "" to reset to Default Neutral.
+     */
+    fun setExportTableSeedColor(context: Context, seedHex: String) {
+        val clean = seedHex.trim()
+        val valueToSave = if (clean.isNotEmpty() && isValidHex(clean)) normalizeHex(clean) else ""
+        getPrefs(context).edit().putString(KEY_EXPORT_TABLE_SEED_COLOR, valueToSave).apply()
+    }
+
+    /**
+     * Retrieves whether Export Table Color uses Actual/Vivid Mode (true) or Calm Mode (false).
+     */
+    fun getExportTableColorVividMode(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_EXPORT_TABLE_COLOR_VIVID_MODE, false)
+    }
+
+    /**
+     * Saves whether Export Table Color uses Actual/Vivid Mode (true) or Calm Mode (false).
+     */
+    fun setExportTableColorVividMode(context: Context, isVivid: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_EXPORT_TABLE_COLOR_VIVID_MODE, isVivid).apply()
+    }
+
+    /**
+     * Retrieves the persisted Export Body Font Color HEX (default "#000000").
+     */
+    fun getExportBodyFontColor(context: Context): String {
+        val raw = getPrefs(context).getString(KEY_EXPORT_BODY_FONT_COLOR, "#000000")?.trim().orEmpty()
+        return if (raw.isNotEmpty() && isValidHex(raw)) normalizeHex(raw) else "#000000"
+    }
+
+    /**
+     * Saves the Export Body Font Color HEX.
+     */
+    fun setExportBodyFontColor(context: Context, colorHex: String) {
+        val clean = colorHex.trim()
+        val valueToSave = if (clean.isNotEmpty() && isValidHex(clean)) normalizeHex(clean) else "#000000"
+        getPrefs(context).edit().putString(KEY_EXPORT_BODY_FONT_COLOR, valueToSave).apply()
+    }
+
+    /**
+     * Retrieves the persisted Export Header Font Color HEX (default "#000000").
+     */
+    fun getExportHeaderFontColor(context: Context): String {
+        val raw = getPrefs(context).getString(KEY_EXPORT_HEADER_FONT_COLOR, "#000000")?.trim().orEmpty()
+        return if (raw.isNotEmpty() && isValidHex(raw)) normalizeHex(raw) else "#000000"
+    }
+
+    /**
+     * Saves the Export Header Font Color HEX.
+     */
+    fun setExportHeaderFontColor(context: Context, colorHex: String) {
+        val clean = colorHex.trim()
+        val valueToSave = if (clean.isNotEmpty() && isValidHex(clean)) normalizeHex(clean) else "#000000"
+        getPrefs(context).edit().putString(KEY_EXPORT_HEADER_FONT_COLOR, valueToSave).apply()
     }
 
     /**

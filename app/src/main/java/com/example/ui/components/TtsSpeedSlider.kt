@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -479,14 +480,16 @@ fun SpeechSpeedSelectionDialog(
                         )
                     }
 
-                    OutlinedButton(
+                    Button(
                         onClick = {
                             onConfirmSpeed(tempSpeed)
                             onDismiss()
                         },
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp),
@@ -501,7 +504,7 @@ fun SpeechSpeedSelectionDialog(
                             maxFontSize = 13.sp,
                             minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }

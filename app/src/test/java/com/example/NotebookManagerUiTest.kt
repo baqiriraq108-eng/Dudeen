@@ -286,4 +286,35 @@ class NotebookManagerUiTest {
         composeTestRule.waitForIdle()
         assertEquals("B1.1", promotedFromDropdown?.displayName)
     }
+
+    @Test
+    fun testImmediatePersistedActiveNotebookOnStartupWithoutAllgemeinFlash() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        val repo1 = com.example.data.notebook.NotebookRepository(context)
+        val created = repo1.createNotebook("A1.1", initialThemeColorId = "Smaragd", themeMode = "dark")
+        assertEquals("A1.1", created.name)
+
+        // Simulate a fresh cold start with a brand-new NotebookRepository instance
+        val coldStartRepo = com.example.data.notebook.NotebookRepository(context)
+        val initialNotebook = coldStartRepo.getQuickInitialActiveNotebook()
+        assertEquals("A1.1", initialNotebook.name)
+        assertEquals("Smaragd", initialNotebook.settings.themeColorId)
+
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                NotebookSwitcher(
+                    activeNotebook = initialNotebook,
+                    allNotebooks = emptyList(),
+                    onSelectNotebook = {},
+                    onCreateNotebookClick = {},
+                    onManageNotebooksClick = {},
+                    appLanguage = "de"
+                )
+            }
+        }
+
+        // First frame immediately displays "A1.1" and never flashes "Allgemein"
+        composeTestRule.onNodeWithText("A1.1").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Allgemein").assertDoesNotExist()
+    }
 }

@@ -45,6 +45,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SheetState
@@ -525,15 +526,17 @@ fun HistorySortBottomSheet(
                     )
                 }
 
-                OutlinedButton(
+                Button(
                     onClick = onDismissRequest,
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
                         .testTag("sort_apply_button"),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, GeoBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
                     AutoSizingText(
@@ -541,7 +544,7 @@ fun HistorySortBottomSheet(
                         maxFontSize = 13.sp,
                         minFontSize = 9.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = GeoOnSurface
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
@@ -584,7 +587,7 @@ fun HistorySortBottomSheet(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = {
                             val selectedMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
                             onSortOptionChanged(
@@ -601,8 +604,10 @@ fun HistorySortBottomSheet(
                             .height(42.dp)
                             .testTag("date_picker_confirm"),
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
                         AutoSizingText(
@@ -610,7 +615,7 @@ fun HistorySortBottomSheet(
                             maxFontSize = 13.sp,
                             minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoOnSurface
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }

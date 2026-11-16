@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -548,16 +549,21 @@ fun NatureGradientSphereColorPicker(
     onColorChosen: (String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    appLanguage: String = LocalAppLanguage.current
+    appLanguage: String = LocalAppLanguage.current,
+    isExportTableColorMode: Boolean = false,
+    isVividTableColorMode: Boolean = false,
+    onResetDefaultNeutral: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val configuration = LocalConfiguration.current
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
 
-    val initialHsl = remember(initialColorHex) {
+    val initialHsl = remember(initialColorHex, isExportTableColorMode) {
         if (initialColorHex.isNotBlank() && CustomColorManager.isValidHex(initialColorHex)) {
             NatureColorEngine.hexToHsl(initialColorHex)
+        } else if (isExportTableColorMode) {
+            NatureColorEngine.hexToHsl("#2979FF")
         } else {
             NatureColorEngine.HslColor(0f, 0f, 0f)
         }
@@ -1193,6 +1199,132 @@ fun NatureGradientSphereColorPicker(
                     }
 
                     // ==========================================
+                    // 6B. EXPORT TABLE 4-TIER PREVIEW & DEFAULT NEUTRAL RESET (When in Export Table Mode)
+                    // ==========================================
+                    if (isExportTableColorMode) {
+                        val livePalette = remember(currentHex, isVividTableColorMode) {
+                            DeclensionHistoryExportHelper.resolveExportTableColorPalette(currentHex, isVividTableColorMode)
+                        }
+                        val t1Color = Color(DeclensionHistoryExportHelper.parseHexColor(livePalette.tier1HeaderFillHex))
+                        val t2aColor = Color(DeclensionHistoryExportHelper.parseHexColor(livePalette.tier2PrimaryBlockFillHex))
+                        val t2bColor = Color(DeclensionHistoryExportHelper.parseHexColor(livePalette.tier2SecondaryBlockFillHex))
+                        val t3Color = Color(DeclensionHistoryExportHelper.parseHexColor(livePalette.tier3MajorBorderHex))
+                        val t4Color = Color(DeclensionHistoryExportHelper.parseHexColor(livePalette.tier4InnerGridHex))
+                        val headerPreviewTextColor = if (t1Color.luminance() < 0.42f) Color.White else Color(0xFF0F172A)
+                        val untouchedTextColor = Color(0xFF0F172A)
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = surfaceVariantBg,
+                            border = BorderStroke(1.dp, borderColor),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("export_color_wheel_tier_preview")
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = strings.exportTableColorTitle,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textDark,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = strings.exportTableColorUntouchedTextHint,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = textMuted,
+                                        maxLines = 1
+                                    )
+                                }
+
+                                // Mini 4-Tier Table Preview (Header + Odd Block + Even Block)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .border(1.2.dp, t3Color, RoundedCornerShape(6.dp))
+                                ) {
+                                    // Tier 1: Header Row Fill
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(t1Color)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Verb (Infinitiv)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = headerPreviewTextColor)
+                                        Text("Zeit", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = headerPreviewTextColor)
+                                        Text("ich / du", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = headerPreviewTextColor)
+                                    }
+                                    HorizontalDivider(color = t3Color, thickness = 1.5.dp)
+                                    // Tier 2A: Primary Block (Odd Verb/Entry Group)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(t2aColor)
+                                            .padding(horizontal = 8.dp, vertical = 3.5.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("gehen", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = untouchedTextColor)
+                                        Text("Präsens", fontSize = 10.sp, color = untouchedTextColor)
+                                        Text("gehe / gehst", fontSize = 10.sp, color = untouchedTextColor)
+                                    }
+                                    HorizontalDivider(color = t3Color, thickness = 1.2.dp)
+                                    // Tier 2B: Secondary Block (Even Verb/Entry Group)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(t2bColor)
+                                            .padding(horizontal = 8.dp, vertical = 3.5.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("kommen", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = untouchedTextColor)
+                                        Text("Präsens", fontSize = 10.sp, color = untouchedTextColor)
+                                        Text("komme / kommst", fontSize = 10.sp, color = untouchedTextColor)
+                                    }
+                                    HorizontalDivider(color = t4Color, thickness = 0.8.dp)
+                                }
+
+                                if (onResetDefaultNeutral != null) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            onResetDefaultNeutral()
+                                            onDismiss()
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, borderColor),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textDark),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(34.dp)
+                                            .testTag("color_wheel_default_neutral_button")
+                                    ) {
+                                        Text(
+                                            text = strings.exportTableColorDefaultNeutral,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = textDark
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ==========================================
                     // 7. BOTTOM ACTIONS: Cancel / Confirm
                     // ==========================================
                     Row(
@@ -1225,7 +1357,7 @@ fun NatureGradientSphereColorPicker(
                             )
                         }
 
-                        OutlinedButton(
+                        Button(
                             onClick = {
                                 val finalHex = if (CustomColorManager.isValidHex(hexInputText)) {
                                     CustomColorManager.normalizeHex(hexInputText)
@@ -1235,10 +1367,9 @@ fun NatureGradientSphereColorPicker(
                                 onColorChosen(finalHex)
                             },
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, borderColor),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = Color.Transparent,
-                                contentColor = textDark
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             modifier = Modifier
@@ -1251,7 +1382,7 @@ fun NatureGradientSphereColorPicker(
                                 maxFontSize = 13.sp,
                                 minFontSize = 9.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = textDark
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -1346,7 +1477,7 @@ fun NatureGradientSphereColorPicker(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = {
                             CustomColorManager.removeCustomColor(context, targetHex)
                             customColors = CustomColorManager.getCustomColors(context)
@@ -1355,8 +1486,10 @@ fun NatureGradientSphereColorPicker(
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp),
-                        border = BorderStroke(1.dp, borderColor),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textDark),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -1364,7 +1497,7 @@ fun NatureGradientSphereColorPicker(
                             text = strings.confirm,
                             maxFontSize = 13.sp,
                             minFontSize = 9.5.sp,
-                            color = textDark,
+                            color = MaterialTheme.colorScheme.onError,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -2190,11 +2323,13 @@ private fun SavedColorsManagementDialog(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = onDismiss,
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, borderColor),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = textDark),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = primaryAccent,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier
                             .weight(1f)
@@ -2204,7 +2339,7 @@ private fun SavedColorsManagementDialog(
                             text = strings.confirm,
                             maxFontSize = 13.sp,
                             minFontSize = 9.5.sp,
-                            color = textDark,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FontWeight.SemiBold
                         )
                     }

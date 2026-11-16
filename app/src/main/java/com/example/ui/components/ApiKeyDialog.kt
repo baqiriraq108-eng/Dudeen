@@ -48,6 +48,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -1034,14 +1035,16 @@ fun ApiKeyDialog(
                         )
                     }
 
-                    OutlinedButton(
+                    Button(
                         onClick = onSaveAll,
                         modifier = Modifier
                             .weight(1f)
                             .height(42.dp)
                             .testTag("save_api_key_button"),
-                        border = BorderStroke(1.dp, GeoBorder),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GeoPrimary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                     ) {
@@ -1050,7 +1053,7 @@ fun ApiKeyDialog(
                             maxFontSize = 13.sp,
                             minFontSize = 9.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = GeoOnSurface
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 }

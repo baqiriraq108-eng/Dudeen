@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SettingsBrightness
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -406,14 +407,22 @@ fun ColorBottomSheet(
                     )
                 }
 
-                OutlinedButton(
+                val applyBg = previewTheme.tier1Primary(isPreviewDark)
+                val applyContent = if ((0.299f * applyBg.red + 0.587f * applyBg.green + 0.114f * applyBg.blue) > 0.58f) {
+                    Color(0xFF1A1A1A)
+                } else {
+                    Color.White
+                }
+                Button(
                     onClick = {
                         onApplyTheme(previewTheme, previewMode)
                         onDismiss()
                     },
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, dividerColor),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = textPrimary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = applyBg,
+                        contentColor = applyContent
+                    ),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     modifier = Modifier
                         .weight(1f)
@@ -425,7 +434,7 @@ fun ColorBottomSheet(
                         maxFontSize = 13.sp,
                         minFontSize = 9.5.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = textPrimary
+                        color = applyContent
                     )
                 }
             }

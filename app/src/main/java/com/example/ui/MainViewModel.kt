@@ -192,14 +192,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private val initialProvider: ModelProvider = repository.getSelectedProvider()
+    private val initialActiveNotebook: Notebook = notebookRepository.getQuickInitialActiveNotebook()
 
     private val _uiState = MutableStateFlow(
         MainUiState(
             hasApiKey = repository.isApiKeyConfigured(),
             selectedProvider = initialProvider,
             selectedModel = repository.getSelectedModel(initialProvider),
-            selectedTheme = themePreferences.getSelectedTheme(),
-            themeMode = themePreferences.getThemeMode(),
+            selectedTheme = AppThemePackage.fromId(
+                initialActiveNotebook.settings.themeColorId.ifBlank { themePreferences.getSelectedTheme().id }
+            ),
+            activeNotebook = initialActiveNotebook,
+            themeMode = initialActiveNotebook.settings.themeMode.ifBlank { themePreferences.getThemeMode() },
             appLanguage = themePreferences.getAppLanguage(),
             translationLanguage = themePreferences.getTranslationLanguage()
         )

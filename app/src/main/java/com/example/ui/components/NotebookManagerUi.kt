@@ -39,9 +39,11 @@ import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -61,6 +63,8 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Folder
@@ -70,6 +74,7 @@ import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -465,8 +470,8 @@ fun NotebookManagerDialog(
                                     id = NotebookManagerSection.NOTEBOOKS.name,
                                     label = strings.managerTabNotebooks,
                                     count = null,
-                                    selectedIcon = Icons.AutoMirrored.Filled.MenuBook,
-                                    unselectedIcon = Icons.AutoMirrored.Outlined.MenuBook,
+                                    selectedIcon = Icons.Filled.CollectionsBookmark,
+                                    unselectedIcon = Icons.Outlined.CollectionsBookmark,
                                     testTag = "manager_section_notebooks"
                                 ),
                                 SegmentedPillItem(
@@ -886,8 +891,8 @@ private fun NotebooksWorkspaceSection(
                             id = NotebookStorageTab.PRIMARY.name,
                             label = strings.primaryNotebooksTab,
                             count = null,
-                            selectedIcon = Icons.Filled.Book,
-                            unselectedIcon = Icons.Outlined.Book,
+                            selectedIcon = Icons.Filled.Bookmark,
+                            unselectedIcon = Icons.Outlined.BookmarkBorder,
                             testTag = "notebooks_tab_primary"
                         ),
                         SegmentedPillItem(
@@ -902,7 +907,7 @@ private fun NotebooksWorkspaceSection(
                             id = NotebookStorageTab.BACKUP.name,
                             label = strings.backupNotebooksTab,
                             count = null,
-                            selectedIcon = Icons.Filled.FolderSpecial,
+                            selectedIcon = Icons.Filled.Folder,
                             unselectedIcon = Icons.Outlined.Folder,
                             testTag = "notebooks_tab_backup"
                         )
@@ -2118,27 +2123,27 @@ fun UnifiedTwoButtonBar(
             )
         }
 
-        val confirmBorderColor = when {
-            !confirmEnabled -> palette.cardBorder.copy(alpha = 0.5f)
-            confirmIsDestructive -> palette.error.copy(alpha = 0.65f)
-            else -> palette.cardBorder
+        val confirmContainerColor = when {
+            confirmIsDestructive -> palette.error
+            else -> palette.primary
         }
         val confirmTextColor = when {
             !confirmEnabled -> palette.onSurfaceVariant.copy(alpha = 0.5f)
-            confirmIsDestructive -> palette.error
-            else -> palette.onSurface
+            confirmIsDestructive -> palette.onError
+            else -> palette.onPrimary
         }
 
-        OutlinedButton(
+        Button(
             onClick = onConfirm,
             enabled = confirmEnabled,
             modifier = Modifier
                 .weight(1f)
                 .height(44.dp),
             shape = RoundedCornerShape(10.dp),
-            border = BorderStroke(1.dp, confirmBorderColor),
-            colors = ButtonDefaults.outlinedButtonColors(
+            colors = ButtonDefaults.buttonColors(
+                containerColor = confirmContainerColor,
                 contentColor = confirmTextColor,
+                disabledContainerColor = palette.cardSurface,
                 disabledContentColor = palette.onSurfaceVariant.copy(alpha = 0.5f)
             ),
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)

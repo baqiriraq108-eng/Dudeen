@@ -1,7 +1,11 @@
 package com.example.ui.components
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -20,6 +24,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -34,6 +39,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -42,6 +48,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,47 +57,37 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ColorLens
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Title
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -99,12 +96,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -112,49 +107,44 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.example.data.model.WordDeclensionResult
 import com.example.ui.i18n.AppStrings
 import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.GeoBorder
-import com.example.ui.theme.GeoOnSurface
-import com.example.ui.theme.GeoOnSurfaceVariant
-import com.example.ui.theme.GeoPrimary
-import com.example.ui.theme.GeoSurface
-import com.example.ui.theme.GeoSurfaceVariant
+import com.example.ui.theme.LocalIsDarkTheme
 import com.example.util.CustomColorManager
 import com.example.util.DeclensionHistoryExportHelper
 import com.example.util.ExportSharingManager
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Modern, compact export dialog:
- * - Header: [<-] Exportieren [X]
- * - Scope selector: [ Nomen ] [ Verb ] [ Alle ]
- * - Format selector: [ Excel (.xlsx) ] [ PDF ]
- * - Paper size & orientation selector (when PDF selected): [A4 v] [ Hochformat / Querformat ]
- * - Advanced Print Customization:
- *   - Body Text: Font type (10 fonts), Font size (8-72pt + custom), Color (20 colors + hex)
- *   - Headers: Font type (10 fonts), Font size (8-72pt + custom), Color (20 colors + hex)
- * - Single-line file name input field pre-filled with "Suchverlauf_Deutsch"
- * - Two equal-weight action buttons side-by-side: [Speichern] & [Teilen]
- * - Strictly German/English only (no Arabic text, no text wrapping)
+ * Export Bottom Sheet:
+ * - Drag handle + clean header ("Exportieren" + Close) on a fully darkened backdrop
+ * - 3 distinct dark surface levels (sheet -> section cards -> interactive controls)
+ * - Consistent 12.dp / 10.dp corner geometry, 1 accent color, borders only on selected/focused states
+ * - Combined font card (Text & Überschriften) separated by soft divider + uniform previews
+ * - Table color card with 4-tier strip marking Kopfzeile + hex matching the header swatch
+ * - Proportional filename field with middle-ellipsis display and attached fixed extension suffix
+ * - Fixed bottom action bar (Abbrechen | Teilen | Bestätigen) clear of system gesture bar
  */
 @Composable
 fun PrintExportDialog(
@@ -175,6 +165,7 @@ fun PrintExportDialog(
     val strings = remember(effectiveLang) { AppStrings.get(effectiveLang) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
 
     var selectedScope by remember { mutableStateOf(initialScope) }
     var selectedFormat by remember { mutableStateOf(ExportSharingManager.ExportFormat.XLSX) }
@@ -204,15 +195,27 @@ fun PrintExportDialog(
     // Typography customization: Body Text
     var bodyFontFamily by remember { mutableStateOf("Arial") }
     var bodyFontSize by remember { mutableStateOf(12f) }
-    var bodyFontColorHex by remember { mutableStateOf("#000000") }
+    var bodyFontColorHex by remember {
+        mutableStateOf(CustomColorManager.getExportBodyFontColor(context))
+    }
 
     // Typography customization: Headers
     var headerFontFamily by remember { mutableStateOf("Arial") }
     var headerFontSize by remember { mutableStateOf(14f) }
-    var headerFontColorHex by remember { mutableStateOf("#000000") }
+    var headerFontColorHex by remember {
+        mutableStateOf(CustomColorManager.getExportHeaderFontColor(context))
+    }
 
-    // Dialogs for color picker & font size bottom sheet
-    var activeColorTarget by remember { mutableStateOf<String?>(null) } // "body" or "header"
+    // Dedicated Export Table Color (4-Tier Hierarchical System: Calm Mode vs Actual Vivid Mode)
+    var exportTableSeedColorHex by remember {
+        mutableStateOf(CustomColorManager.getExportTableSeedColor(context))
+    }
+    var isTableColorVivid by remember {
+        mutableStateOf(CustomColorManager.getExportTableColorVividMode(context))
+    }
+
+    // Unified Color Wheel target ("body", "header", or "table") & font size dialog target
+    var activeColorTarget by remember { mutableStateOf<String?>(null) }
     var activeFontSizeTarget by remember { mutableStateOf<String?>(null) } // "body" or "header"
 
     LaunchedEffect(Unit) {
@@ -221,7 +224,8 @@ fun PrintExportDialog(
 
     val currentTypography = remember(
         bodyFontSize, bodyFontFamily, bodyFontColorHex,
-        headerFontSize, headerFontFamily, headerFontColorHex
+        headerFontSize, headerFontFamily, headerFontColorHex,
+        exportTableSeedColorHex, isTableColorVivid
     ) {
         DeclensionHistoryExportHelper.ExportTypographyOptions(
             bodyFontSize = bodyFontSize,
@@ -229,7 +233,9 @@ fun PrintExportDialog(
             bodyFontColorHex = bodyFontColorHex,
             headerFontSize = headerFontSize,
             headerFontFamily = headerFontFamily,
-            headerFontColorHex = headerFontColorHex
+            headerFontColorHex = headerFontColorHex,
+            tableSeedColorHex = exportTableSeedColorHex,
+            isTableColorVivid = isTableColorVivid
         )
     }
 
@@ -294,7 +300,7 @@ fun PrintExportDialog(
                             )
                         }
                     }
-                    Toast.makeText(context, "Datei erfolgreich gespeichert!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, strings.fileSavedToast, Toast.LENGTH_SHORT).show()
                     onDismiss()
                 } catch (e: Exception) {
                     Toast.makeText(context, "Fehler: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
@@ -303,661 +309,769 @@ fun PrintExportDialog(
         }
     }
 
+    // 3 Distinct Dark/Light Surface Levels & Contrast-Safe Tokens
+    val sheetSurface = MaterialTheme.colorScheme.surfaceContainerLow
+    val cardSurface = MaterialTheme.colorScheme.surfaceContainer
+    val controlSurface = MaterialTheme.colorScheme.surfaceContainerHigh
+    val accentColor = MaterialTheme.colorScheme.primary
+    val primaryText = MaterialTheme.colorScheme.onSurface
+    val mutedText = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f)
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+
     CompositionLocalProvider(LocalAppLanguage provides effectiveLang) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        BackHandler(enabled = true) {
-            onDismiss()
-        }
-
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 18.dp)
-                .heightIn(max = 700.dp)
-                .testTag("export_dialog_surface"),
-            shape = RoundedCornerShape(14.dp),
-            color = GeoSurface,
-            tonalElevation = 6.dp,
-            border = BorderStroke(1.dp, GeoBorder)
+        Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = true
+            )
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Header: Back button + Title + [X] Close button
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .size(28.dp)
-                                .testTag("export_back_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = strings.back,
-                                tint = GeoOnSurface,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Text(
-                            text = strings.exportDialogTitle,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = GeoOnSurface,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .testTag("dismiss_export_dialog")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = strings.close,
-                            tint = GeoOnSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+            val localView = LocalView.current
+            val density = LocalDensity.current
+            val dialogWindow = (localView.parent as? DialogWindowProvider)?.window
+            SideEffect {
+                dialogWindow?.let { win ->
+                    win.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    win.setBackgroundDrawableResource(android.R.color.transparent)
+                    win.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                    win.setDimAmount(0.84f)
+                    @Suppress("DEPRECATION")
+                    win.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
                 }
+            }
 
-                // Scope Selector: [ Nomen ] [ Verb ] [ Alle ]
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = strings.exportScopeLabel,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = GeoOnSurfaceVariant,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Row(
+            // Fallback read of the host Activity's navigation/gesture bar inset when Dialog does not receive bottom insets
+            val dialogNavBottomPx = WindowInsets.navigationBars.getBottom(density)
+            val activityNavBottomPx = remember(context, localView) {
+                val targetView = context.findHostActivity()?.window?.decorView ?: localView.rootView
+                val rootInsets = ViewCompat.getRootWindowInsets(targetView)
+                if (rootInsets != null) {
+                    val navBottom = rootInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+                    val gestureBottom = rootInsets.getInsets(WindowInsetsCompat.Type.mandatorySystemGestures()).bottom
+                    maxOf(navBottom, gestureBottom)
+                } else {
+                    0
+                }
+            }
+            val unconsumedNavBottomDp = with(density) {
+                (activityNavBottomPx - dialogNavBottomPx).coerceAtLeast(0).toDp()
+            }
+
+            BackHandler(enabled = true) {
+                onDismiss()
+            }
+
+            // Full-bleed tap backdrop kept strictly inside safe status/navigation/IME bounds
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Transparent)
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            focusManager.clearFocus()
+                            onDismiss()
+                        }
+                    }
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .imePadding(),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                val sheetMaxHeight = (maxHeight - 16.dp).coerceAtLeast(220.dp)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = sheetMaxHeight)
+                        .pointerInput(Unit) {
+                            detectTapGestures { focusManager.clearFocus() }
+                        }
+                        .testTag("export_dialog_surface"),
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+                    color = sheetSurface,
+                    tonalElevation = 0.dp
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(GeoSurfaceVariant)
-                            .padding(2.5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            .padding(bottom = unconsumedNavBottomDp)
                     ) {
-                        listOf(
-                            DeclensionHistoryExportHelper.ExportScope.NOMEN to strings.tabExpressions,
-                            DeclensionHistoryExportHelper.ExportScope.VERB to strings.tabVerb,
-                            DeclensionHistoryExportHelper.ExportScope.ADJEKTIV to strings.tabAdjectives,
-                            DeclensionHistoryExportHelper.ExportScope.ALLE to strings.all
-                        ).forEach { (scopeItem, label) ->
-                            val isSelected = selectedScope == scopeItem
+                        // Top Drag Handle + Sheet Header
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp, bottom = 10.dp, start = 16.dp, end = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             Box(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .height(30.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color.Transparent)
-                                    .border(
-                                        width = if (isSelected) 1.5.dp else 1.dp,
-                                        color = if (isSelected) GeoPrimary else Color.Transparent,
-                                        shape = RoundedCornerShape(6.dp)
-                                    )
-                                    .clickable { selectedScope = scopeItem }
-                                    .testTag("scope_tab_${scopeItem.name.lowercase()}"),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = label,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) GeoPrimary else GeoOnSurfaceVariant,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Format Selector (Excel vs PDF)
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = strings.exportFormatSectionLabel,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = GeoOnSurfaceVariant,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(GeoSurfaceVariant)
-                            .padding(2.5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        // Excel Option
-                        val isExcel = selectedFormat == ExportSharingManager.ExportFormat.XLSX
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color.Transparent)
-                                .border(
-                                    width = if (isExcel) 1.5.dp else 1.dp,
-                                    color = if (isExcel) GeoPrimary else Color.Transparent,
-                                    shape = RoundedCornerShape(6.dp)
-                                )
-                                .clickable {
-                                    selectedFormat = ExportSharingManager.ExportFormat.XLSX
-                                    if (!hasUserEditedFileName) {
-                                        fileNameInput = ExportSharingManager.buildDefaultExportBaseName(
-                                            ExportSharingManager.ExportFormat.XLSX,
-                                            effectiveNotebookName
-                                        )
-                                    }
-                                }
-                                .padding(horizontal = 6.dp)
-                                .testTag("format_excel_tab"),
-                            contentAlignment = Alignment.Center
-                        ) {
+                                    .width(36.dp)
+                                    .height(4.dp)
+                                    .clip(CircleShape)
+                                    .background(mutedText.copy(alpha = 0.45f))
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.TableChart,
-                                    contentDescription = null,
-                                    tint = if (isExcel) GeoPrimary else GeoOnSurfaceVariant,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "Excel (.xlsx)",
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isExcel) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isExcel) GeoPrimary else GeoOnSurfaceVariant,
+                                    text = strings.exportDialogTitle,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = primaryText,
                                     maxLines = 1,
-                                    softWrap = false
+                                    softWrap = false,
+                                    modifier = Modifier.padding(start = 2.dp)
                                 )
-                            }
-                        }
-
-                        // PDF Option
-                        val isPdf = selectedFormat == ExportSharingManager.ExportFormat.PDF
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color.Transparent)
-                                .border(
-                                    width = if (isPdf) 1.5.dp else 1.dp,
-                                    color = if (isPdf) GeoPrimary else Color.Transparent,
-                                    shape = RoundedCornerShape(6.dp)
-                                )
-                                .clickable {
-                                    selectedFormat = ExportSharingManager.ExportFormat.PDF
-                                    if (!hasUserEditedFileName) {
-                                        fileNameInput = ExportSharingManager.buildDefaultExportBaseName(
-                                            ExportSharingManager.ExportFormat.PDF,
-                                            effectiveNotebookName
-                                        )
-                                    }
-                                }
-                                .padding(horizontal = 6.dp)
-                                .testTag("format_pdf_tab"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Description,
-                                    contentDescription = null,
-                                    tint = if (isPdf) GeoPrimary else GeoOnSurfaceVariant,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
-                                Text(
-                                    text = "PDF",
-                                    fontSize = 11.5.sp,
-                                    fontWeight = if (isPdf) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isPdf) GeoPrimary else GeoOnSurfaceVariant,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Paper Size & Orientation Selector (Visible for PDF format)
-                if (selectedFormat == ExportSharingManager.ExportFormat.PDF) {
-                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(
-                            text = strings.paperSizeOrientationLabel,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = GeoOnSurfaceVariant,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Paper size selector (arrow-free, slightly rounded)
-                            var paperDropdownExpanded by remember { mutableStateOf(false) }
-                            Box(modifier = Modifier.weight(0.9f)) {
-                                Row(
+                                IconButton(
+                                    onClick = onDismiss,
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(30.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(GeoSurfaceVariant)
-                                        .border(0.8.dp, GeoBorder, RoundedCornerShape(8.dp))
-                                        .clickable { paperDropdownExpanded = true }
-                                        .padding(horizontal = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
+                                        .minimumInteractiveComponentSize()
+                                        .testTag("dismiss_export_dialog")
                                 ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = strings.close,
+                                        tint = mutedText,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                        // Scrollable Content (Includes all sections, filename field, and uniform bottom action buttons without a visible scrollbar)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                                .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 32.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            // 1. Scope Selector
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = strings.exportScopeLabel,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = mutedText,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                                ExportSegmentedRow(
+                                    items = listOf(
+                                        ExportSegmentItem(
+                                            value = DeclensionHistoryExportHelper.ExportScope.NOMEN,
+                                            label = strings.tabExpressions,
+                                            testTag = "scope_tab_nomen"
+                                        ),
+                                        ExportSegmentItem(
+                                            value = DeclensionHistoryExportHelper.ExportScope.VERB,
+                                            label = strings.tabVerb,
+                                            testTag = "scope_tab_verb"
+                                        ),
+                                        ExportSegmentItem(
+                                            value = DeclensionHistoryExportHelper.ExportScope.ADJEKTIV,
+                                            label = strings.tabAdjectives,
+                                            testTag = "scope_tab_adjektiv"
+                                        ),
+                                        ExportSegmentItem(
+                                            value = DeclensionHistoryExportHelper.ExportScope.ALLE,
+                                            label = strings.all,
+                                            testTag = "scope_tab_alle"
+                                        )
+                                    ),
+                                    selectedValue = selectedScope,
+                                    onSelected = { selectedScope = it },
+                                    trackColor = controlSurface,
+                                    accentColor = accentColor,
+                                    primaryText = primaryText,
+                                    mutedText = mutedText
+                                )
+                            }
+
+                            // 2. Format Selector (Excel vs PDF)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = strings.exportFormatSectionLabel,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = mutedText,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                                ExportSegmentedRow(
+                                    items = listOf(
+                                        ExportSegmentItem(
+                                            value = ExportSharingManager.ExportFormat.XLSX,
+                                            label = "Excel (.xlsx)",
+                                            icon = Icons.Default.TableChart,
+                                            testTag = "format_excel_tab"
+                                        ),
+                                        ExportSegmentItem(
+                                            value = ExportSharingManager.ExportFormat.PDF,
+                                            label = "PDF",
+                                            icon = Icons.Default.Description,
+                                            testTag = "format_pdf_tab"
+                                        )
+                                    ),
+                                    selectedValue = selectedFormat,
+                                    onSelected = { newFormat ->
+                                        selectedFormat = newFormat
+                                        if (!hasUserEditedFileName) {
+                                            fileNameInput = ExportSharingManager.buildDefaultExportBaseName(
+                                                newFormat,
+                                                effectiveNotebookName
+                                            )
+                                        }
+                                    },
+                                    trackColor = controlSurface,
+                                    accentColor = accentColor,
+                                    primaryText = primaryText,
+                                    mutedText = mutedText
+                                )
+                            }
+
+                            // Paper Size & Orientation Selector (Visible for PDF format)
+                            if (selectedFormat == ExportSharingManager.ExportFormat.PDF) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(
-                                        text = selectedBaseSize,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = GeoOnSurface,
+                                        text = strings.paperSizeOrientationLabel,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = mutedText,
                                         maxLines = 1,
                                         softWrap = false
                                     )
-                                }
-                                DropdownMenu(
-                                    expanded = paperDropdownExpanded,
-                                    onDismissRequest = { paperDropdownExpanded = false },
-                                    shape = RoundedCornerShape(14.dp),
-                                    containerColor = GeoSurface,
-                                    border = BorderStroke(1.dp, GeoBorder)
-                                ) {
-                                    listOf("A4", "A3", "A5", "Letter").forEach { size ->
-                                        DropdownMenuItem(
-                                            text = { Text(size, fontSize = 12.sp) },
-                                            onClick = {
-                                                selectedBaseSize = size
-                                                paperDropdownExpanded = false
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        var paperDropdownExpanded by remember { mutableStateOf(false) }
+                                        Box(modifier = Modifier.weight(0.85f)) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(40.dp)
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(controlSurface)
+                                                    .clickable { paperDropdownExpanded = true }
+                                                    .padding(horizontal = 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = selectedBaseSize,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = primaryText,
+                                                    maxLines = 1,
+                                                    softWrap = false
+                                                )
+                                                Icon(
+                                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                                    contentDescription = null,
+                                                    tint = mutedText,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
                                             }
-                                        )
+                                            DropdownMenu(
+                                                expanded = paperDropdownExpanded,
+                                                onDismissRequest = { paperDropdownExpanded = false },
+                                                shape = RoundedCornerShape(12.dp),
+                                                containerColor = cardSurface,
+                                                border = BorderStroke(1.dp, dividerColor)
+                                            ) {
+                                                listOf("A4", "A3", "A5", "Letter").forEach { size ->
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Text(
+                                                                text = size,
+                                                                fontSize = 13.sp,
+                                                                fontWeight = if (size == selectedBaseSize) FontWeight.SemiBold else FontWeight.Normal,
+                                                                color = if (size == selectedBaseSize) accentColor else primaryText
+                                                            )
+                                                        },
+                                                        onClick = {
+                                                            selectedBaseSize = size
+                                                            paperDropdownExpanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Box(modifier = Modifier.weight(1.45f)) {
+                                            ExportSegmentedRow(
+                                                items = listOf(
+                                                    ExportSegmentItem(
+                                                        value = false,
+                                                        label = strings.portraitOrientation,
+                                                        testTag = "paper_portrait"
+                                                    ),
+                                                    ExportSegmentItem(
+                                                        value = true,
+                                                        label = strings.landscapeOrientation,
+                                                        testTag = "paper_landscape"
+                                                    )
+                                                ),
+                                                selectedValue = isLandscape,
+                                                onSelected = { isLandscape = it },
+                                                trackColor = controlSurface,
+                                                accentColor = accentColor,
+                                                primaryText = primaryText,
+                                                mutedText = mutedText
+                                            )
+                                        }
                                     }
                                 }
                             }
 
-                            // Orientation Segmented Buttons
+                            // 3 & 4. Combined Font Card (Text & Überschriften separated by a soft divider)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(cardSurface)
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                FontConfigSubsection(
+                                    title = strings.typographyBodyTitle,
+                                    sectionIcon = Icons.AutoMirrored.Filled.FormatAlignLeft,
+                                    fontColorLabel = strings.exportFontColorLabel,
+                                    currentFont = bodyFontFamily,
+                                    onFontSelected = { bodyFontFamily = it },
+                                    currentSize = bodyFontSize,
+                                    onSizeSelectorClicked = { activeFontSizeTarget = "body" },
+                                    currentColorHex = bodyFontColorHex,
+                                    onColorPickerRequested = { activeColorTarget = "body" },
+                                    isBoldPreview = false,
+                                    testTagPrefix = "body",
+                                    controlSurface = controlSurface,
+                                    menuSurface = cardSurface,
+                                    dividerColor = dividerColor,
+                                    accentColor = accentColor,
+                                    primaryText = primaryText,
+                                    mutedText = mutedText
+                                )
+
+                                HorizontalDivider(
+                                    color = dividerColor,
+                                    thickness = 1.dp
+                                )
+
+                                FontConfigSubsection(
+                                    title = strings.typographyHeaderTitle,
+                                    sectionIcon = Icons.Default.Title,
+                                    fontColorLabel = strings.exportFontColorLabel,
+                                    currentFont = headerFontFamily,
+                                    onFontSelected = { headerFontFamily = it },
+                                    currentSize = headerFontSize,
+                                    onSizeSelectorClicked = { activeFontSizeTarget = "header" },
+                                    currentColorHex = headerFontColorHex,
+                                    onColorPickerRequested = { activeColorTarget = "header" },
+                                    isBoldPreview = true,
+                                    testTagPrefix = "header",
+                                    controlSurface = controlSurface,
+                                    menuSurface = cardSurface,
+                                    dividerColor = dividerColor,
+                                    accentColor = accentColor,
+                                    primaryText = primaryText,
+                                    mutedText = mutedText
+                                )
+                            }
+
+                            // 5. Table Color Card (4-Tier Hierarchical System)
+                            ExportTableColorConfigCard(
+                                title = strings.exportTableColorTitle,
+                                subtitle = strings.exportTableColorUntouchedTextHint,
+                                headerSwatchCaption = strings.exportTableHeaderCaption,
+                                defaultNeutralLabel = strings.exportTableColorDefaultNeutral,
+                                colorWheelActionLabel = strings.exportTableColorWheelAction,
+                                calmModeLabel = strings.exportTableColorModeCalm,
+                                vividModeLabel = strings.exportTableColorModeVivid,
+                                seedColorHex = exportTableSeedColorHex,
+                                isVividMode = isTableColorVivid,
+                                onModeChanged = { vivid ->
+                                    isTableColorVivid = vivid
+                                    CustomColorManager.setExportTableColorVividMode(context, vivid)
+                                    if (exportTableSeedColorHex.isBlank()) {
+                                        exportTableSeedColorHex = "#2979FF"
+                                        CustomColorManager.setExportTableSeedColor(context, "#2979FF")
+                                    }
+                                },
+                                onOpenColorWheel = { activeColorTarget = "table" },
+                                cardSurface = cardSurface,
+                                controlSurface = controlSurface,
+                                accentColor = accentColor,
+                                primaryText = primaryText,
+                                mutedText = mutedText
+                            )
+
+                            // 6. File Name Input Section (Proportional text, middle-ellipsis display, attached fixed suffix)
+                            FileNameFieldWithSuffix(
+                                label = strings.fileNameLabel,
+                                value = fileNameInput,
+                                placeholder = defaultBaseName,
+                                extensionSuffix = ".${selectedFormat.extension}",
+                                onValueChange = { input ->
+                                    hasUserEditedFileName = true
+                                    fileNameInput = input.trimStart('.')
+                                },
+                                controlSurface = controlSurface,
+                                dividerColor = dividerColor,
+                                accentColor = accentColor,
+                                primaryText = primaryText,
+                                mutedText = mutedText
+                            )
+
+                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                            // 7. Uniform Bottom Action Buttons (Consistent equal width, height, corner shape, and layout inside scroll flow)
                             Row(
                                 modifier = Modifier
-                                    .weight(1.3f)
-                                    .height(30.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(GeoSurfaceVariant)
-                                    .padding(2.dp),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    .fillMaxWidth()
+                                    .padding(top = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                listOf(false to strings.portraitOrientation, true to strings.landscapeOrientation).forEach { (landscape, label) ->
-                                    val isSelected = isLandscape == landscape
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(26.dp)
-                                            .clip(RoundedCornerShape(5.dp))
-                                            .background(Color.Transparent)
-                                            .border(
-                                                width = if (isSelected) 1.5.dp else 1.dp,
-                                                color = if (isSelected) GeoPrimary else Color.Transparent,
-                                                shape = RoundedCornerShape(5.dp)
-                                            )
-                                            .clickable { isLandscape = landscape }
-                                            .testTag(if (landscape) "paper_landscape" else "paper_portrait"),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = label,
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (isSelected) GeoPrimary else GeoOnSurfaceVariant,
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Customization: Body Text
-                TypographyConfigCard(
-                    title = strings.typographyBodyTitle,
-                    currentFont = bodyFontFamily,
-                    onFontSelected = { bodyFontFamily = it },
-                    currentSize = bodyFontSize,
-                    onSizeSelectorClicked = { activeFontSizeTarget = "body" },
-                    currentColorHex = bodyFontColorHex,
-                    onColorPickerRequested = { activeColorTarget = "body" },
-                    testTagPrefix = "body"
-                )
-
-                // Customization: Headers
-                TypographyConfigCard(
-                    title = strings.typographyHeaderTitle,
-                    currentFont = headerFontFamily,
-                    onFontSelected = { headerFontFamily = it },
-                    currentSize = headerFontSize,
-                    onSizeSelectorClicked = { activeFontSizeTarget = "header" },
-                    currentColorHex = headerFontColorHex,
-                    onColorPickerRequested = { activeColorTarget = "header" },
-                    testTagPrefix = "header"
-                )
-
-                // File Name Input Section
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        text = strings.fileNameLabel,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = GeoOnSurfaceVariant,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    OutlinedTextField(
-                        value = fileNameInput,
-                        onValueChange = { input ->
-                            hasUserEditedFileName = true
-                            fileNameInput = input.trimStart('.')
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("file_name_input"),
-                        singleLine = true,
-                        placeholder = {
-                            Text(
-                                text = defaultBaseName,
-                                fontSize = 13.sp,
-                                color = GeoOnSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        },
-                        trailingIcon = {
-                            Text(
-                                text = ".${selectedFormat.extension}",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = GeoOnSurfaceVariant,
-                                modifier = Modifier.padding(end = 12.dp)
-                            )
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GeoPrimary,
-                            unfocusedBorderColor = GeoBorder,
-                            focusedContainerColor = GeoSurface,
-                            unfocusedContainerColor = GeoSurface
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                // Action Buttons Side by Side (Confirm / Save & Share / Cancel)
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // Share Button (Standardized Decline-Style Outline)
-                        OutlinedButton(
-                            onClick = {
-                                val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
-                                ExportSharingManager.shareUnifiedSearchHistory(
-                                    context = context,
-                                    nouns = effectiveNouns,
-                                    verbs = effectiveVerbs,
-                                    adjectives = effectiveAdjektive,
-                                    scope = selectedScope,
-                                    format = selectedFormat,
-                                    customBaseName = sanitizedBase,
-                                    paperSize = selectedPaperSize,
-                                    typography = currentTypography,
-                                    notebookName = effectiveNotebookName
-                                )
-                                onDismiss()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp)
-                                .testTag("export_share_button"),
-                            border = BorderStroke(1.dp, GeoBorder),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = GeoOnSurface
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = null,
-                                    tint = GeoOnSurface,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                AutoSizingText(
-                                    text = strings.share,
-                                    maxFontSize = 12.5.sp,
-                                    minFontSize = 9.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = GeoOnSurface
-                                )
-                            }
-                        }
-
-                        // Confirm / Save Button (Standardized Decline-Style Outline)
-                        OutlinedButton(
-                            onClick = {
-                                val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
-                                val targetFileName = ExportSharingManager.buildFileName(sanitizedBase, selectedFormat, effectiveNotebookName)
-                                try {
-                                    saveFileLauncher.launch(targetFileName)
-                                } catch (e: Exception) {
-                                    // Fallback directly to Downloads folder if picker unavailable
-                                    ExportSharingManager.saveUnifiedToDownloads(
-                                        context = context,
-                                        nouns = effectiveNouns,
-                                        verbs = effectiveVerbs,
-                                        adjectives = effectiveAdjektive,
-                                        scope = selectedScope,
-                                        format = selectedFormat,
-                                        customBaseName = sanitizedBase,
-                                        paperSize = selectedPaperSize,
-                                        typography = currentTypography,
-                                        notebookName = effectiveNotebookName
+                                // Cancel button
+                                OutlinedButton(
+                                    onClick = onDismiss,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("export_cancel_button"),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = controlSurface,
+                                        contentColor = primaryText
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = null,
+                                        tint = mutedText,
+                                        modifier = Modifier.size(15.dp)
                                     )
-                                    onDismiss()
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    AutoSizingText(
+                                        text = strings.cancel,
+                                        maxFontSize = 13.sp,
+                                        minFontSize = 9.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = primaryText
+                                    )
                                 }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp)
-                                .testTag("export_save_button"),
-                            border = BorderStroke(1.dp, GeoBorder),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = GeoOnSurface
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Save,
-                                    contentDescription = null,
-                                    tint = GeoOnSurface,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                AutoSizingText(
-                                    text = strings.confirm,
-                                    maxFontSize = 12.5.sp,
-                                    minFontSize = 9.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = GeoOnSurface
-                                )
+
+                                // Share button
+                                OutlinedButton(
+                                    onClick = {
+                                        val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
+                                        ExportSharingManager.shareUnifiedSearchHistory(
+                                            context = context,
+                                            nouns = effectiveNouns,
+                                            verbs = effectiveVerbs,
+                                            adjectives = effectiveAdjektive,
+                                            scope = selectedScope,
+                                            format = selectedFormat,
+                                            customBaseName = sanitizedBase,
+                                            paperSize = selectedPaperSize,
+                                            typography = currentTypography,
+                                            notebookName = effectiveNotebookName
+                                        )
+                                        onDismiss()
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("export_share_button"),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = controlSurface,
+                                        contentColor = primaryText
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = null,
+                                        tint = primaryText,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    AutoSizingText(
+                                        text = strings.share,
+                                        maxFontSize = 13.sp,
+                                        minFontSize = 9.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = primaryText
+                                    )
+                                }
+
+                                // Confirm button
+                                Button(
+                                    onClick = {
+                                        val sanitizedBase = ExportSharingManager.sanitizeFileName(fileNameInput)
+                                        val targetFileName = ExportSharingManager.buildFileName(sanitizedBase, selectedFormat, effectiveNotebookName)
+                                        try {
+                                            saveFileLauncher.launch(targetFileName)
+                                        } catch (e: Exception) {
+                                            ExportSharingManager.saveUnifiedToDownloads(
+                                                context = context,
+                                                nouns = effectiveNouns,
+                                                verbs = effectiveVerbs,
+                                                adjectives = effectiveAdjektive,
+                                                scope = selectedScope,
+                                                format = selectedFormat,
+                                                customBaseName = sanitizedBase,
+                                                paperSize = selectedPaperSize,
+                                                typography = currentTypography,
+                                                notebookName = effectiveNotebookName
+                                            )
+                                            onDismiss()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("export_save_button"),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = accentColor,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Save,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    AutoSizingText(
+                                        text = strings.confirm,
+                                        maxFontSize = 13.sp,
+                                        minFontSize = 9.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
                             }
                         }
-                    }
-
-                    // Cancel Button (Uniform 42.dp height and 10.dp radius)
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(42.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, GeoBorder),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        AutoSizingText(
-                            text = strings.cancel,
-                            maxFontSize = 12.5.sp,
-                            minFontSize = 9.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = GeoOnSurface
-                        )
                     }
                 }
             }
         }
-    }
 
-    // Color Picker Modal Dialog
-    if (activeColorTarget != null) {
-        val initialColor = if (activeColorTarget == "body") bodyFontColorHex else headerFontColorHex
-        NatureGradientSphereColorPicker(
-            initialColorHex = initialColor,
-            onColorChosen = { chosenHex ->
-                if (activeColorTarget == "body") {
-                    bodyFontColorHex = chosenHex
-                } else {
-                    headerFontColorHex = chosenHex
-                }
-                activeColorTarget = null
-            },
-            onDismiss = { activeColorTarget = null }
-        )
-    }
+        // Unified Color Wheel Modal Dialog (Serves Body Font, Header Font, and Table Color)
+        if (activeColorTarget != null) {
+            val target = activeColorTarget
+            val isTableTarget = (target == "table")
+            val initialWheelHex = when (target) {
+                "body" -> bodyFontColorHex
+                "header" -> headerFontColorHex
+                else -> if (exportTableSeedColorHex.isNotBlank()) exportTableSeedColorHex else "#2979FF"
+            }
+            NatureGradientSphereColorPicker(
+                initialColorHex = initialWheelHex,
+                onColorChosen = { chosenHex ->
+                    when (target) {
+                        "body" -> {
+                            bodyFontColorHex = chosenHex
+                            CustomColorManager.setExportBodyFontColor(context, chosenHex)
+                        }
+                        "header" -> {
+                            headerFontColorHex = chosenHex
+                            CustomColorManager.setExportHeaderFontColor(context, chosenHex)
+                        }
+                        "table" -> {
+                            exportTableSeedColorHex = chosenHex
+                            CustomColorManager.setExportTableSeedColor(context, chosenHex)
+                        }
+                    }
+                    activeColorTarget = null
+                },
+                onDismiss = { activeColorTarget = null },
+                isExportTableColorMode = isTableTarget,
+                isVividTableColorMode = isTableColorVivid,
+                onResetDefaultNeutral = if (isTableTarget) {
+                    {
+                        exportTableSeedColorHex = ""
+                        CustomColorManager.setExportTableSeedColor(context, "")
+                        activeColorTarget = null
+                    }
+                } else null
+            )
+        }
 
-    // Font Size Picker Centered Dialog
-    if (activeFontSizeTarget != null) {
-        val currentSz = if (activeFontSizeTarget == "body") bodyFontSize else headerFontSize
-        FontSizePickerDialog(
-            initialSize = currentSz,
-            onSizeSelected = { newSz ->
-                if (activeFontSizeTarget == "body") {
-                    bodyFontSize = newSz
-                } else {
-                    headerFontSize = newSz
-                }
-                activeFontSizeTarget = null
-            },
-            onDismiss = { activeFontSizeTarget = null }
-        )
+        // Font Size Picker Centered Dialog
+        if (activeFontSizeTarget != null) {
+            val currentSz = if (activeFontSizeTarget == "body") bodyFontSize else headerFontSize
+            FontSizePickerDialog(
+                initialSize = currentSz,
+                onSizeSelected = { newSz ->
+                    if (activeFontSizeTarget == "body") {
+                        bodyFontSize = newSz
+                    } else {
+                        headerFontSize = newSz
+                    }
+                    activeFontSizeTarget = null
+                },
+                onDismiss = { activeFontSizeTarget = null }
+            )
+        }
     }
+}
+
+private data class ExportSegmentItem<T>(
+    val value: T,
+    val label: String,
+    val icon: ImageVector? = null,
+    val testTag: String? = null
+)
+
+/**
+ * Unified segmented selector across all toggle controls:
+ * - Selected: filled accent tint + 1.dp accent border + high-contrast accent text
+ * - Unselected: flat & muted on the control track
+ */
+@Composable
+private fun <T> ExportSegmentedRow(
+    items: List<ExportSegmentItem<T>>,
+    selectedValue: T,
+    onSelected: (T) -> Unit,
+    trackColor: Color,
+    accentColor: Color,
+    primaryText: Color,
+    mutedText: Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(trackColor)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items.forEach { item ->
+            val isSelected = item.value == selectedValue
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) accentColor.copy(alpha = 0.18f) else Color.Transparent)
+                    .border(
+                        width = if (isSelected) 1.dp else 0.dp,
+                        color = if (isSelected) accentColor else Color.Transparent,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .clickable { onSelected(item.value) }
+                    .padding(horizontal = 6.dp)
+                    .let { mod -> if (item.testTag != null) mod.testTag(item.testTag) else mod },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                if (item.icon != null) {
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = null,
+                        tint = if (isSelected) accentColor else mutedText,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text(
+                    text = item.label,
+                    fontSize = 12.5.sp,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isSelected) accentColor else mutedText,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
 /**
- * Compact card container displaying font family, font size, and color controls.
+ * Shared Font & Color Subsection inside the Combined Font Card.
+ * Fixed internal rhythm: Title (alone on line) -> Controls (Font + Size) -> Color Row -> Full-Width Preview.
  */
 @Composable
-private fun TypographyConfigCard(
+private fun FontConfigSubsection(
     title: String,
+    sectionIcon: ImageVector,
+    fontColorLabel: String,
     currentFont: String,
     onFontSelected: (String) -> Unit,
     currentSize: Float,
     onSizeSelectorClicked: () -> Unit,
     currentColorHex: String,
     onColorPickerRequested: () -> Unit,
-    testTagPrefix: String
+    isBoldPreview: Boolean,
+    testTagPrefix: String,
+    controlSurface: Color,
+    menuSurface: Color,
+    dividerColor: Color,
+    accentColor: Color,
+    primaryText: Color,
+    mutedText: Color
 ) {
     var fontDropdownExpanded by remember { mutableStateOf(false) }
 
     val colorInt = remember(currentColorHex) {
         DeclensionHistoryExportHelper.parseHexColor(currentColorHex)
     }
-    val colorLabel = remember(currentColorHex) {
+    val colorName = remember(currentColorHex) {
         val found = DeclensionHistoryExportHelper.PREDEFINED_COLORS.find {
             it.second.equals(currentColorHex, ignoreCase = true)
         }
-        if (found != null) "${found.first} ($currentColorHex)" else currentColorHex
+        found?.first ?: fontColorLabel
     }
-
     val selectedComposeFont = remember(currentFont) {
         DeclensionHistoryExportHelper.getComposeFontFamily(currentFont)
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(GeoSurfaceVariant)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // 1. Title alone on its line with distinct monochrome icon
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = title,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = GeoOnSurface,
-                maxLines = 1,
-                softWrap = false
+            Icon(
+                imageVector = sectionIcon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(18.dp)
             )
             Text(
-                text = "Aa Bb Ää العربية",
-                fontFamily = selectedComposeFont,
-                fontSize = currentSize.coerceIn(9f, 15f).sp,
-                fontWeight = if (testTagPrefix == "header") FontWeight.Bold else FontWeight.Normal,
-                color = Color(colorInt),
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = primaryText,
                 maxLines = 1,
                 softWrap = false
             )
         }
 
-        // Row 1: Font Type & Font Size side by side (clean, arrow-free, slightly rounded)
+        // 2. Controls: Font Type & Font Size (identical height, text style, alignment & affordance cues)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -968,32 +1082,41 @@ private fun TypographyConfigCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(30.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(GeoSurface)
-                        .border(0.8.dp, GeoBorder, RoundedCornerShape(8.dp))
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(controlSurface)
                         .clickable { fontDropdownExpanded = true }
-                        .padding(horizontal = 10.dp)
+                        .padding(horizontal = 12.dp)
                         .testTag("${testTagPrefix}_font_selector"),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
                         text = currentFont,
                         fontFamily = selectedComposeFont,
-                        fontSize = 11.5.sp,
-                        color = GeoOnSurface,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = primaryText,
                         maxLines = 1,
-                        softWrap = false
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = mutedText,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
                 DropdownMenu(
                     expanded = fontDropdownExpanded,
                     onDismissRequest = { fontDropdownExpanded = false },
-                    shape = RoundedCornerShape(14.dp),
-                    containerColor = GeoSurface,
-                    border = BorderStroke(1.dp, GeoBorder)
+                    shape = RoundedCornerShape(12.dp),
+                    containerColor = menuSurface,
+                    border = BorderStroke(1.dp, dividerColor)
                 ) {
                     DeclensionHistoryExportHelper.AVAILABLE_FONTS.forEach { font ->
                         val itemComposeFont = remember(font) {
@@ -1009,15 +1132,16 @@ private fun TypographyConfigCard(
                                     Text(
                                         text = font,
                                         fontFamily = itemComposeFont,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = if (font == currentFont) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (font == currentFont) GeoPrimary else GeoOnSurface
+                                        fontSize = 13.sp,
+                                        fontWeight = if (font == currentFont) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (font == currentFont) accentColor else primaryText
                                     )
+                                    Spacer(modifier = Modifier.width(12.dp))
                                     Text(
                                         text = "Aa Ää",
                                         fontFamily = itemComposeFont,
-                                        fontSize = 11.sp,
-                                        color = GeoOnSurfaceVariant
+                                        fontSize = 12.sp,
+                                        color = mutedText
                                     )
                                 }
                             },
@@ -1030,61 +1154,523 @@ private fun TypographyConfigCard(
                 }
             }
 
-            // Font Size Selector (Triggers Font Size Dialog — no arrow icon)
+            // Font Size Selector (identical style, alignment, and tappable cue)
             val sizeDisplay = if (currentSize % 1.0f == 0.0f) "${currentSize.toInt()} pt" else "$currentSize pt"
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(GeoSurface)
-                    .border(0.8.dp, GeoBorder, RoundedCornerShape(8.dp))
+                    .height(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(controlSurface)
                     .clickable { onSizeSelectorClicked() }
-                    .padding(horizontal = 10.dp)
+                    .padding(horizontal = 12.dp)
                     .testTag("${testTagPrefix}_size_selector"),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = sizeDisplay,
-                    fontSize = 11.5.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = GeoOnSurface,
+                    color = primaryText,
                     maxLines = 1,
                     softWrap = false
+                )
+                Icon(
+                    imageVector = Icons.Default.UnfoldMore,
+                    contentDescription = null,
+                    tint = mutedText,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
 
-        // Row 2: Color Picker Trigger (clean, arrow-free)
-        Row(
+        // 3. Color Row: Swatch, Full Color Name (never truncated), plain #HEX, Palette button
+        UnifiedExportColorRow(
+            colorName = colorName,
+            hexText = currentColorHex.uppercase(),
+            onOpenColorWheel = onColorPickerRequested,
+            selectorTestTag = "${testTagPrefix}_color_selector",
+            controlSurface = controlSurface,
+            accentColor = accentColor,
+            primaryText = primaryText,
+            mutedText = mutedText,
+            leadingSwatch = {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(colorInt))
+                        .border(1.dp, dividerColor, RoundedCornerShape(6.dp))
+                )
+            }
+        )
+
+        // 4. Compact sample preview pill sized appropriately to its content
+        UnifiedTypographyPreview(
+            fontFamily = selectedComposeFont,
+            colorInt = colorInt,
+            isBold = isBoldPreview,
+            controlSurface = controlSurface,
+            modifier = Modifier.wrapContentWidth()
+        )
+    }
+}
+
+/**
+ * Modest, single-baseline bidirectional sample preview ("Aa Bb Ää العربية")
+ * reflecting the chosen font family and color with automatic paper-pill contrast safety.
+ */
+@Composable
+private fun UnifiedTypographyPreview(
+    fontFamily: FontFamily,
+    colorInt: Int,
+    isBold: Boolean,
+    controlSurface: Color,
+    modifier: Modifier = Modifier
+) {
+    val isDark = LocalIsDarkTheme.current
+    val inkColor = Color(colorInt)
+    val luminance = (0.299f * inkColor.red + 0.587f * inkColor.green + 0.114f * inkColor.blue)
+    val previewBg = if (isDark && luminance < 0.28f) {
+        Color(0xFFE6E9EE)
+    } else if (!isDark && luminance > 0.78f) {
+        Color(0xFF1F242D)
+    } else {
+        controlSurface
+    }
+
+    Box(
+        modifier = modifier
+            .wrapContentWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(previewBg)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = "Aa Bb Ää العربية",
+            style = TextStyle(
+                fontFamily = fontFamily,
+                fontSize = 13.sp,
+                fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+                color = inkColor,
+                textDirection = TextDirection.Ltr,
+                lineHeight = 16.sp,
+                lineHeightStyle = LineHeightStyle(
+                    alignment = LineHeightStyle.Alignment.Center,
+                    trim = LineHeightStyle.Trim.None
+                )
+            ),
+            maxLines = 1,
+            softWrap = false
+        )
+    }
+}
+
+/**
+ * Unified flat color row shared by Text, Überschriften, and Tabellenfarbe:
+ * [Swatch] + [Full Color Name (never an ellipsis)] + [Plain readable #HEX] + [Palette button].
+ */
+@Composable
+private fun UnifiedExportColorRow(
+    colorName: String,
+    hexText: String,
+    onOpenColorWheel: () -> Unit,
+    selectorTestTag: String,
+    controlSurface: Color,
+    accentColor: Color,
+    primaryText: Color,
+    mutedText: Color,
+    leadingSwatch: @Composable () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 42.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(controlSurface)
+            .clickable { onOpenColorWheel() }
+            .padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp)
+            .testTag(selectorTestTag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        leadingSwatch()
+
+        Text(
+            text = colorName,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = primaryText,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.weight(1f)
+        )
+
+        Text(
+            text = hexText,
+            style = TextStyle(
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = mutedText,
+                fontFeatureSettings = "tnum"
+            ),
+            maxLines = 1,
+            softWrap = false
+        )
+
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(30.dp)
+                .size(32.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(GeoSurface)
-                .border(0.8.dp, GeoBorder, RoundedCornerShape(8.dp))
-                .clickable { onColorPickerRequested() }
-                .padding(horizontal = 10.dp)
-                .testTag("${testTagPrefix}_color_selector"),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
+                .background(accentColor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
         ) {
+            Icon(
+                imageVector = Icons.Default.Palette,
+                contentDescription = colorName,
+                tint = accentColor,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Dedicated Export Table Color Card:
+ * 1. Title alone on line 1 (with monochrome TableChart icon)
+ * 2. Subtitle on line 2 ("4-Stufen-Hierarchie")
+ * 3. Segmented toggle ("Sanfte Töne" / "Originalfarbe")
+ * 4. Unified Color Row with a single continuous 4-tier strip (Kopfzeile caption above + accent highlight on header segment) & matching #HEX
+ */
+@Composable
+private fun ExportTableColorConfigCard(
+    title: String,
+    subtitle: String,
+    headerSwatchCaption: String,
+    defaultNeutralLabel: String,
+    colorWheelActionLabel: String,
+    calmModeLabel: String,
+    vividModeLabel: String,
+    seedColorHex: String,
+    isVividMode: Boolean,
+    onModeChanged: (Boolean) -> Unit,
+    onOpenColorWheel: () -> Unit,
+    cardSurface: Color,
+    controlSurface: Color,
+    accentColor: Color,
+    primaryText: Color,
+    mutedText: Color
+) {
+    val palette = remember(seedColorHex, isVividMode) {
+        DeclensionHistoryExportHelper.resolveExportTableColorPalette(seedColorHex, isVividMode)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(cardSurface)
+            .padding(14.dp)
+            .testTag("export_table_color_card"),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // 1. Title alone on its line + 2. Quieter subtitle below it
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(colorInt))
-                        .border(1.dp, GeoBorder, RoundedCornerShape(4.dp))
+                Icon(
+                    imageVector = Icons.Default.TableChart,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(18.dp)
                 )
                 Text(
-                    text = colorLabel,
-                    fontSize = 11.5.sp,
-                    color = GeoOnSurface,
+                    text = title,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = primaryText,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+            Text(
+                text = subtitle,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = mutedText,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.padding(start = 26.dp)
+            )
+        }
+
+        // 3. Controls: Segmented 2-Option Mode Switcher ("Sanfte Töne" / "Originalfarbe")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(controlSurface)
+                .padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val isCalmSelected = !isVividMode
+            val isVividSelected = isVividMode
+
+            listOf(
+                Triple(false, calmModeLabel, "export_table_mode_calm"),
+                Triple(true, vividModeLabel, "export_table_mode_vivid")
+            ).forEach { (vividOption, label, tag) ->
+                val isSelected = if (vividOption) isVividSelected else isCalmSelected
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSelected) accentColor.copy(alpha = 0.18f) else Color.Transparent)
+                        .border(
+                            width = if (isSelected) 1.dp else 0.dp,
+                            color = if (isSelected) accentColor else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable { onModeChanged(vividOption) }
+                        .padding(horizontal = 8.dp)
+                        .testTag(tag),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 12.5.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isSelected) accentColor else mutedText,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
+        }
+
+        // 4. Unified Color Row with single continuous 4-tier tonal strip + clean "Kopfzeile" caption above
+        val activeColorLabel = if (palette.isDefaultNeutral) {
+            defaultNeutralLabel
+        } else {
+            val foundName = DeclensionHistoryExportHelper.PREDEFINED_COLORS.find {
+                it.second.equals(seedColorHex, ignoreCase = true)
+            }?.first
+            foundName ?: colorWheelActionLabel
+        }
+        // Always display the exact HEX of the highlighted Tier 1 Kopfzeile tone so strip & HEX match
+        val displayedHeaderHex = if (palette.isDefaultNeutral) {
+            "#D9D9D9"
+        } else {
+            palette.tier1HeaderFillHex.uppercase()
+        }
+
+        UnifiedExportColorRow(
+            colorName = activeColorLabel,
+            hexText = displayedHeaderHex,
+            onOpenColorWheel = onOpenColorWheel,
+            selectorTestTag = "export_table_color_selector",
+            controlSurface = controlSurface,
+            accentColor = accentColor,
+            primaryText = primaryText,
+            mutedText = mutedText,
+            leadingSwatch = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = headerSwatchCaption,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = mutedText,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Row(
+                        modifier = Modifier
+                            .width(64.dp)
+                            .height(20.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .border(
+                                width = 0.75.dp,
+                                color = Color(palette.tier3MajorBorderColorInt).copy(alpha = 0.75f),
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .testTag("export_table_color_strip"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // First segment: Tier 1 Header ("Kopfzeile"), subtly ringed with accentColor
+                        Box(
+                            modifier = Modifier
+                                .width(22.dp)
+                                .fillMaxHeight()
+                                .background(Color(palette.tier1HeaderFillColorInt))
+                                .border(
+                                    width = 1.5.dp,
+                                    color = accentColor,
+                                    shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp)
+                                )
+                        )
+                        // Remaining 3 tones joined seamlessly as one continuous hierarchy strip
+                        listOf(
+                            palette.tier2SecondaryBlockFillColorInt,
+                            palette.tier2PrimaryBlockFillColorInt,
+                            palette.tier3MajorBorderColorInt
+                        ).forEach { cInt ->
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .background(Color(cInt))
+                            )
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Proportional filename field matching control text size, with obvious editable affordance,
+ * middle-ellipsis truncation when unfocused, and a fixed attached extension compartment.
+ */
+@Composable
+private fun FileNameFieldWithSuffix(
+    label: String,
+    value: String,
+    placeholder: String,
+    extensionSuffix: String,
+    onValueChange: (String) -> Unit,
+    controlSurface: Color,
+    dividerColor: Color,
+    accentColor: Color,
+    primaryText: Color,
+    mutedText: Color
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = mutedText,
+            maxLines = 1,
+            softWrap = false
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(controlSurface)
+                .border(
+                    width = if (isFocused) 1.5.dp else 0.dp,
+                    color = if (isFocused) accentColor else Color.Transparent,
+                    shape = RoundedCornerShape(10.dp)
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(modifier = Modifier.width(12.dp))
+            Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = null,
+                tint = if (isFocused) accentColor else mutedText,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+
+            val textMeasurer = rememberTextMeasurer()
+            val fieldStyle = remember(primaryText) {
+                TextStyle(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = primaryText
+                )
+            }
+
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                textStyle = TextStyle(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isFocused) primaryText else Color.Transparent
+                ),
+                cursorBrush = SolidColor(accentColor),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp)
+                    .onFocusChanged { focusState -> isFocused = focusState.isFocused }
+                    .testTag("file_name_input"),
+                decorationBox = { innerTextField ->
+                    BoxWithConstraints(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        val maxWidthPx = constraints.maxWidth
+                        val rawDisplay = value.ifEmpty { placeholder }
+                        val ellipsizedDisplay = remember(rawDisplay, maxWidthPx, fieldStyle) {
+                            ellipsizeMiddleToFit(
+                                text = rawDisplay,
+                                maxWidthPx = maxWidthPx,
+                                textMeasurer = textMeasurer,
+                                style = fieldStyle
+                            )
+                        }
+                        if (isFocused) {
+                            if (value.isEmpty()) {
+                                Text(
+                                    text = ellipsizedDisplay,
+                                    fontSize = 13.sp,
+                                    color = mutedText.copy(alpha = 0.6f),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                            innerTextField()
+                        } else {
+                            Text(
+                                text = ellipsizedDisplay,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (value.isEmpty()) mutedText.copy(alpha = 0.6f) else primaryText,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
+                }
+            )
+
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .fillMaxHeight(0.55f)
+                    .background(dividerColor)
+            )
+
+            Box(
+                modifier = Modifier.padding(horizontal = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = extensionSuffix,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = mutedText,
                     maxLines = 1,
                     softWrap = false
                 )
@@ -1093,9 +1679,32 @@ private fun TypographyConfigCard(
     }
 }
 
+private fun ellipsizeMiddleToFit(
+    text: String,
+    maxWidthPx: Int,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    style: TextStyle
+): String {
+    if (text.isEmpty() || maxWidthPx <= 0) return text
+    val fullWidth = textMeasurer.measure(text = text, style = style, maxLines = 1, softWrap = false).size.width
+    if (fullWidth <= maxWidthPx) return text
 
-
-
+    var low = 1
+    var high = (text.length - 1) / 2
+    var best = "…"
+    while (low <= high) {
+        val mid = (low + high) / 2
+        val candidate = text.take(mid) + "…" + text.takeLast(mid)
+        val w = textMeasurer.measure(text = candidate, style = style, maxLines = 1, softWrap = false).size.width
+        if (w <= maxWidthPx) {
+            best = candidate
+            low = mid + 1
+        } else {
+            high = mid - 1
+        }
+    }
+    return best
+}
 
 /**
  * Modern Centered Dialog for selecting font size:
@@ -1446,7 +2055,7 @@ private fun FontSizePickerDialog(
                             )
                         }
 
-                        OutlinedButton(
+                        Button(
                             onClick = {
                                 val parsed = customInputText.replace(',', '.').toFloatOrNull()
                                 val finalSz = if (parsed != null && parsed >= 1f && parsed <= 1638f) {
@@ -1463,15 +2072,17 @@ private fun FontSizePickerDialog(
                                 .testTag("font_size_confirm_button"),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
                         ) {
                             AutoSizingText(
                                 text = strings.confirm,
                                 maxFontSize = 13.sp,
                                 minFontSize = 9.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -1481,3 +2092,8 @@ private fun FontSizePickerDialog(
     }
 }
 
+private tailrec fun Context.findHostActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findHostActivity()
+    else -> null
+}

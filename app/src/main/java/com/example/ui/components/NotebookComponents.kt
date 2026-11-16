@@ -26,10 +26,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.MenuBook
@@ -40,8 +42,10 @@ import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -134,7 +138,7 @@ fun NotebookSwitcher(
                     )
 
                     Text(
-                        text = activeNotebook?.name ?: "Allgemein",
+                        text = activeNotebook?.name?.takeIf { it.isNotBlank() } ?: "",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = palette.onSurface,
@@ -170,15 +174,15 @@ fun NotebookSwitcher(
                                 id = DropdownNotebookTab.PRIMARY.name,
                                 label = strings.primaryNotebooksTab,
                                 count = null,
-                                selectedIcon = Icons.Filled.Book,
-                                unselectedIcon = Icons.Outlined.Book,
+                                selectedIcon = Icons.Filled.Bookmark,
+                                unselectedIcon = Icons.Outlined.BookmarkBorder,
                                 testTag = "dropdown_tab_primary"
                             ),
                             SegmentedPillItem(
                                 id = DropdownNotebookTab.BACKUP_FOLDER.name,
                                 label = strings.backupNotebooksTab,
                                 count = null,
-                                selectedIcon = Icons.Filled.FolderSpecial,
+                                selectedIcon = Icons.Filled.Folder,
                                 unselectedIcon = Icons.Outlined.Folder,
                                 testTag = "dropdown_tab_backup"
                             )
@@ -846,22 +850,22 @@ fun JsonExportActionDialog(
                             )
                         }
 
-                        OutlinedButton(
+                        Button(
                             onClick = onSaveToFile,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(44.dp),
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, palette.cardBorder),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = palette.onSurface
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = palette.primary,
+                                contentColor = palette.onPrimary
                             ),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Save,
                                 contentDescription = null,
-                                tint = palette.onSurface,
+                                tint = palette.onPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -870,7 +874,7 @@ fun JsonExportActionDialog(
                                 maxFontSize = 12.5.sp,
                                 minFontSize = 9.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = palette.onSurface
+                                color = palette.onPrimary
                             )
                         }
                     }

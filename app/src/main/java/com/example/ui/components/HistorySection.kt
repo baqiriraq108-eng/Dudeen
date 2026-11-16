@@ -715,22 +715,24 @@ fun ClearHistoryConfirmDialog(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                OutlinedButton(
+                Button(
                     onClick = onConfirm,
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
                         .testTag("confirm_clear_history"),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, GeoBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
                     AutoSizingText(
                         text = strings.confirm,
                         maxFontSize = 13.sp,
                         minFontSize = 9.5.sp,
-                        color = GeoOnSurface,
+                        color = MaterialTheme.colorScheme.onError,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -794,22 +796,24 @@ fun DeleteHistoryItemConfirmDialog(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                OutlinedButton(
+                Button(
                     onClick = onConfirm,
                     modifier = Modifier
                         .weight(1f)
                         .height(42.dp)
                         .testTag("confirm_delete_history_item"),
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, GeoBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GeoOnSurface),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
                 ) {
                     AutoSizingText(
                         text = strings.confirm,
                         maxFontSize = 13.sp,
                         minFontSize = 9.5.sp,
-                        color = GeoOnSurface,
+                        color = MaterialTheme.colorScheme.onError,
                         fontWeight = FontWeight.SemiBold
                     )
                 }

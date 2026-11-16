@@ -107,11 +107,220 @@ object DeclensionHistoryExportHelper {
         val bodyFontColorHex: String = "#000000",
         val headerFontSize: Float = 14f,
         val headerFontFamily: String = "Arial",
-        val headerFontColorHex: String = "#000000"
+        val headerFontColorHex: String = "#000000",
+        val tableSeedColorHex: String = "",
+        val isTableColorVivid: Boolean = false
     ) {
         companion object {
             val DEFAULT = ExportTypographyOptions()
         }
+    }
+
+    data class HslTierSpec(
+        val hue: Float,        // 0..360
+        val saturation: Float, // 0..1
+        val lightness: Float   // 0..1
+    ) {
+        val saturationPercent: Float get() = saturation * 100f
+        val lightnessPercent: Float get() = lightness * 100f
+    }
+
+    /**
+     * Dual-Mode 4-Tier Hierarchical Table Color Palette derived from a single Seed Color:
+     * 1. Calm Mode (isVividMode = false):
+     *    - Tier 1: Table Header Row Fill (S: 48%–62%, L: 74%–80%)
+     *    - Tier 2A: Primary Block Fill — Odd Verb/Entry Groups (S: 24%–34%, L: 94%–95.5%)
+     *    - Tier 2B: Secondary Block Fill — Even Verb/Entry Groups (S: 35%–48%, L: 86%–89%)
+     *    - Tier 3: Major Structural Borders — Header Bottom & Group Separators (S: 50%–65%, L: 52%–60%)
+     *    - Tier 4: Inner Cell Gridlines (S: 32%–45%, L: 76%–81%)
+     * 2. Actual / Vivid Mode (isVividMode = true):
+     *    - Tier 1: Exact chosen seedColorHex from the Color Wheel
+     *    - Tier 2A: Primary Block Fill (S: max(28%, seedS*0.55), L: 91%–93%)
+     *    - Tier 2B: Secondary Block Fill (S: max(42%, seedS*0.72), L: 81%–85%)
+     *    - Tier 3: Major Structural Borders (S: max(55%, seedS*0.85), L: 35%–50%)
+     *    - Tier 4: Inner Cell Gridlines (S: max(38%, seedS*0.60), L: 70%–76%)
+     */
+    data class ExportTableColorPalette(
+        val isDefaultNeutral: Boolean,
+        val isVividMode: Boolean = false,
+        val seedColorHex: String,
+        val tier1HeaderFillHex: String,
+        val tier2PrimaryBlockFillHex: String,
+        val tier2SecondaryBlockFillHex: String,
+        val tier3MajorBorderHex: String,
+        val tier4InnerGridHex: String,
+        val tier1Hsl: HslTierSpec,
+        val tier2PrimaryBlockHsl: HslTierSpec,
+        val tier2SecondaryBlockHsl: HslTierSpec,
+        val tier3MajorBorderHsl: HslTierSpec,
+        val tier4InnerGridHsl: HslTierSpec
+    ) {
+        val tier1HeaderFillColorInt: Int get() = parseHexColor(tier1HeaderFillHex)
+        val tier2PrimaryBlockFillColorInt: Int get() = parseHexColor(tier2PrimaryBlockFillHex)
+        val tier2SecondaryBlockFillColorInt: Int get() = parseHexColor(tier2SecondaryBlockFillHex)
+        val tier3MajorBorderColorInt: Int get() = parseHexColor(tier3MajorBorderHex)
+        val tier4InnerGridBorderColorInt: Int get() = parseHexColor(tier4InnerGridHex)
+
+        val tier1HeaderFillArgbHex: String get() = "FF" + tier1HeaderFillHex.removePrefix("#").uppercase()
+        val tier2PrimaryBlockFillArgbHex: String get() = "FF" + tier2PrimaryBlockFillHex.removePrefix("#").uppercase()
+        val tier2SecondaryBlockFillArgbHex: String get() = "FF" + tier2SecondaryBlockFillHex.removePrefix("#").uppercase()
+        val tier3MajorBorderArgbHex: String get() = "FF" + tier3MajorBorderHex.removePrefix("#").uppercase()
+        val tier4InnerGridBorderArgbHex: String get() = "FF" + tier4InnerGridHex.removePrefix("#").uppercase()
+    }
+
+    private fun rgbToHslRaw(r: Int, g: Int, b: Int): HslTierSpec {
+        val rNorm = (r.coerceIn(0, 255)) / 255f
+        val gNorm = (g.coerceIn(0, 255)) / 255f
+        val bNorm = (b.coerceIn(0, 255)) / 255f
+        val max = maxOf(rNorm, gNorm, bNorm)
+        val min = minOf(rNorm, gNorm, bNorm)
+        val delta = max - min
+        val l = (max + min) / 2f
+        val s = if (delta <= 0.0001f) 0f else (delta / (1f - kotlin.math.abs(2f * l - 1f))).coerceIn(0f, 1f)
+        val h = when {
+            delta <= 0.0001f -> 0f
+            max == rNorm -> (((gNorm - bNorm) / delta) % 6f) * 60f
+            max == gNorm -> (((bNorm - rNorm) / delta) + 2f) * 60f
+            else -> (((rNorm - gNorm) / delta) + 4f) * 60f
+        }.let { if (it < 0f) it + 360f else it }
+        return HslTierSpec(h.coerceIn(0f, 360f), s.coerceIn(0f, 1f), l.coerceIn(0f, 1f))
+    }
+
+    private fun hslToHexRaw(h: Float, s: Float, l: Float): String {
+        val cleanS = s.coerceIn(0f, 1f)
+        val cleanL = l.coerceIn(0f, 1f)
+        val c = (1f - kotlin.math.abs(2f * cleanL - 1f)) * cleanS
+        val hPrime = ((h % 360f + 360f) % 360f) / 60f
+        val x = c * (1f - kotlin.math.abs((hPrime % 2f) - 1f))
+        val m = cleanL - c / 2f
+        val (rPrime, gPrime, bPrime) = when {
+            hPrime < 1f -> Triple(c, x, 0f)
+            hPrime < 2f -> Triple(x, c, 0f)
+            hPrime < 3f -> Triple(0f, c, x)
+            hPrime < 4f -> Triple(0f, x, c)
+            hPrime < 5f -> Triple(x, 0f, c)
+            else -> Triple(c, 0f, x)
+        }
+        val r = kotlin.math.round((rPrime + m) * 255f).toInt().coerceIn(0, 255)
+        val g = kotlin.math.round((gPrime + m) * 255f).toInt().coerceIn(0, 255)
+        val b = kotlin.math.round((bPrime + m) * 255f).toInt().coerceIn(0, 255)
+        return String.format(java.util.Locale.US, "#%02X%02X%02X", r, g, b)
+    }
+
+    fun resolveExportTableColorPalette(
+        seedColorHex: String,
+        isVividMode: Boolean = false
+    ): ExportTableColorPalette {
+        val cleanHex = seedColorHex.trim()
+        if (cleanHex.isEmpty() || !CustomColorManager.isValidHex(cleanHex)) {
+            return ExportTableColorPalette(
+                isDefaultNeutral = true,
+                isVividMode = isVividMode,
+                seedColorHex = "",
+                tier1HeaderFillHex = "#D9D9D9",
+                tier2PrimaryBlockFillHex = "#FFFFFF",
+                tier2SecondaryBlockFillHex = "#F2F2F2",
+                tier3MajorBorderHex = "#64748B",
+                tier4InnerGridHex = "#D0D0D0",
+                tier1Hsl = HslTierSpec(0f, 0f, 0.85f),
+                tier2PrimaryBlockHsl = HslTierSpec(0f, 0f, 1.0f),
+                tier2SecondaryBlockHsl = HslTierSpec(0f, 0f, 0.95f),
+                tier3MajorBorderHsl = HslTierSpec(215f, 0.16f, 0.47f),
+                tier4InnerGridHsl = HslTierSpec(0f, 0f, 0.82f)
+            )
+        }
+
+        val normalizedHex = CustomColorManager.normalizeHex(cleanHex)
+        val colorInt = parseHexColor(normalizedHex)
+        val r = (colorInt shr 16) and 0xFF
+        val g = (colorInt shr 8) and 0xFF
+        val b = colorInt and 0xFF
+        val seedHsl = rgbToHslRaw(r, g, b)
+        val h = seedHsl.hue
+        val isAchromatic = seedHsl.saturation < 0.02f
+
+        if (isVividMode) {
+            // Mode 2: Actual Chosen Color on Header + Rich 4-Tier Hierarchy for Blocks & Borders
+            val tier1Spec = seedHsl
+
+            // Tier 2A — Primary Block (Odd Verb/Entry Groups): S max(28%, seedS*0.55), L 91%–93%
+            val t2aSat = if (isAchromatic) 0.12f else maxOf(0.28f, seedHsl.saturation * 0.55f).coerceIn(0.28f, 0.78f)
+            val t2aLight = (0.91f + seedHsl.lightness * 0.02f).coerceIn(0.91f, 0.93f)
+            val tier2aSpec = HslTierSpec(h, t2aSat, t2aLight)
+
+            // Tier 2B — Secondary Block (Even Verb/Entry Groups): S max(42%, seedS*0.72), L 81%–85%
+            val t2bSat = if (isAchromatic) 0.22f else maxOf(0.42f, seedHsl.saturation * 0.72f).coerceIn(0.42f, 0.88f)
+            val t2bLight = (0.81f + seedHsl.lightness * 0.04f).coerceIn(0.81f, 0.85f)
+            val tier2bSpec = HslTierSpec(h, t2bSat, t2bLight)
+
+            // Tier 3 — Major Structural Borders: S max(55%, seedS*0.85), L 35%–50%
+            val t3Sat = if (isAchromatic) 0.35f else maxOf(0.55f, seedHsl.saturation * 0.85f).coerceIn(0.55f, 0.95f)
+            val t3Light = (seedHsl.lightness * 0.75f).coerceIn(0.35f, 0.50f)
+            val tier3Spec = HslTierSpec(h, t3Sat, t3Light)
+
+            // Tier 4 — Inner Cell Gridlines: S max(38%, seedS*0.60), L 70%–76%
+            val t4Sat = if (isAchromatic) 0.22f else maxOf(0.38f, seedHsl.saturation * 0.60f).coerceIn(0.38f, 0.80f)
+            val t4Light = (0.70f + seedHsl.lightness * 0.06f).coerceIn(0.70f, 0.76f)
+            val tier4Spec = HslTierSpec(h, t4Sat, t4Light)
+
+            return ExportTableColorPalette(
+                isDefaultNeutral = false,
+                isVividMode = true,
+                seedColorHex = normalizedHex,
+                tier1HeaderFillHex = normalizedHex,
+                tier2PrimaryBlockFillHex = hslToHexRaw(tier2aSpec.hue, tier2aSpec.saturation, tier2aSpec.lightness),
+                tier2SecondaryBlockFillHex = hslToHexRaw(tier2bSpec.hue, tier2bSpec.saturation, tier2bSpec.lightness),
+                tier3MajorBorderHex = hslToHexRaw(tier3Spec.hue, tier3Spec.saturation, tier3Spec.lightness),
+                tier4InnerGridHex = hslToHexRaw(tier4Spec.hue, tier4Spec.saturation, tier4Spec.lightness),
+                tier1Hsl = tier1Spec,
+                tier2PrimaryBlockHsl = tier2aSpec,
+                tier2SecondaryBlockHsl = tier2bSpec,
+                tier3MajorBorderHsl = tier3Spec,
+                tier4InnerGridHsl = tier4Spec
+            )
+        }
+
+        // Mode 1: Calm Tonal Hierarchy (Expressive, clearly visible pastel tones for every hue)
+        // Tier 1 — Table Header Row Fill (Saturation: 48%–62%, Lightness: 74%–80%)
+        val t1Sat = if (isAchromatic) 0.20f else (0.48f + seedHsl.saturation * 0.14f).coerceIn(0.48f, 0.62f)
+        val t1Light = (0.74f + seedHsl.lightness * 0.06f).coerceIn(0.74f, 0.80f)
+        val tier1Spec = HslTierSpec(h, t1Sat, t1Light)
+
+        // Tier 2A — Primary Block (Odd Verb/Entry Groups) (Saturation: 24%–34%, Lightness: 94%–95.5%)
+        val t2aSat = if (isAchromatic) 0.10f else (0.24f + seedHsl.saturation * 0.10f).coerceIn(0.24f, 0.34f)
+        val t2aLight = (0.94f + seedHsl.lightness * 0.015f).coerceIn(0.94f, 0.955f)
+        val tier2aSpec = HslTierSpec(h, t2aSat, t2aLight)
+
+        // Tier 2B — Secondary Block (Even Verb/Entry Groups) (Saturation: 35%–48%, Lightness: 86%–89%)
+        val t2bSat = if (isAchromatic) 0.16f else (0.35f + seedHsl.saturation * 0.13f).coerceIn(0.35f, 0.48f)
+        val t2bLight = (0.86f + seedHsl.lightness * 0.03f).coerceIn(0.86f, 0.89f)
+        val tier2bSpec = HslTierSpec(h, t2bSat, t2bLight)
+
+        // Tier 3 — Major Structural Borders (Header Bottom & Group Separators) (Saturation: 50%–65%, Lightness: 52%–60%)
+        val t3Sat = if (isAchromatic) 0.28f else (0.50f + seedHsl.saturation * 0.15f).coerceIn(0.50f, 0.65f)
+        val t3Light = (0.52f + seedHsl.lightness * 0.08f).coerceIn(0.52f, 0.60f)
+        val tier3Spec = HslTierSpec(h, t3Sat, t3Light)
+
+        // Tier 4 — Inner Cell Gridlines (Saturation: 32%–45%, Lightness: 76%–81%)
+        val t4Sat = if (isAchromatic) 0.18f else (0.32f + seedHsl.saturation * 0.13f).coerceIn(0.32f, 0.45f)
+        val t4Light = (0.76f + seedHsl.lightness * 0.05f).coerceIn(0.76f, 0.81f)
+        val tier4Spec = HslTierSpec(h, t4Sat, t4Light)
+
+        return ExportTableColorPalette(
+            isDefaultNeutral = false,
+            isVividMode = false,
+            seedColorHex = normalizedHex,
+            tier1HeaderFillHex = hslToHexRaw(tier1Spec.hue, tier1Spec.saturation, tier1Spec.lightness),
+            tier2PrimaryBlockFillHex = hslToHexRaw(tier2aSpec.hue, tier2aSpec.saturation, tier2aSpec.lightness),
+            tier2SecondaryBlockFillHex = hslToHexRaw(tier2bSpec.hue, tier2bSpec.saturation, tier2bSpec.lightness),
+            tier3MajorBorderHex = hslToHexRaw(tier3Spec.hue, tier3Spec.saturation, tier3Spec.lightness),
+            tier4InnerGridHex = hslToHexRaw(tier4Spec.hue, tier4Spec.saturation, tier4Spec.lightness),
+            tier1Hsl = tier1Spec,
+            tier2PrimaryBlockHsl = tier2aSpec,
+            tier2SecondaryBlockHsl = tier2bSpec,
+            tier3MajorBorderHsl = tier3Spec,
+            tier4InnerGridHsl = tier4Spec
+        )
     }
 
     val AVAILABLE_FONTS = listOf(
@@ -1138,6 +1347,7 @@ $workbookSheetsAdj
     }
 
     private fun getStandardStylesXml(typography: ExportTypographyOptions = ExportTypographyOptions.DEFAULT): String {
+        val palette = resolveExportTableColorPalette(typography.tableSeedColorHex, typography.isTableColorVivid)
         val bodySz = if (typography.bodyFontSize % 1.0f == 0f) "${typography.bodyFontSize.toInt()}" else "${typography.bodyFontSize}"
         val headerSz = if (typography.headerFontSize % 1.0f == 0f) "${typography.headerFontSize.toInt()}" else "${typography.headerFontSize}"
         val titleSz = if ((typography.headerFontSize + 2f) % 1.0f == 0f) "${(typography.headerFontSize + 2f).toInt()}" else "${typography.headerFontSize + 2f}"
@@ -1147,6 +1357,18 @@ $workbookSheetsAdj
         val headerFontName = escapeXml(typography.headerFontFamily)
         val bodyFamilyId = getExcelFontFamilyId(typography.bodyFontFamily)
         val headerFamilyId = getExcelFontFamilyId(typography.headerFontFamily)
+
+        // 4-Tier Background Fills & Borders for Excel
+        val tier1HeaderFillRgb = toExcelRgbHex(palette.tier1HeaderFillHex, "FFD9D9D9")
+        val tier2PrimaryFillRgb = toExcelRgbHex(palette.tier2PrimaryBlockFillHex, "FFFFFFFF")
+        val tier2SecondaryFillRgb = toExcelRgbHex(palette.tier2SecondaryBlockFillHex, "FFF2F2F2")
+        val tier3MajorBorderRgb = if (palette.isDefaultNeutral) "FF505050" else toExcelRgbHex(palette.tier3MajorBorderHex, "FF64748B")
+        val tier3GroupDividerRgb = if (palette.isDefaultNeutral) "FF64748B" else toExcelRgbHex(palette.tier3MajorBorderHex, "FF64748B")
+        val tier4InnerGridRgb = if (palette.isDefaultNeutral) "FFD0D0D0" else toExcelRgbHex(palette.tier4InnerGridHex, "FFD0D0D0")
+        val headerSideGridRgb = if (palette.isDefaultNeutral) "FFB0B0B0" else tier3MajorBorderRgb
+
+        val primaryFillId = if (palette.isDefaultNeutral) "0" else "4"
+        val primaryApplyFillAttr = if (palette.isDefaultNeutral) "" else """ applyFill="1""""
 
         return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -1239,47 +1461,58 @@ $workbookSheetsAdj
   <fills count="5">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
+    <!-- 2: Tier 1 — Table Header Row Fill -->
     <fill>
       <patternFill patternType="solid">
-        <fgColor rgb="FFD9D9D9"/>
+        <fgColor rgb="$tier1HeaderFillRgb"/>
       </patternFill>
     </fill>
+    <!-- 3: Tier 2B — Secondary Block Fill (Even Verb/Entry Groups) -->
     <fill>
       <patternFill patternType="solid">
-        <fgColor rgb="FFF2F2F2"/>
+        <fgColor rgb="$tier2SecondaryFillRgb"/>
       </patternFill>
     </fill>
-    <!-- 4: Yellow fill for Wort / Wörter (#FEF3C7) -->
+    <!-- 4: Tier 2A — Primary Block Fill (Odd Verb/Entry Groups) -->
     <fill>
       <patternFill patternType="solid">
-        <fgColor rgb="FFFEF3C7"/>
+        <fgColor rgb="$tier2PrimaryFillRgb"/>
       </patternFill>
     </fill>
   </fills>
-  <borders count="3">
+  <borders count="4">
     <border><left/><right/><top/><bottom/><diagonal/></border>
+    <!-- 1: Tier 4 — Inner Cell Gridlines -->
     <border>
-      <left style="thin"><color rgb="FFD0D0D0"/></left>
-      <right style="thin"><color rgb="FFD0D0D0"/></right>
-      <top style="thin"><color rgb="FFD0D0D0"/></top>
-      <bottom style="thin"><color rgb="FFD0D0D0"/></bottom>
+      <left style="thin"><color rgb="$tier4InnerGridRgb"/></left>
+      <right style="thin"><color rgb="$tier4InnerGridRgb"/></right>
+      <top style="thin"><color rgb="$tier4InnerGridRgb"/></top>
+      <bottom style="thin"><color rgb="$tier4InnerGridRgb"/></bottom>
     </border>
+    <!-- 2: Tier 3 — Header Structural Border -->
     <border>
-      <left style="thin"><color rgb="FFB0B0B0"/></left>
-      <right style="thin"><color rgb="FFB0B0B0"/></right>
-      <top style="thin"><color rgb="FFB0B0B0"/></top>
-      <bottom style="medium"><color rgb="FF505050"/></bottom>
+      <left style="thin"><color rgb="$headerSideGridRgb"/></left>
+      <right style="thin"><color rgb="$headerSideGridRgb"/></right>
+      <top style="thin"><color rgb="$headerSideGridRgb"/></top>
+      <bottom style="medium"><color rgb="$tier3MajorBorderRgb"/></bottom>
+    </border>
+    <!-- 3: Tier 3 — Group Separator Border (Bottom of 7-row Verb Block) -->
+    <border>
+      <left style="thin"><color rgb="$tier4InnerGridRgb"/></left>
+      <right style="thin"><color rgb="$tier4InnerGridRgb"/></right>
+      <top style="thin"><color rgb="$tier4InnerGridRgb"/></top>
+      <bottom style="medium"><color rgb="$tier3GroupDividerRgb"/></bottom>
     </border>
   </borders>
   <cellStyleXfs count="1">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
   </cellStyleXfs>
-  <cellXfs count="22">
+  <cellXfs count="26">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"/>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <xf numFmtId="0" fontId="0" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="1"/>
     </xf>
     <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
@@ -1293,68 +1526,84 @@ $workbookSheetsAdj
     <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 6: Maskulin White (s=6) -->
-    <xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <!-- 6: Maskulin Primary (s=6) -->
+    <xf numFmtId="0" fontId="4" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 7: Maskulin Zebra (s=7) -->
+    <!-- 7: Maskulin Secondary (s=7) -->
     <xf numFmtId="0" fontId="4" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 8: Feminin White (s=8) -->
-    <xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <!-- 8: Feminin Primary (s=8) -->
+    <xf numFmtId="0" fontId="5" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 9: Feminin Zebra (s=9) -->
+    <!-- 9: Feminin Secondary (s=9) -->
     <xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 10: Neutrum White (s=10) -->
-    <xf numFmtId="0" fontId="6" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <!-- 10: Neutrum Primary (s=10) -->
+    <xf numFmtId="0" fontId="6" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 11: Neutrum Zebra (s=11) -->
+    <!-- 11: Neutrum Secondary (s=11) -->
     <xf numFmtId="0" fontId="6" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 12: Wort/Wörter White (s=12) -->
-    <xf numFmtId="0" fontId="7" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <!-- 12: Wort/Wörter Primary (s=12) -->
+    <xf numFmtId="0" fontId="7" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 13: Wort/Wörter Zebra (s=13) -->
+    <!-- 13: Wort/Wörter Secondary (s=13) -->
     <xf numFmtId="0" fontId="7" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 14: Satz White (s=14) -->
-    <xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <!-- 14: Satz Primary (s=14) -->
+    <xf numFmtId="0" fontId="8" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 15: Satz Zebra (s=15) -->
+    <!-- 15: Satz Secondary (s=15) -->
     <xf numFmtId="0" fontId="8" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 16: Arabic Translation White (s=16) -->
-    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <!-- 16: Arabic Translation Primary (s=16) -->
+    <xf numFmtId="0" fontId="0" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="right" vertical="center" wrapText="1"/>
     </xf>
-    <!-- 17: Arabic Translation Zebra (s=17) -->
+    <!-- 17: Arabic Translation Secondary (s=17) -->
     <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="right" vertical="center" wrapText="1"/>
     </xf>
-    <!-- 18: Adjektiv White (s=18) -->
-    <xf numFmtId="0" fontId="9" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <!-- 18: Adjektiv Primary (s=18) -->
+    <xf numFmtId="0" fontId="9" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 19: Adjektiv Zebra (s=19) -->
+    <!-- 19: Adjektiv Secondary (s=19) -->
     <xf numFmtId="0" fontId="9" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="0"/>
     </xf>
-    <!-- 20: Bold Body White (s=20) -->
-    <xf numFmtId="0" fontId="10" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+    <!-- 20: Bold Body Primary (s=20) -->
+    <xf numFmtId="0" fontId="10" fillId="$primaryFillId" borderId="1" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="1"/>
     </xf>
-    <!-- 21: Bold Body Zebra (s=21) -->
+    <!-- 21: Bold Body Secondary (s=21) -->
     <xf numFmtId="0" fontId="10" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center" wrapText="1"/>
+    </xf>
+    <!-- 22: Group Separator Primary Body (s=22) -->
+    <xf numFmtId="0" fontId="0" fillId="$primaryFillId" borderId="3" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center" wrapText="1"/>
+    </xf>
+    <!-- 23: Group Separator Secondary Body (s=23) -->
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center" wrapText="1"/>
+    </xf>
+    <!-- 24: Group Separator Primary Bold Body (s=24) -->
+    <xf numFmtId="0" fontId="10" fillId="$primaryFillId" borderId="3" xfId="0" applyFont="1"$primaryApplyFillAttr applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center" wrapText="1"/>
+    </xf>
+    <!-- 25: Group Separator Secondary Bold Body (s=25) -->
+    <xf numFmtId="0" fontId="10" fillId="3" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
       <alignment horizontal="left" vertical="center" wrapText="1"/>
     </xf>
   </cellXfs>
@@ -1386,6 +1635,7 @@ $workbookSheetsAdj
         typography: ExportTypographyOptions = ExportTypographyOptions.DEFAULT,
         notebookName: String = ""
     ): String {
+        val palette = resolveExportTableColorPalette(typography.tableSeedColorHex, typography.isTableColorVivid)
         val colCount = headers.size
         val rowCount = rows.size + 2 // Row 1 = Title, Row 2 = Header, Row 3..N = Data
         val lastColLetter = getColLetter(colCount - 1)
@@ -1515,12 +1765,19 @@ $workbookSheetsAdj
 
         val genusColIndex = headers.indexOf("Typ").let { if (it >= 0) it else headers.indexOf("Genus") }
         val translationColIndex = headers.indexOf("The Translation / الترجمة")
+        val isVerbMasterTable = (headers == VERB_MASTER_HEADERS_WITH_NR)
 
-        // Rows 3+: Data Rows (applying styleId and inline font run to all cells across all columns)
+        // Rows 3+: Data Rows (applying 4-tier block fills, structural borders, and untouched inline font runs)
         rows.forEachIndexed { rowIndex, rowData ->
             val rNum = rowIndex + 3
-            val isZebra = rowIndex % 2 == 1
-            val defaultStyleId = if (isZebra) 3 else 2
+            val blockIndex = if (isVerbMasterTable) (rowIndex / 7) else rowIndex
+            val isZebra = (blockIndex % 2 == 1)
+            val isGroupSeparatorRow = isVerbMasterTable && ((rowIndex % 7 == 6) || (rowIndex == rows.lastIndex))
+            val defaultStyleId = if (isGroupSeparatorRow) {
+                if (isZebra) 23 else 22
+            } else {
+                if (isZebra) 3 else 2
+            }
 
             sheetBuilder.append("""    <row r="$rNum" ht="$dataRowHt" customHeight="1">
 """)
@@ -1568,7 +1825,11 @@ $workbookSheetsAdj
                 } else if (cIndex == translationColIndex && translationColIndex >= 0 && isArabicText(rawVal)) {
                     if (isZebra) 17 else 16
                 } else if (cIndex == 1) {
-                    if (isZebra) 21 else 20
+                    if (isGroupSeparatorRow) {
+                        if (isZebra) 25 else 24
+                    } else {
+                        if (isZebra) 21 else 20
+                    }
                 } else {
                     defaultStyleId
                 }
@@ -2211,6 +2472,7 @@ $workbookSheetsAdj
         val cleanTitle = documentTitle.trim().trimStart('.', '_', ' ').ifBlank { "Suchverlauf_Deutsch" }
         val doc = PdfDocument()
 
+        val palette = resolveExportTableColorPalette(typography.tableSeedColorHex, typography.isTableColorVivid)
         val bodyTypeface = createSafeTypeface(typography.bodyFontFamily, android.graphics.Typeface.NORMAL)
         val bodyBoldTypeface = createSafeTypeface(typography.bodyFontFamily, android.graphics.Typeface.BOLD)
         val headerTypeface = createSafeTypeface(typography.headerFontFamily, android.graphics.Typeface.BOLD)
@@ -2291,35 +2553,51 @@ $workbookSheetsAdj
         val margin = if (pageWidth <= 500) 18f else 24f
         val contentWidth = pageWidth - (margin * 2)
 
+        // Tier 1 — Table Header Row Fill
         val headerPaint = Paint().apply {
-            color = Color.rgb(217, 217, 217) // #D9D9D9
+            color = parseHexColor(palette.tier1HeaderFillHex, Color.rgb(217, 217, 217))
             isAntiAlias = true
             style = Paint.Style.FILL
         }
 
+        // Tier 3 — Major Structural Borders (Header Bottom & Group Separators)
         val headerBottomBorderPaint = Paint().apply {
-            color = Color.rgb(80, 80, 80)
+            color = if (palette.isDefaultNeutral) Color.rgb(80, 80, 80) else parseHexColor(palette.tier3MajorBorderHex, Color.rgb(80, 80, 80))
             strokeWidth = 1.5f
             style = Paint.Style.STROKE
             isAntiAlias = true
         }
 
+        // Tier 4 — Inner Cell Gridlines
         val gridBorderPaint = Paint().apply {
-            color = Color.rgb(215, 220, 228)
+            color = if (palette.isDefaultNeutral) Color.rgb(215, 220, 228) else parseHexColor(palette.tier4InnerGridHex, Color.rgb(215, 220, 228))
             strokeWidth = 0.5f
             style = Paint.Style.STROKE
             isAntiAlias = true
         }
 
+        // Tier 3 — Major Structural Border for Verb Group Dividers
         val verbGroupDividerPaint = Paint().apply {
-            color = Color.rgb(100, 116, 139)
+            color = if (palette.isDefaultNeutral) Color.rgb(100, 116, 139) else parseHexColor(palette.tier3MajorBorderHex, Color.rgb(100, 116, 139))
             strokeWidth = 1.2f
             style = Paint.Style.STROKE
             isAntiAlias = true
         }
 
+        // Tier 2A — Primary Block Fill (Odd Verb/Entry Groups)
+        val primaryBlockPaint: Paint? = if (palette.isDefaultNeutral) {
+            null
+        } else {
+            Paint().apply {
+                color = parseHexColor(palette.tier2PrimaryBlockFillHex, Color.rgb(250, 251, 253))
+                style = Paint.Style.FILL
+                isAntiAlias = true
+            }
+        }
+
+        // Tier 2B — Secondary Block Fill (Even Verb/Entry Groups)
         val zebraLightPaint = Paint().apply {
-            color = Color.rgb(248, 249, 251)
+            color = if (palette.isDefaultNeutral) Color.rgb(248, 249, 251) else parseHexColor(palette.tier2SecondaryBlockFillHex, Color.rgb(242, 242, 242))
             style = Paint.Style.FILL
             isAntiAlias = true
         }
@@ -2472,7 +2750,7 @@ $workbookSheetsAdj
                         if (currentY + row.rowHeight > pageHeight - margin - 18f) {
                             break
                         }
-                        val zebraPaint = if (currentNounIdx % 2 == 1) zebraLightPaint else null
+                        val zebraPaint = if (currentNounIdx % 2 == 1) zebraLightPaint else primaryBlockPaint
                         drawDynamicPdfRow(
                             canvas = canvas,
                             row = row,
@@ -2597,7 +2875,9 @@ $workbookSheetsAdj
                         if (currentY + row.rowHeight > pageHeight - margin - 18f) {
                             break
                         }
-                        val zebraPaint = if (currentVerbIdx % 2 == 1) zebraLightPaint else null
+                        // Alternate 2-tone block fills across each 7-row verb group
+                        val verbGroupIdx = currentVerbIdx / 7
+                        val zebraPaint = if (verbGroupIdx % 2 == 1) zebraLightPaint else primaryBlockPaint
                         drawDynamicPdfRow(
                             canvas = canvas,
                             row = row,
@@ -2722,7 +3002,7 @@ $workbookSheetsAdj
                         if (currentY + row.rowHeight > pageHeight - margin - 18f) {
                             break
                         }
-                        val zebraPaint = if (currentAdjIdx % 2 == 1) zebraLightPaint else null
+                        val zebraPaint = if (currentAdjIdx % 2 == 1) zebraLightPaint else primaryBlockPaint
                         drawDynamicPdfRow(
                             canvas = canvas,
                             row = row,
