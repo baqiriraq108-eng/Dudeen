@@ -458,6 +458,13 @@ class NotebookRepository(private val context: Context) {
         if (dirs.size <= 1) return
 
         val savedActiveId = prefs.getString(PREF_ACTIVE_NOTEBOOK, null)
+        val unsuffixedBaseNames = dirs.mapNotNull { dir ->
+            val withoutPrefix = ExportSharingManager.stripNotebookPrefix(dir.name).trim()
+            if (!duplicateSuffixRegex.containsMatchIn(withoutPrefix)) {
+                withoutPrefix.lowercase(Locale.ROOT)
+            } else null
+        }.toSet()
+
         val grouped = dirs.groupBy { dir ->
             val rawSettingsName = try {
                 val sf = File(dir, SETTINGS_FILE_NAME)
@@ -466,16 +473,17 @@ class NotebookRepository(private val context: Context) {
             } catch (_: Throwable) {
                 dir.name
             }
-            val baseFromSettings = stripDuplicateNotebookSuffix(rawSettingsName.ifBlank { dir.name })
+            val cleanSettingsName = ExportSharingManager.stripNotebookPrefix(rawSettingsName.ifBlank { dir.name }).trim()
             val baseFromDir = stripDuplicateNotebookSuffix(dir.name)
             val canonicalKey = if (
                 duplicateSuffixRegex.containsMatchIn(dir.name) &&
                 baseFromDir.isNotBlank() &&
+                unsuffixedBaseNames.contains(baseFromDir.lowercase(Locale.ROOT)) &&
                 rawSettingsName.trim().equals(dir.name.trim(), ignoreCase = true)
             ) {
                 baseFromDir
             } else {
-                baseFromSettings.ifBlank { baseFromDir }.ifBlank { dir.name }
+                cleanSettingsName.ifBlank { baseFromDir }.ifBlank { dir.name }
             }
             canonicalKey.trim().lowercase(Locale.ROOT)
         }
@@ -511,13 +519,14 @@ class NotebookRepository(private val context: Context) {
                 }
             }
 
-            // Ensure canonical directory's settings.json uses the clean unsuffixed name if it had a suffix
+            // Ensure canonical directory's settings.json uses the clean unprefixed name
             try {
                 val sf = File(canonicalDir, SETTINGS_FILE_NAME)
                 if (sf.exists()) {
                     val currentSettings = NotebookSettings.fromJson(sf.readText(), fallbackName = canonicalDir.name)
-                    val cleanCanonicalName = stripDuplicateNotebookSuffix(currentSettings.notebookName.ifBlank { canonicalDir.name })
-                        .ifBlank { canonicalDir.name }
+                    val cleanCanonicalName = ExportSharingManager.stripNotebookPrefix(
+                        currentSettings.notebookName.ifBlank { canonicalDir.name }
+                    ).trim().ifBlank { canonicalDir.name }
                     if (cleanCanonicalName != currentSettings.notebookName) {
                         sf.writeText(currentSettings.copy(notebookName = cleanCanonicalName).toJson(), Charsets.UTF_8)
                     }
@@ -628,12 +637,14 @@ class NotebookRepository(private val context: Context) {
             val displayName = if (settingsFile.exists()) {
                 try {
                     val raw = NotebookSettings.fromJson(settingsFile.readText(), fallbackName = id).notebookName
-                    stripDuplicateNotebookSuffix(raw).ifBlank { stripDuplicateNotebookSuffix(id).ifBlank { id } }
+                    ExportSharingManager.stripNotebookPrefix(raw).trim().ifBlank {
+                        ExportSharingManager.stripNotebookPrefix(id).trim().ifBlank { id }
+                    }
                 } catch (_: Throwable) {
-                    stripDuplicateNotebookSuffix(id).ifBlank { id }
+                    ExportSharingManager.stripNotebookPrefix(id).trim().ifBlank { id }
                 }
             } else {
-                stripDuplicateNotebookSuffix(id).ifBlank { id }
+                ExportSharingManager.stripNotebookPrefix(id).trim().ifBlank { id }
             }
             prefs.edit()
                 .putString(PREF_ACTIVE_NOTEBOOK, id)
@@ -675,8 +686,9 @@ class NotebookRepository(private val context: Context) {
             }
             if (matchedDir != null) {
                 val settingsFile = File(matchedDir, SETTINGS_FILE_NAME)
-                val fallbackDisplay = stripDuplicateNotebookSuffix(savedName?.ifBlank { matchedDir.name } ?: matchedDir.name)
-                    .ifBlank { matchedDir.name }
+                val fallbackDisplay = ExportSharingManager.stripNotebookPrefix(
+                    savedName?.ifBlank { matchedDir.name } ?: matchedDir.name
+                ).trim().ifBlank { matchedDir.name }
                 val rawSettings = if (settingsFile.exists()) {
                     try {
                         NotebookSettings.fromJson(settingsFile.readText(), fallbackName = fallbackDisplay)
@@ -686,8 +698,9 @@ class NotebookRepository(private val context: Context) {
                 } else {
                     NotebookSettings(notebookName = fallbackDisplay)
                 }
-                val cleanDisplayName = stripDuplicateNotebookSuffix(rawSettings.notebookName.ifBlank { fallbackDisplay })
-                    .ifBlank { fallbackDisplay }
+                val cleanDisplayName = ExportSharingManager.stripNotebookPrefix(
+                    rawSettings.notebookName.ifBlank { fallbackDisplay }
+                ).trim().ifBlank { fallbackDisplay }
                 return Notebook(
                     id = matchedDir.name,
                     name = cleanDisplayName,
@@ -697,8 +710,9 @@ class NotebookRepository(private val context: Context) {
                 )
             }
 
-            val cleanDisplay = stripDuplicateNotebookSuffix(savedName?.ifBlank { savedId } ?: savedId)
-                .ifBlank { savedId }
+            val cleanDisplay = ExportSharingManager.stripNotebookPrefix(
+                savedName?.ifBlank { savedId } ?: savedId
+            ).trim().ifBlank { savedId }
             return Notebook(
                 id = savedId,
                 name = cleanDisplay,
@@ -714,7 +728,7 @@ class NotebookRepository(private val context: Context) {
             ?.sortedBy { it.name.lowercase(Locale.ROOT) }
             ?.firstOrNull()
         if (firstDir != null) {
-            val cleanDirName = stripDuplicateNotebookSuffix(firstDir.name).ifBlank { firstDir.name }
+            val cleanDirName = ExportSharingManager.stripNotebookPrefix(firstDir.name).trim().ifBlank { firstDir.name }
             val settingsFile = File(firstDir, SETTINGS_FILE_NAME)
             val rawSettings = if (settingsFile.exists()) {
                 try {
@@ -725,8 +739,9 @@ class NotebookRepository(private val context: Context) {
             } else {
                 NotebookSettings(notebookName = cleanDirName)
             }
-            val cleanDisplayName = stripDuplicateNotebookSuffix(rawSettings.notebookName.ifBlank { cleanDirName })
-                .ifBlank { cleanDirName }
+            val cleanDisplayName = ExportSharingManager.stripNotebookPrefix(
+                rawSettings.notebookName.ifBlank { cleanDirName }
+            ).trim().ifBlank { cleanDirName }
             return Notebook(
                 id = firstDir.name,
                 name = cleanDisplayName,
@@ -761,7 +776,7 @@ class NotebookRepository(private val context: Context) {
             emptyArray()
         }
 
-        if (dirs.size > 1) {
+        if (dirs.size > 1 && dirs.any { it.name.startsWith(ExportSharingManager.NOTEBOOK_FILE_PREFIX, ignoreCase = true) }) {
             consolidateDuplicateNotebookDirectories(root, getSystemBackupsDirectory())
         }
 
@@ -771,18 +786,45 @@ class NotebookRepository(private val context: Context) {
             emptyArray()
         }
 
+        val unsuffixedBaseNames = cleanedDirs.mapNotNull { dir ->
+            val withoutPrefix = ExportSharingManager.stripNotebookPrefix(dir.name).trim()
+            if (!duplicateSuffixRegex.containsMatchIn(withoutPrefix)) {
+                withoutPrefix.lowercase(Locale.ROOT)
+            } else null
+        }.toSet()
+
         var list = cleanedDirs.mapNotNull { dir ->
             try {
-                val cleanDirName = stripDuplicateNotebookSuffix(dir.name).ifBlank { dir.name }
+                val unprefixedDirName = ExportSharingManager.stripNotebookPrefix(dir.name).trim().ifBlank { dir.name }
+                val strippedDirBase = stripDuplicateNotebookSuffix(unprefixedDirName)
+                val cleanDirName = if (
+                    duplicateSuffixRegex.containsMatchIn(unprefixedDirName) &&
+                    unsuffixedBaseNames.contains(strippedDirBase.lowercase(Locale.ROOT))
+                ) {
+                    strippedDirBase.ifBlank { unprefixedDirName }
+                } else {
+                    unprefixedDirName
+                }
+
                 val settingsFile = File(dir, SETTINGS_FILE_NAME)
                 val rawSettings = if (settingsFile.exists()) {
                     NotebookSettings.fromJson(settingsFile.readText(), fallbackName = cleanDirName)
                 } else {
                     NotebookSettings(notebookName = cleanDirName)
                 }
-                val cleanDisplayName = stripDuplicateNotebookSuffix(
+                val rawDisplay = ExportSharingManager.stripNotebookPrefix(
                     rawSettings.notebookName.ifBlank { cleanDirName }
-                ).ifBlank { cleanDirName }
+                ).trim().ifBlank { cleanDirName }
+                val strippedDisplayBase = stripDuplicateNotebookSuffix(rawDisplay)
+                val cleanDisplayName = if (
+                    duplicateSuffixRegex.containsMatchIn(rawDisplay) &&
+                    rawSettings.notebookName.trim().equals(dir.name.trim(), ignoreCase = true) &&
+                    unsuffixedBaseNames.contains(strippedDisplayBase.lowercase(Locale.ROOT))
+                ) {
+                    strippedDisplayBase.ifBlank { rawDisplay }
+                } else {
+                    rawDisplay
+                }
                 val settings = rawSettings.copy(notebookName = cleanDisplayName)
 
                 val historyFile = File(dir, HISTORY_FILE_NAME)
@@ -835,8 +877,8 @@ class NotebookRepository(private val context: Context) {
                     } else {
                         NotebookSettings(notebookName = dir.name)
                     }
-                    val cleanDisplayName = stripDuplicateNotebookSuffix(settings.notebookName.ifBlank { dir.name })
-                        .ifBlank { dir.name }
+                    val cleanDisplayName = ExportSharingManager.stripNotebookPrefix(settings.notebookName.ifBlank { dir.name })
+                        .trim().ifBlank { dir.name }
                     Notebook(
                         id = dir.name,
                         name = cleanDisplayName,
@@ -850,10 +892,23 @@ class NotebookRepository(private val context: Context) {
             }
         }
 
-        // Defensive deduplication by normalized stripped name so identical Primary notebooks never stack in UI
+        // Defensive deduplication by exact display name (or auto-suffixed duplicate when unsuffixed base exists)
         val activePrefId = prefs.getString(PREF_ACTIVE_NOTEBOOK, null)
+        val exactDisplayNames = list.map { it.name.trim().lowercase(Locale.ROOT) }.toSet()
         val deduplicatedList = list
-            .groupBy { stripDuplicateNotebookSuffix(it.name).trim().lowercase(Locale.ROOT) }
+            .groupBy { nb ->
+                val rawKey = nb.name.trim()
+                val strippedKey = stripDuplicateNotebookSuffix(rawKey).trim()
+                if (
+                    duplicateSuffixRegex.containsMatchIn(rawKey) &&
+                    nb.id.equals(rawKey, ignoreCase = true) &&
+                    exactDisplayNames.contains(strippedKey.lowercase(Locale.ROOT))
+                ) {
+                    strippedKey.lowercase(Locale.ROOT)
+                } else {
+                    rawKey.lowercase(Locale.ROOT)
+                }
+            }
             .values
             .mapNotNull { candidates ->
                 if (candidates.size == 1) candidates.first()
@@ -888,7 +943,7 @@ class NotebookRepository(private val context: Context) {
         val activeId = getActiveNotebookId()
         val all = listAllNotebooks()
         val resolved = all.find { it.id == activeId }
-            ?: all.find { stripDuplicateNotebookSuffix(it.id).equals(stripDuplicateNotebookSuffix(activeId), ignoreCase = true) }
+            ?: all.find { it.id.equals(activeId, ignoreCase = true) }
             ?: all.firstOrNull()
             ?: Notebook(
                 id = DEFAULT_NOTEBOOK_ID,
@@ -906,34 +961,59 @@ class NotebookRepository(private val context: Context) {
 
     /**
      * Creates a new notebook directory with settings.json and empty history.json,
-     * and writes `Notebooks/Notebook_<Name>.json`.
+     * writes `Notebooks/Notebook_<Name>.json` and `System_Backups/Notebook_<Name>.json`,
+     * and preserves active AI/language/export settings so UI balance is never disrupted.
      */
     @Synchronized
-    fun createNotebook(name: String, initialThemeColorId: String = "Schiefer", themeMode: String = "auto"): Notebook {
+    fun createNotebook(
+        name: String,
+        initialThemeColorId: String = "Schiefer",
+        themeMode: String = "auto",
+        baseSettings: NotebookSettings? = null
+    ): Notebook {
         ensureInitialized()
-        val strippedDisplay = ExportSharingManager.stripNotebookPrefix(name.trim()).ifBlank { "Neues Notizbuch" }
-        val cleanName = sanitizeFileName(strippedDisplay).ifBlank { "Neues_Notizbuch" }
-        var folderName = cleanName
-        var counter = 1
         val root = getRootDirectory()
+        val inheritedSettings = baseSettings ?: runCatching {
+            val currentActiveId = prefs.getString(PREF_ACTIVE_NOTEBOOK, null)
+            if (!currentActiveId.isNullOrBlank()) loadNotebookSettings(currentActiveId) else null
+        }.getOrNull()
 
+        val rawDisplay = ExportSharingManager.stripNotebookPrefix(name.trim()).ifBlank { "Neues Notizbuch" }
+        val existingNotebooks = listAllNotebooks()
+        val existingDisplayNames = existingNotebooks.map { it.name.trim().lowercase(Locale.ROOT) }.toSet()
+
+        var finalDisplay = rawDisplay
+        var nameCounter = 2
+        while (existingDisplayNames.contains(finalDisplay.lowercase(Locale.ROOT))) {
+            finalDisplay = "$rawDisplay $nameCounter"
+            nameCounter++
+        }
+
+        val cleanBase = sanitizeFileName(finalDisplay).ifBlank { "Neues_Notizbuch" }
+        var folderName = cleanBase
+        var folderCounter = 2
         while (File(root, folderName).exists()) {
-            folderName = "${cleanName}_$counter"
-            counter++
+            folderName = "$cleanBase $folderCounter"
+            if (!existingDisplayNames.contains("$rawDisplay $folderCounter".lowercase(Locale.ROOT)) && finalDisplay == rawDisplay) {
+                finalDisplay = "$rawDisplay $folderCounter"
+            }
+            folderCounter++
         }
 
         val folder = File(root, folderName)
         folder.mkdirs()
 
-        val settings = NotebookSettings(
-            notebookName = strippedDisplay,
+        val settings = (inheritedSettings ?: NotebookSettings()).copy(
+            notebookName = finalDisplay,
             themeColorId = initialThemeColorId,
             themeMode = themeMode
         )
 
-        File(folder, SETTINGS_FILE_NAME).writeText(settings.toJson())
-        File(folder, HISTORY_FILE_NAME).writeText("[]")
+        File(folder, SETTINGS_FILE_NAME).writeText(settings.toJson(), Charsets.UTF_8)
+        File(folder, HISTORY_FILE_NAME).writeText("[]", Charsets.UTF_8)
+        setActiveNotebookId(folderName)
         syncNotebookFileToNotebooksSubfolder(folderName)
+        saveSystemBackupHistory(folderName, emptyList())
 
         val notebook = Notebook(
             id = folderName,
@@ -943,8 +1023,7 @@ class NotebookRepository(private val context: Context) {
             settings = settings
         )
 
-        setActiveNotebookId(folderName)
-        backupManager?.scheduleBackup(folderName)
+        backupManager?.backupSingleNotebookNow(folderName)
         return notebook
     }
 
@@ -1056,39 +1135,110 @@ class NotebookRepository(private val context: Context) {
 
     /**
      * Deletes a notebook and its directory completely.
-     * Protected: Cannot delete the last remaining notebook.
+     * Supports deleting any notebook (even the last remaining one, in which case
+     * a fresh empty default "Allgemein" notebook is automatically created and activated).
      */
     @Synchronized
     fun deleteNotebook(notebookId: String): Boolean {
+        ensureInitialized()
+        val root = getRootDirectory()
         val all = listAllNotebooks()
-        if (all.size <= 1) {
-            return false // Cannot delete the only existing notebook
-        }
-
         val targetNb = all.find { it.id == notebookId }
-        val nbName = targetNb?.name ?: notebookId
+            ?: all.find { it.name.equals(notebookId, ignoreCase = true) }
+        val effectiveId = targetNb?.id ?: notebookId
+        val nbName = targetNb?.name ?: ExportSharingManager.stripNotebookPrefix(notebookId).ifBlank { notebookId }
+        val prevSettings = runCatching { loadNotebookSettings(effectiveId) }.getOrNull()
 
-        val folder = File(getRootDirectory(), notebookId)
+        val folder = File(root, effectiveId)
         if (folder.exists()) {
             folder.deleteRecursively()
         }
+
+        // Also clean up any duplicate directory in root whose settings.notebookName matches nbName
+        try {
+            root.listFiles { f -> f.isDirectory }?.forEach { dir ->
+                val sf = File(dir, SETTINGS_FILE_NAME)
+                val dirNbName = if (sf.exists()) {
+                    runCatching { NotebookSettings.fromJson(sf.readText(), fallbackName = dir.name).notebookName }.getOrDefault(dir.name)
+                } else dir.name
+                if (dir.name.equals(effectiveId, ignoreCase = true) ||
+                    ExportSharingManager.stripNotebookPrefix(dirNbName).trim().equals(nbName.trim(), ignoreCase = true)
+                ) {
+                    dir.deleteRecursively()
+                }
+            }
+        } catch (_: Throwable) {}
 
         try {
             val notebooksDir = getNotebooksDirectory()
             val systemBackupsDir = getSystemBackupsDirectory()
             val nbFileName = ExportSharingManager.buildNotebookFileName(nbName, defaultName = DEFAULT_NOTEBOOK_ID)
+            val legacyFileName = "${ExportSharingManager.sanitizeFileName(nbName, defaultName = DEFAULT_NOTEBOOK_ID)}.json"
             File(notebooksDir, nbFileName).delete()
+            File(notebooksDir, legacyFileName).delete()
             File(systemBackupsDir, nbFileName).delete()
+            File(systemBackupsDir, legacyFileName).delete()
         } catch (_: Throwable) {}
-
-        if (getActiveNotebookId() == notebookId) {
-            val remaining = listAllNotebooks()
-            setActiveNotebookId(remaining.firstOrNull()?.id ?: DEFAULT_NOTEBOOK_ID)
-        }
 
         backupManager?.onNotebookDeleted(nbName)
 
+        val remainingDirs = try {
+            root.listFiles { f -> f.isDirectory } ?: emptyArray()
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+
+        if (remainingDirs.isEmpty()) {
+            val defaultFolder = File(root, DEFAULT_NOTEBOOK_ID).apply { mkdirs() }
+            val defaultSettings = (prevSettings ?: NotebookSettings()).copy(
+                notebookName = DEFAULT_NOTEBOOK_ID,
+                themeColorId = prevSettings?.themeColorId?.ifBlank { "Dunkelblau" } ?: "Dunkelblau",
+                themeMode = prevSettings?.themeMode?.ifBlank { "auto" } ?: "auto"
+            )
+            try {
+                File(defaultFolder, SETTINGS_FILE_NAME).writeText(defaultSettings.toJson(), Charsets.UTF_8)
+                File(defaultFolder, HISTORY_FILE_NAME).writeText("[]", Charsets.UTF_8)
+            } catch (_: Throwable) {}
+            setActiveNotebookId(DEFAULT_NOTEBOOK_ID)
+            syncNotebookFileToNotebooksSubfolder(DEFAULT_NOTEBOOK_ID)
+            saveSystemBackupHistory(DEFAULT_NOTEBOOK_ID, emptyList())
+            backupManager?.syncClearAllPrimary(DEFAULT_NOTEBOOK_ID)
+        } else {
+            val currentActive = prefs.getString(PREF_ACTIVE_NOTEBOOK, null)
+            if (currentActive == null || currentActive.equals(effectiveId, ignoreCase = true) || !File(root, currentActive).exists()) {
+                val remaining = listAllNotebooks()
+                setActiveNotebookId(remaining.firstOrNull()?.id ?: remainingDirs.first().name)
+            }
+        }
+
         return true
+    }
+
+    /**
+     * Deletes a notebook backup snapshot from internal `System_Backups/` (Reserve tab).
+     */
+    @Synchronized
+    fun deleteSystemBackupNotebook(fileName: String, displayName: String): Boolean {
+        return try {
+            val sysDir = getSystemBackupsDirectory()
+            val cleanName = ExportSharingManager.stripNotebookPrefix(displayName).ifBlank { DEFAULT_NOTEBOOK_ID }
+            val prefixedName = ExportSharingManager.buildNotebookFileName(cleanName, defaultName = DEFAULT_NOTEBOOK_ID)
+            val legacyName = "${ExportSharingManager.sanitizeFileName(cleanName, defaultName = DEFAULT_NOTEBOOK_ID)}.json"
+            var deleted = false
+            listOf(
+                File(sysDir, fileName),
+                File(sysDir, prefixedName),
+                File(sysDir, legacyName)
+            ).forEach { target ->
+                if (target.exists() && target.isFile) {
+                    if (target.delete()) deleted = true
+                }
+            }
+            deleted
+        } catch (e: Exception) {
+            Log.w(TAG, "Error deleting system backup notebook $fileName: ${e.message}")
+            false
+        }
     }
 
     /**
@@ -1572,11 +1722,9 @@ class NotebookRepository(private val context: Context) {
                 val text = file.readText(Charsets.UTF_8).trim()
                 if (text.isEmpty()) return@mapNotNull null
 
-                val fallbackName = stripDuplicateNotebookSuffix(
-                    ExportSharingManager.stripNotebookPrefix(
-                        file.name.removeSuffix(".json").removeSuffix(".JSON")
-                    )
-                ).ifBlank { DEFAULT_NOTEBOOK_ID }
+                val fallbackName = ExportSharingManager.stripNotebookPrefix(
+                    file.name.removeSuffix(".json").removeSuffix(".JSON")
+                ).trim().ifBlank { DEFAULT_NOTEBOOK_ID }
 
                 var displayName = fallbackName
                 var wordCount = 0
@@ -1591,9 +1739,7 @@ class NotebookRepository(private val context: Context) {
                     wordCount = arr.length()
                     val rawName = root.optString("notebook_name").ifBlank { root.optString("notebookName") }.trim()
                     if (rawName.isNotBlank()) {
-                        displayName = stripDuplicateNotebookSuffix(
-                            ExportSharingManager.stripNotebookPrefix(rawName)
-                        ).ifBlank { fallbackName }
+                        displayName = ExportSharingManager.stripNotebookPrefix(rawName).trim().ifBlank { fallbackName }
                     }
                     val settingsObj = root.optJSONObject("settings")
                     if (settingsObj != null) {

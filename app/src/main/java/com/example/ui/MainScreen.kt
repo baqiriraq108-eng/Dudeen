@@ -1151,7 +1151,9 @@ fun MainScreen(
             onCreate = { name, themeColorId, themeMode ->
                 viewModel.createNotebook(name, themeColorId, themeMode)
             },
-            appLanguage = uiState.appLanguage
+            appLanguage = uiState.appLanguage,
+            initialThemeColorId = uiState.selectedTheme.id,
+            initialThemeMode = uiState.themeMode
         )
     }
 
@@ -1163,10 +1165,8 @@ fun MainScreen(
             onDismiss = { viewModel.closeManageNotebooksDialog() },
             onSelectNotebook = { id ->
                 viewModel.selectNotebook(id)
-                viewModel.closeManageNotebooksDialog()
             },
             onCreateNotebook = {
-                viewModel.closeManageNotebooksDialog()
                 viewModel.openCreateNotebookDialog()
             },
             onRenameNotebook = { id, newName ->
@@ -1214,6 +1214,9 @@ fun MainScreen(
             },
             onExportBackupNotebookJson = { entry ->
                 viewModel.prepareBackupNotebookExport(entry)
+            },
+            onDeleteBackupNotebook = { entry ->
+                viewModel.deleteBackupNotebook(entry)
             },
             appLanguage = uiState.appLanguage
         )

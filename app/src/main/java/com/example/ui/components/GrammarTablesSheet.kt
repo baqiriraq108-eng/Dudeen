@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
@@ -96,10 +95,13 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.GrammarExample
@@ -256,6 +258,11 @@ fun GrammarTablesSheet(
                 .padding(bottom = 12.dp)
         ) {
             // Header Bar: Part of top dismiss area (dismissible by swiping down here as well)
+            val headerTitle = when (appLanguage.lowercase()) {
+                "en" -> "Grammar Tables"
+                "ar" -> "جداول القواعد"
+                else -> "Grammatik-Tabellen"
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -272,63 +279,31 @@ fun GrammarTablesSheet(
                             }
                         )
                     }
-                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Open Grammar Book Emblem (MenuBook matching the Grammar button app-wide)
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .padding(end = 12.dp)
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    GeoPrimary.copy(alpha = 0.16f),
-                                    GeoSecondary.copy(alpha = 0.08f)
-                                )
-                            )
-                        )
-                        .border(1.dp, GeoPrimary.copy(alpha = 0.30f), RoundedCornerShape(12.dp))
-                        .testTag("grammar_header_book_icon")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MenuBook,
-                        contentDescription = null,
-                        tint = GeoPrimary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 12.dp)
-                ) {
-                    val headerTitle = when (appLanguage.lowercase()) {
-                        "en" -> "Grammar Tables"
-                        "ar" -> "جداول القواعد"
-                        else -> "Grammatik-Tabellen"
-                    }
-                    val headerSubtitle = when (appLanguage.lowercase()) {
-                        "en" -> "Overviews, Rules & Pronunciation"
-                        "ar" -> "نظرة عامة، القواعد والنطق"
-                        else -> "Übersichten, Regeln & Aussprache"
-                    }
-
-                    ScrollableCardTitle(
-                        text = headerTitle,
-                        style = MaterialTheme.typography.titleMedium,
+                Text(
+                    text = headerTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 18.sp,
+                        lineHeight = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = GeoOnSurface
-                    )
-                    ScrollableCardSubtitle(
-                        text = headerSubtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GeoOnSurfaceVariant
-                    )
-                }
+                        platformStyle = PlatformTextStyle(includeFontPadding = false),
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Center,
+                            trim = LineHeightStyle.Trim.Both
+                        )
+                    ),
+                    color = GeoOnSurface,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .padding(end = 12.dp)
+                        .testTag("grammar_header_title")
+                )
 
                 // Polished Dual-Tone Gradient Capsule for Speech Rate with Circular Speedometer Badge
                 Box(

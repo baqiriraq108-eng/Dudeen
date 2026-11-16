@@ -317,4 +317,134 @@ class NotebookManagerUiTest {
         composeTestRule.onNodeWithText("A1.1").assertIsDisplayed()
         composeTestRule.onNodeWithText("Allgemein").assertDoesNotExist()
     }
+
+    @Test
+    fun testDeleteOptionAvailableInThreeDotMenuForAllTabsAndSinglePrimaryNotebook() {
+        val singlePrimaryNotebook = listOf(
+            Notebook(
+                id = "Allgemein",
+                name = "Allgemein",
+                lastModified = 1_700_000_000_000L,
+                wordCount = 5,
+                settings = NotebookSettings(notebookName = "Allgemein")
+            )
+        )
+
+        val backupEntries = listOf(
+            BackupNotebookEntry(
+                uniqueKey = "sys::Notebook_ReserveBook.json",
+                notebookId = "ReserveBook",
+                displayName = "ReserveBook",
+                wordCount = 15,
+                lastModified = 1_700_000_500_000L,
+                themeColorId = "Dunkelblau",
+                sourceType = BackupNotebookSourceType.SYSTEM_BACKUP,
+                sourceLabel = "System_Backups",
+                sourceFolderUri = null,
+                fileName = "Notebook_ReserveBook.json"
+            ),
+            BackupNotebookEntry(
+                uniqueKey = "ext::content://example/backup1::Notebook_BackupBook.json",
+                notebookId = "BackupBook",
+                displayName = "BackupBook",
+                wordCount = 25,
+                lastModified = 1_700_000_800_000L,
+                themeColorId = "Smaragd",
+                sourceType = BackupNotebookSourceType.EXTERNAL_FOLDER,
+                sourceLabel = "/Momente",
+                sourceFolderUri = "content://example/backup1",
+                fileName = "Notebook_BackupBook.json"
+            )
+        )
+
+        var deletedPrimaryId: String? = null
+        var deletedBackupEntry: BackupNotebookEntry? = null
+
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                NotebookManagerDialog(
+                    notebooks = singlePrimaryNotebook,
+                    activeNotebookId = "Allgemein",
+                    onDismiss = {},
+                    onSelectNotebook = {},
+                    onCreateNotebook = {},
+                    onRenameNotebook = { _, _ -> },
+                    onDeleteNotebook = { deletedPrimaryId = it },
+                    onExportJson = {},
+                    onImportJson = {},
+                    onExportAllCombined = {},
+                    onExportAllSeparate = {},
+                    onExportSelectedClick = {},
+                    backupNotebooks = backupEntries,
+                    onDeleteBackupNotebook = { deletedBackupEntry = it },
+                    appLanguage = "de"
+                )
+            }
+        }
+
+        // 1. Even with only a single Primary notebook, its 3-dot menu has the Delete option
+        composeTestRule.onNodeWithTag("primary_notebook_menu_Allgemein").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("primary_notebook_delete_action_Allgemein").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("primary_notebook_delete_action_Allgemein").performClick()
+        composeTestRule.waitForIdle()
+
+        // Confirm deletion in dialog
+        composeTestRule.onNodeWithText("Bestätigen").performClick()
+        composeTestRule.waitForIdle()
+        assertEquals("Allgemein", deletedPrimaryId)
+
+        // 2. Switch to Reserve tab and delete a Reserve notebook via its 3-dot menu
+        composeTestRule.onNodeWithTag("notebooks_tab_reserve").performClick()
+        composeTestRule.waitForIdle()
+        val reserveHash = backupEntries[0].uniqueKey.hashCode()
+        composeTestRule.onNodeWithTag("backup_notebook_menu_$reserveHash").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("backup_notebook_delete_action_$reserveHash").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("backup_notebook_delete_action_$reserveHash").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Bestätigen").performClick()
+        composeTestRule.waitForIdle()
+        assertEquals("ReserveBook", deletedBackupEntry?.displayName)
+
+        // 3. Switch to Backup tab and delete an External Backup notebook via its 3-dot menu
+        composeTestRule.onNodeWithTag("notebooks_tab_backup").performClick()
+        composeTestRule.waitForIdle()
+        val extHash = backupEntries[1].uniqueKey.hashCode()
+        composeTestRule.onNodeWithTag("backup_notebook_menu_$extHash").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("backup_notebook_delete_action_$extHash").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("backup_notebook_delete_action_$extHash").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText("Bestätigen").performClick()
+        composeTestRule.waitForIdle()
+        assertEquals("BackupBook", deletedBackupEntry?.displayName)
+    }
+
+    @Test
+    fun testPrimaryBookTabIconBookmarkGeometryConsistentAcrossStates() {
+        val filled = com.example.ui.components.DekloBookFilledIcon
+        val outlined = com.example.ui.components.DekloBookOutlinedIcon
+
+        assertEquals(filled.viewportWidth, outlined.viewportWidth)
+        assertEquals(filled.viewportHeight, outlined.viewportHeight)
+        assertEquals(filled.defaultWidth, outlined.defaultWidth)
+        assertEquals(filled.defaultHeight, outlined.defaultHeight)
+
+        val filledPath = (filled.root[0] as androidx.compose.ui.graphics.vector.VectorPath).pathData
+        val outlinedPath = (outlined.root[0] as androidx.compose.ui.graphics.vector.VectorPath).pathData
+
+        // Both variants must share the exact outer book cover path nodes (first 9 nodes)
+        assertEquals(filledPath.take(9), outlinedPath.take(9))
+
+        // Both variants must share the exact bookmark geometry: left notch (7,13), center tip (10,11), right notch (13,13), width x=7..13
+        val expectedTip = androidx.compose.ui.graphics.vector.PathNode.LineTo(10f, 11f)
+        org.junit.Assert.assertTrue(filledPath.contains(expectedTip))
+        org.junit.Assert.assertTrue(outlinedPath.contains(expectedTip))
+        org.junit.Assert.assertTrue(filledPath.contains(androidx.compose.ui.graphics.vector.PathNode.VerticalTo(13f)))
+        org.junit.Assert.assertTrue(outlinedPath.contains(androidx.compose.ui.graphics.vector.PathNode.VerticalTo(13f)))
+        org.junit.Assert.assertTrue(filledPath.contains(androidx.compose.ui.graphics.vector.PathNode.HorizontalTo(13f)))
+        org.junit.Assert.assertTrue(outlinedPath.contains(androidx.compose.ui.graphics.vector.PathNode.LineTo(13f, 13f)))
+    }
 }
+

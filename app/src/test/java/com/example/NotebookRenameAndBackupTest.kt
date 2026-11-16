@@ -865,6 +865,79 @@ class NotebookRenameAndBackupTest {
         assertTrue(activeHistory.any { it.word == "Verantwortung" })
         assertTrue(activeHistory.any { it.word == "entscheiden" })
     }
+
+    @Test
+    fun testNewNotebookNeverDisappearsAfterActivatingAnotherNotebook() = kotlinx.coroutines.runBlocking {
+        val baseSettings = com.example.data.notebook.NotebookSettings(
+            notebookName = "Allgemein",
+            selectedProvider = "OpenRouter",
+            selectedModel = "anthropic/claude-3.5-sonnet",
+            appLanguage = "ar",
+            translationLanguage = "ar",
+            themeColorId = "Smaragd",
+            themeMode = "dark"
+        )
+        notebookRepository.saveNotebookSettings("Allgemein", baseSettings)
+
+        // Create a new notebook with parenthetical suffix or duplicate name
+        val created1 = notebookRepository.createNotebook(
+            name = "Kapitel (1)",
+            initialThemeColorId = "Smaragd",
+            themeMode = "dark",
+            baseSettings = baseSettings
+        )
+        val created2 = notebookRepository.createNotebook(
+            name = "Allgemein",
+            initialThemeColorId = "Rubin",
+            themeMode = "dark",
+            baseSettings = baseSettings
+        )
+
+        // Verify inherited settings balance
+        assertEquals("OpenRouter", created1.settings.selectedProvider)
+        assertEquals("ar", created1.settings.appLanguage)
+        assertEquals("Allgemein 2", created2.name)
+
+        // Now switch active notebook back to "Allgemein"
+        notebookRepository.setActiveNotebookId("Allgemein")
+
+        val allAfterSwitch = notebookRepository.listAllNotebooks()
+        assertTrue("Kapitel (1) must remain in Primary notebooks after switching active notebook", allAfterSwitch.any { it.name == "Kapitel (1)" })
+        assertTrue("Allgemein 2 must remain in Primary notebooks after switching active notebook", allAfterSwitch.any { it.name == "Allgemein 2" })
+        assertTrue("Allgemein must remain in Primary notebooks", allAfterSwitch.any { it.name == "Allgemein" })
+
+        // Verify Reserve (System_Backups) also immediately has snapshots for the newly created notebooks
+        val backups = backupManager.listAllBackupNotebooks()
+        assertTrue(
+            "System_Backups must retain snapshot for newly created notebook even if empty",
+            backups.any { it.displayName == "Kapitel (1)" }
+        )
+    }
+
+    @Test
+    fun testDeleteAnyNotebookAndLastNotebookRecreatesEmptyAllgemein() = kotlinx.coroutines.runBlocking {
+        // Add a word to Allgemein so it's non-empty
+        val word = WordHistoryEntity(id = 999L, word = "Freiheit", type = "Nomen", data = "{}", timestamp = 1000L, rawJsonResult = "{}")
+        notebookRepository.appendOrUpdateItemInActiveHistory(word)
+        assertEquals(1, notebookRepository.loadActiveHistory().size)
+
+        // Ensure only 1 notebook exists
+        val initialNotebooks = notebookRepository.listAllNotebooks()
+        assertEquals(1, initialNotebooks.size)
+        assertEquals("Allgemein", initialNotebooks.first().id)
+
+        // Delete the last remaining notebook
+        val deleted = notebookRepository.deleteNotebook("Allgemein")
+        assertTrue("Deleting the last remaining notebook must succeed", deleted)
+
+        // Verify a fresh empty default "Allgemein" notebook was automatically created and activated
+        val remaining = notebookRepository.listAllNotebooks()
+        assertEquals(1, remaining.size)
+        assertEquals("Allgemein", remaining.first().name)
+        assertEquals(0, remaining.first().wordCount)
+        assertTrue("Recreated default notebook must be empty", notebookRepository.loadActiveHistory().isEmpty())
+    }
 }
+
 
 

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Folder
@@ -39,11 +40,13 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -123,7 +126,9 @@ fun NotebookSwitcher(
                 shape = RoundedCornerShape(12.dp),
                 color = palette.cardSurfaceSubtle,
                 border = BorderStroke(1.dp, palette.cardBorder),
-                modifier = Modifier.testTag("notebook_switcher_button")
+                modifier = Modifier
+                    .widthIn(max = 195.dp)
+                    .testTag("notebook_switcher_button")
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -174,16 +179,16 @@ fun NotebookSwitcher(
                                 id = DropdownNotebookTab.PRIMARY.name,
                                 label = strings.primaryNotebooksTab,
                                 count = null,
-                                selectedIcon = Icons.Filled.Bookmark,
-                                unselectedIcon = Icons.Outlined.BookmarkBorder,
+                                selectedIcon = DekloBookFilledIcon,
+                                unselectedIcon = DekloBookOutlinedIcon,
                                 testTag = "dropdown_tab_primary"
                             ),
                             SegmentedPillItem(
                                 id = DropdownNotebookTab.BACKUP_FOLDER.name,
                                 label = strings.backupNotebooksTab,
                                 count = null,
-                                selectedIcon = Icons.Filled.Folder,
-                                unselectedIcon = Icons.Outlined.Folder,
+                                selectedIcon = Icons.Filled.FolderZip,
+                                unselectedIcon = Icons.Outlined.FolderZip,
                                 testTag = "dropdown_tab_backup"
                             )
                         ),
@@ -203,12 +208,22 @@ fun NotebookSwitcher(
                         DropdownNotebookTab.PRIMARY -> {
                             val orderedPrimaryNotebooks = remember(allNotebooks, activeNotebook?.id) {
                                 val activeId = activeNotebook?.id
+                                val rawNamesLower = allNotebooks.map {
+                                    com.example.util.ExportSharingManager.stripNotebookPrefix(it.name).trim().lowercase(java.util.Locale.ROOT)
+                                }.toSet()
                                 allNotebooks
                                     .map { nb ->
-                                        val cleanName = com.example.util.ExportSharingManager.stripNotebookPrefix(nb.name)
-                                            .replace(duplicateSuffix, "")
-                                            .trim()
-                                            .ifBlank { nb.name }
+                                        val strippedPrefix = com.example.util.ExportSharingManager.stripNotebookPrefix(nb.name).trim()
+                                        val withoutSuffix = strippedPrefix.replace(duplicateSuffix, "").trim()
+                                        val cleanName = if (
+                                            withoutSuffix != strippedPrefix &&
+                                            withoutSuffix.isNotBlank() &&
+                                            rawNamesLower.contains(withoutSuffix.lowercase(java.util.Locale.ROOT))
+                                        ) {
+                                            withoutSuffix
+                                        } else {
+                                            strippedPrefix.ifBlank { nb.name }
+                                        }
                                         if (cleanName != nb.name) nb.copy(name = cleanName) else nb
                                     }
                                     .groupBy { it.name.trim().lowercase(java.util.Locale.ROOT) }
@@ -289,13 +304,24 @@ fun NotebookSwitcher(
                             // Strictly only notebooks from user-selected device backup folders (excluding SYSTEM_BACKUP)
                             val externalFolderBackups = remember(backupNotebooks, activeNotebook?.id) {
                                 val activeId = activeNotebook?.id ?: ""
-                                backupNotebooks
+                                val rawItems = backupNotebooks
                                     .filter { it.sourceType == BackupNotebookSourceType.EXTERNAL_FOLDER }
+                                val rawNamesLower = rawItems.map {
+                                    com.example.util.ExportSharingManager.stripNotebookPrefix(it.displayName).trim().lowercase(java.util.Locale.ROOT)
+                                }.toSet()
+                                rawItems
                                     .map { entry ->
-                                        val cleanName = com.example.util.ExportSharingManager.stripNotebookPrefix(entry.displayName)
-                                            .replace(duplicateSuffix, "")
-                                            .trim()
-                                            .ifBlank { entry.displayName }
+                                        val strippedPrefix = com.example.util.ExportSharingManager.stripNotebookPrefix(entry.displayName).trim()
+                                        val withoutSuffix = strippedPrefix.replace(duplicateSuffix, "").trim()
+                                        val cleanName = if (
+                                            withoutSuffix != strippedPrefix &&
+                                            withoutSuffix.isNotBlank() &&
+                                            rawNamesLower.contains(withoutSuffix.lowercase(java.util.Locale.ROOT))
+                                        ) {
+                                            withoutSuffix
+                                        } else {
+                                            strippedPrefix.ifBlank { entry.displayName }
+                                        }
                                         if (cleanName != entry.displayName) entry.copy(displayName = cleanName) else entry
                                     }
                                     .groupBy { it.displayName.trim().lowercase(java.util.Locale.ROOT) }
@@ -438,11 +464,13 @@ fun NotebookSwitcher(
 fun CreateNotebookDialog(
     onDismiss: () -> Unit,
     onCreate: (name: String, themeColorId: String, themeMode: String) -> Unit,
-    appLanguage: String = "de"
+    appLanguage: String = "de",
+    initialThemeColorId: String = "Dunkelblau",
+    initialThemeMode: String = "auto"
 ) {
     var notebookName by remember { mutableStateOf("") }
-    var selectedThemeId by remember { mutableStateOf("Dunkelblau") }
-    var selectedThemeMode by remember { mutableStateOf("auto") }
+    var selectedThemeId by remember(initialThemeColorId) { mutableStateOf(initialThemeColorId.ifBlank { "Dunkelblau" }) }
+    var selectedThemeMode by remember(initialThemeMode) { mutableStateOf(initialThemeMode.ifBlank { "auto" }) }
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     val palette = rememberNotebookDialogPalette()
 

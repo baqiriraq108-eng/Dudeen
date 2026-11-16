@@ -38,13 +38,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CollectionsBookmark
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
@@ -52,9 +48,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.FolderZip
-import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -62,15 +56,9 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UploadFile
-import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material.icons.outlined.CollectionsBookmark
-import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FolderZip
-import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.AlertDialog
@@ -102,7 +90,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -246,6 +237,88 @@ private enum class NotebookStorageTab {
     BACKUP
 }
 
+internal val DekloBookFilledIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "DekloBookFilled",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            pathFillType = PathFillType.EvenOdd
+        ) {
+            // Outer book cover
+            moveTo(18f, 2f)
+            horizontalLineTo(6f)
+            curveTo(4.9f, 2f, 4f, 2.9f, 4f, 4f)
+            verticalLineTo(20f)
+            curveTo(4f, 21.1f, 4.9f, 22f, 6f, 22f)
+            horizontalLineTo(18f)
+            curveTo(19.1f, 22f, 20f, 21.1f, 20f, 20f)
+            verticalLineTo(4f)
+            curveTo(20f, 2.9f, 19.1f, 2f, 18f, 2f)
+            close()
+            // Clean bookmark cutout with identical geometry to Outlined variant
+            moveTo(7f, 4f)
+            horizontalLineTo(13f)
+            verticalLineTo(13f)
+            lineTo(10f, 11f)
+            lineTo(7f, 13f)
+            verticalLineTo(4f)
+            close()
+        }
+    }.build()
+}
+
+internal val DekloBookOutlinedIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "DekloBookOutlined",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            pathFillType = PathFillType.EvenOdd
+        ) {
+            // Outer book cover
+            moveTo(18f, 2f)
+            horizontalLineTo(6f)
+            curveTo(4.9f, 2f, 4f, 2.9f, 4f, 4f)
+            verticalLineTo(20f)
+            curveTo(4f, 21.1f, 4.9f, 22f, 6f, 22f)
+            horizontalLineTo(18f)
+            curveTo(19.1f, 22f, 20f, 21.1f, 20f, 20f)
+            verticalLineTo(4f)
+            curveTo(20f, 2.9f, 19.1f, 2f, 18f, 2f)
+            close()
+            // Single U-shaped inner page cutout around the bookmark (zero overlapping edges)
+            moveTo(6f, 4f)
+            horizontalLineTo(7f)
+            verticalLineTo(13f)
+            lineTo(10f, 11f)
+            lineTo(13f, 13f)
+            verticalLineTo(4f)
+            horizontalLineTo(18f)
+            verticalLineTo(20f)
+            horizontalLineTo(6f)
+            verticalLineTo(4f)
+            close()
+            // Bookmark inner hollow pocket (uniform 1.6.dp stroke matching outer bookmark)
+            moveTo(8.6f, 4f)
+            horizontalLineTo(11.4f)
+            verticalLineTo(10f)
+            lineTo(10f, 9.07f)
+            lineTo(8.6f, 10f)
+            verticalLineTo(4f)
+            close()
+        }
+    }.build()
+}
+
 @Immutable
 data class SegmentedPillItem(
     val id: String,
@@ -257,8 +330,10 @@ data class SegmentedPillItem(
 )
 
 /**
- * Reusable Deklo-adapted segmented pill tab bar (rounded outer track, elevated tonal active pill,
- * strictly icon-only with zero text labels and zero numeric badges, preserving accessibility contentDescription).
+ * Reusable Deklo-adapted segmented capsule tab bar:
+ * - Full capsule/pill geometry (CircleShape) on both the outer track and active indicator.
+ * - Clean open track without internal dividers, underline bars, outer icon boxes, or mini-badges.
+ * - Strictly icon-only (single centered 26.dp Outline-to-Fill icon, 52.dp minimum capsule height).
  */
 @Composable
 fun UnifiedSegmentedPillBar(
@@ -270,44 +345,55 @@ fun UnifiedSegmentedPillBar(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(50),
+        shape = CircleShape,
         color = palette.pillTrackSurface,
         border = BorderStroke(1.dp, palette.pillTrackBorder)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(4.dp),
+                .padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { item ->
                 val isSelected = item.id == selectedId
-                val bgColor = if (isSelected) palette.pillSelectedSurface else Color.Transparent
-                val borderStroke = if (isSelected) BorderStroke(1.dp, palette.pillSelectedBorder) else null
-                val iconTint = if (isSelected) palette.pillSelectedIcon else palette.pillUnselectedContent
+                val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                val borderStroke = BorderStroke(
+                    width = 1.dp,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                    } else {
+                        Color.Transparent
+                    }
+                )
+                val iconTint = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
 
                 Surface(
                     onClick = { onSelect(item.id) },
-                    shape = RoundedCornerShape(50),
+                    shape = CircleShape,
                     color = bgColor,
                     border = borderStroke,
                     modifier = Modifier
                         .weight(1f)
-                        .heightIn(min = 44.dp)
+                        .heightIn(min = 52.dp)
                         .testTag(item.testTag)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
                             contentDescription = item.label,
                             tint = iconTint,
-                            modifier = Modifier.size(21.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
@@ -347,6 +433,7 @@ fun NotebookManagerDialog(
     onBackupNow: () -> Unit = {},
     onPromoteBackupNotebook: (BackupNotebookEntry) -> Unit = {},
     onExportBackupNotebookJson: (BackupNotebookEntry) -> Unit = {},
+    onDeleteBackupNotebook: (BackupNotebookEntry) -> Unit = {},
     appLanguage: String = "de"
 ) {
     var selectedSection by remember { mutableStateOf(NotebookManagerSection.NOTEBOOKS) }
@@ -356,6 +443,7 @@ fun NotebookManagerDialog(
     var notebookToDelete by remember { mutableStateOf<Notebook?>(null) }
     var folderToSetPrimary by remember { mutableStateOf<BackupFolder?>(null) }
     var backupToPromote by remember { mutableStateOf<BackupNotebookEntry?>(null) }
+    var backupToDelete by remember { mutableStateOf<BackupNotebookEntry?>(null) }
 
     val strings = remember(appLanguage) { AppStrings.get(appLanguage) }
     val palette = rememberNotebookDialogPalette()
@@ -470,16 +558,16 @@ fun NotebookManagerDialog(
                                     id = NotebookManagerSection.NOTEBOOKS.name,
                                     label = strings.managerTabNotebooks,
                                     count = null,
-                                    selectedIcon = Icons.Filled.CollectionsBookmark,
-                                    unselectedIcon = Icons.Outlined.CollectionsBookmark,
+                                    selectedIcon = Icons.AutoMirrored.Filled.MenuBook,
+                                    unselectedIcon = Icons.AutoMirrored.Outlined.MenuBook,
                                     testTag = "manager_section_notebooks"
                                 ),
                                 SegmentedPillItem(
                                     id = NotebookManagerSection.BACKUPS.name,
                                     label = strings.managerTabBackups,
                                     count = null,
-                                    selectedIcon = Icons.Filled.FolderZip,
-                                    unselectedIcon = Icons.Outlined.FolderZip,
+                                    selectedIcon = Icons.Filled.Folder,
+                                    unselectedIcon = Icons.Outlined.Folder,
                                     testTag = "manager_section_backups"
                                 ),
                                 SegmentedPillItem(
@@ -530,6 +618,7 @@ fun NotebookManagerDialog(
                                             onDeleteRequest = { notebookToDelete = it },
                                             onPromoteBackupRequest = { backupToPromote = it },
                                             onExportBackupNotebookJson = onExportBackupNotebookJson,
+                                            onDeleteBackupRequest = { backupToDelete = it },
                                             palette = palette,
                                             strings = strings
                                         )
@@ -771,6 +860,47 @@ fun NotebookManagerDialog(
             )
         }
     }
+
+    // Delete Backup Notebook Confirmation Dialog
+    if (backupToDelete != null) {
+        val targetEntry = backupToDelete!!
+        CompositionLocalProvider(LocalLayoutDirection provides strings.language.layoutDirection) {
+            AlertDialog(
+                onDismissRequest = { backupToDelete = null },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = palette.dialogSurface,
+                title = {
+                    Text(
+                        text = strings.deleteNotebookDialogTitle,
+                        fontWeight = FontWeight.Bold,
+                        color = palette.error,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                },
+                text = {
+                    Text(
+                        text = strings.deleteNotebookDialogMessage(targetEntry.displayName),
+                        fontSize = 13.sp,
+                        color = palette.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    UnifiedTwoButtonBar(
+                        cancelLabel = strings.cancel,
+                        confirmLabel = strings.confirm,
+                        onCancel = { backupToDelete = null },
+                        onConfirm = {
+                            onDeleteBackupNotebook(targetEntry)
+                            backupToDelete = null
+                        },
+                        palette = palette,
+                        confirmIsDestructive = true
+                    )
+                }
+            )
+        }
+    }
 }
 
 @Composable
@@ -789,6 +919,7 @@ private fun NotebooksWorkspaceSection(
     onDeleteRequest: (Notebook) -> Unit,
     onPromoteBackupRequest: (BackupNotebookEntry) -> Unit,
     onExportBackupNotebookJson: (BackupNotebookEntry) -> Unit,
+    onDeleteBackupRequest: (BackupNotebookEntry) -> Unit,
     palette: NotebookDialogPalette,
     strings: SettingsStrings
 ) {
@@ -796,13 +927,24 @@ private fun NotebooksWorkspaceSection(
     // and System / Folder Backups (external backup folders) with normalized titles and clean ordering
     val duplicateSuffix = remember { Regex("""(?:\s*_\d+|\s*\(\d+\))+$""") }
     val reserveNotebooks = remember(backupNotebooks, activeNotebookId) {
-        backupNotebooks
+        val rawItems = backupNotebooks
             .filter { it.sourceType == com.example.data.notebook.BackupNotebookSourceType.SYSTEM_BACKUP }
+        val rawNamesLower = rawItems.map {
+            com.example.util.ExportSharingManager.stripNotebookPrefix(it.displayName).trim().lowercase(Locale.ROOT)
+        }.toSet()
+        rawItems
             .map { entry ->
-                val cleanName = com.example.util.ExportSharingManager.stripNotebookPrefix(entry.displayName)
-                    .replace(duplicateSuffix, "")
-                    .trim()
-                    .ifBlank { entry.displayName }
+                val strippedPrefix = com.example.util.ExportSharingManager.stripNotebookPrefix(entry.displayName).trim()
+                val withoutSuffix = strippedPrefix.replace(duplicateSuffix, "").trim()
+                val cleanName = if (
+                    withoutSuffix != strippedPrefix &&
+                    withoutSuffix.isNotBlank() &&
+                    rawNamesLower.contains(withoutSuffix.lowercase(Locale.ROOT))
+                ) {
+                    withoutSuffix
+                } else {
+                    strippedPrefix.ifBlank { entry.displayName }
+                }
                 if (cleanName != entry.displayName) entry.copy(displayName = cleanName) else entry
             }
             .groupBy { it.displayName.trim().lowercase(Locale.ROOT) }
@@ -818,13 +960,24 @@ private fun NotebooksWorkspaceSection(
             )
     }
     val folderBackupNotebooks = remember(backupNotebooks, activeNotebookId) {
-        backupNotebooks
+        val rawItems = backupNotebooks
             .filter { it.sourceType == com.example.data.notebook.BackupNotebookSourceType.EXTERNAL_FOLDER }
+        val rawNamesLower = rawItems.map {
+            com.example.util.ExportSharingManager.stripNotebookPrefix(it.displayName).trim().lowercase(Locale.ROOT)
+        }.toSet()
+        rawItems
             .map { entry ->
-                val cleanName = com.example.util.ExportSharingManager.stripNotebookPrefix(entry.displayName)
-                    .replace(duplicateSuffix, "")
-                    .trim()
-                    .ifBlank { entry.displayName }
+                val strippedPrefix = com.example.util.ExportSharingManager.stripNotebookPrefix(entry.displayName).trim()
+                val withoutSuffix = strippedPrefix.replace(duplicateSuffix, "").trim()
+                val cleanName = if (
+                    withoutSuffix != strippedPrefix &&
+                    withoutSuffix.isNotBlank() &&
+                    rawNamesLower.contains(withoutSuffix.lowercase(Locale.ROOT))
+                ) {
+                    withoutSuffix
+                } else {
+                    strippedPrefix.ifBlank { entry.displayName }
+                }
                 if (cleanName != entry.displayName) entry.copy(displayName = cleanName) else entry
             }
             .groupBy { it.displayName.trim().lowercase(Locale.ROOT) }
@@ -891,8 +1044,8 @@ private fun NotebooksWorkspaceSection(
                             id = NotebookStorageTab.PRIMARY.name,
                             label = strings.primaryNotebooksTab,
                             count = null,
-                            selectedIcon = Icons.Filled.Bookmark,
-                            unselectedIcon = Icons.Outlined.BookmarkBorder,
+                            selectedIcon = DekloBookFilledIcon,
+                            unselectedIcon = DekloBookOutlinedIcon,
                             testTag = "notebooks_tab_primary"
                         ),
                         SegmentedPillItem(
@@ -907,8 +1060,8 @@ private fun NotebooksWorkspaceSection(
                             id = NotebookStorageTab.BACKUP.name,
                             label = strings.backupNotebooksTab,
                             count = null,
-                            selectedIcon = Icons.Filled.Folder,
-                            unselectedIcon = Icons.Outlined.Folder,
+                            selectedIcon = Icons.Filled.FolderZip,
+                            unselectedIcon = Icons.Outlined.FolderZip,
                             testTag = "notebooks_tab_backup"
                         )
                     ),
@@ -939,7 +1092,7 @@ private fun NotebooksWorkspaceSection(
                                 PrimaryNotebookItemCard(
                                     notebook = notebook,
                                     isActive = notebook.id == activeNotebookId,
-                                    canDelete = notebooks.size > 1,
+                                    canDelete = true,
                                     onSelect = { onSelectNotebook(notebook.id) },
                                     onRename = { onRenameRequest(notebook) },
                                     onExportJson = { onExportJson(notebook.id) },
@@ -1007,6 +1160,7 @@ private fun NotebooksWorkspaceSection(
                                         entry = entry,
                                         onActivate = { onPromoteBackupRequest(entry) },
                                         onExportJson = { onExportBackupNotebookJson(entry) },
+                                        onDelete = { onDeleteBackupRequest(entry) },
                                         palette = palette,
                                         strings = strings
                                     )
@@ -1071,6 +1225,7 @@ private fun NotebooksWorkspaceSection(
                                         entry = entry,
                                         onActivate = { onPromoteBackupRequest(entry) },
                                         onExportJson = { onExportBackupNotebookJson(entry) },
+                                        onDelete = { onDeleteBackupRequest(entry) },
                                         palette = palette,
                                         strings = strings
                                     )
@@ -1305,7 +1460,9 @@ private fun PrimaryNotebookItemCard(
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
+                            .size(32.dp)
+                            .testTag("primary_notebook_menu_${notebook.id}")
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
@@ -1356,6 +1513,7 @@ private fun PrimaryNotebookItemCard(
 
                         if (canDelete) {
                             DropdownMenuItem(
+                                modifier = Modifier.testTag("primary_notebook_delete_action_${notebook.id}"),
                                 text = { Text(strings.delete, fontSize = 13.sp, color = palette.error) },
                                 leadingIcon = {
                                     Icon(
@@ -1387,6 +1545,7 @@ private fun BackupNotebookItemCard(
     entry: BackupNotebookEntry,
     onActivate: () -> Unit,
     onExportJson: () -> Unit,
+    onDelete: () -> Unit = {},
     palette: NotebookDialogPalette,
     strings: SettingsStrings
 ) {
@@ -1508,7 +1667,9 @@ private fun BackupNotebookItemCard(
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
+                            .size(32.dp)
+                            .testTag("backup_notebook_menu_${entry.uniqueKey.hashCode()}")
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
@@ -1554,6 +1715,23 @@ private fun BackupNotebookItemCard(
                             onClick = {
                                 showMenu = false
                                 onExportJson()
+                            }
+                        )
+
+                        DropdownMenuItem(
+                            modifier = Modifier.testTag("backup_notebook_delete_action_${entry.uniqueKey.hashCode()}"),
+                            text = { Text(strings.delete, fontSize = 13.sp, color = palette.error) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = palette.error,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
                             }
                         )
                     }

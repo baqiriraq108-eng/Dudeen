@@ -1458,75 +1458,84 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Notebooks (Notizbücher) Management
     // ==============================================================
 
+    private suspend fun activateNotebookInternal(notebookId: String, closeCreateDialog: Boolean = false) {
+        notebookRepository.setActiveNotebookId(notebookId)
+        val updatedAll = notebookRepository.listAllNotebooks()
+        val newActive = notebookRepository.getActiveNotebook()
+        val settings = newActive.settings
+
+        // Hydrate Room with the selected notebook's history
+        val historyItems = notebookRepository.loadNotebookHistory(newActive.id)
+        repository.reloadRoomWithItems(historyItems)
+
+        // Update TTS speed rate
+        ttsManager.setSpeedRate(settings.ttsSpeed)
+
+        // Update theme
+        val theme = AppThemePackage.fromId(settings.themeColorId)
+        themePreferences.saveSelectedTheme(theme)
+        themePreferences.saveThemeMode(settings.themeMode)
+        val globalLanguage = themePreferences.getAppLanguage()
+        val effectiveLanguage = if (globalLanguage.isNotBlank()) globalLanguage else settings.appLanguage.ifBlank { "de" }
+        themePreferences.saveAppLanguage(effectiveLanguage)
+        val globalTranslationLanguage = themePreferences.getTranslationLanguage()
+        val effectiveTranslationLanguage = if (globalTranslationLanguage.isNotBlank()) globalTranslationLanguage else settings.translationLanguage.ifBlank { "en" }
+        themePreferences.saveTranslationLanguage(effectiveTranslationLanguage)
+
+        // Sync provider & API key state to repository
+        val provider = ModelProvider.fromId(settings.selectedProvider)
+        repository.saveSelectedProvider(provider)
+        if (settings.customApiKey.isNotBlank()) {
+            repository.saveGeminiApiKey(settings.customApiKey)
+        }
+        if (settings.openRouterApiKey.isNotBlank()) {
+            repository.saveOpenRouterApiKey(settings.openRouterApiKey)
+        }
+        val effectiveGeminiKey = settings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
+        val effectiveOpenRouterKey = settings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
+        val effectiveModel = settings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
+        val isConfigured = settings.customApiKey.isNotBlank() ||
+            settings.openRouterApiKey.isNotBlank() ||
+            repository.isApiKeyConfigured()
+        val (remaining, total) = repository.getDailyUsage(provider, effectiveModel)
+        val discoveredBackups = runCatching { notebookBackupManager.listAllBackupNotebooks() }
+            .getOrElse { _uiState.value.backupNotebooks }
+
+        _uiState.update { current ->
+            current.copy(
+                allNotebooks = updatedAll,
+                activeNotebook = newActive,
+                backupNotebooks = discoveredBackups,
+                isLoadingBackupNotebooks = false,
+                isCreateNotebookDialogOpen = if (closeCreateDialog) false else current.isCreateNotebookDialogOpen,
+                selectedTheme = theme,
+                themeMode = settings.themeMode,
+                appLanguage = effectiveLanguage,
+                translationLanguage = effectiveTranslationLanguage,
+                selectedProvider = provider,
+                selectedModel = effectiveModel,
+                availableModels = repository.getAvailableModelsForProvider(provider),
+                hasApiKey = isConfigured,
+                isStartupSettingsLoaded = true,
+                remainingDailyRequests = remaining,
+                totalDailyQuota = total,
+                apiKeyInput = effectiveGeminiKey,
+                geminiApiKeyInput = effectiveGeminiKey,
+                openRouterApiKeyInput = effectiveOpenRouterKey,
+                otherApiKeyInput = effectiveOpenRouterKey,
+                currentResult = null,
+                currentGrammarResult = null,
+                searchQuery = "",
+                selectedHistoryFolderName = if (settings.storageFolderUri.isNotBlank()) settings.storageFolderUri else "Standard (${newActive.name})"
+            )
+        }
+    }
+
     fun selectNotebook(notebookId: String) {
         cancelSearch()
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                notebookRepository.setActiveNotebookId(notebookId)
-                val updatedAll = notebookRepository.listAllNotebooks()
-                val newActive = notebookRepository.getActiveNotebook()
-                val settings = newActive.settings
-
-                // Hydrate Room with the selected notebook's history
-                val historyItems = notebookRepository.loadNotebookHistory(notebookId)
-                repository.reloadRoomWithItems(historyItems)
-
-                // Update TTS speed rate
-                ttsManager.setSpeedRate(settings.ttsSpeed)
-
-                // Update theme
-                val theme = AppThemePackage.fromId(settings.themeColorId)
-                themePreferences.saveSelectedTheme(theme)
-                themePreferences.saveThemeMode(settings.themeMode)
-                val globalLanguage = themePreferences.getAppLanguage()
-                val effectiveLanguage = if (globalLanguage.isNotBlank()) globalLanguage else settings.appLanguage.ifBlank { "de" }
-                themePreferences.saveAppLanguage(effectiveLanguage)
-                val globalTranslationLanguage = themePreferences.getTranslationLanguage()
-                val effectiveTranslationLanguage = if (globalTranslationLanguage.isNotBlank()) globalTranslationLanguage else settings.translationLanguage.ifBlank { "en" }
-                themePreferences.saveTranslationLanguage(effectiveTranslationLanguage)
-
-                // Sync provider & API key state to repository
-                val provider = ModelProvider.fromId(settings.selectedProvider)
-                repository.saveSelectedProvider(provider)
-                if (settings.customApiKey.isNotBlank()) {
-                    repository.saveGeminiApiKey(settings.customApiKey)
-                }
-                if (settings.openRouterApiKey.isNotBlank()) {
-                    repository.saveOpenRouterApiKey(settings.openRouterApiKey)
-                }
-                val effectiveGeminiKey = settings.customApiKey.ifBlank { repository.getUserEnteredGeminiKey() }
-                val effectiveOpenRouterKey = settings.openRouterApiKey.ifBlank { repository.getOpenRouterApiKey() }
-                val effectiveModel = settings.selectedModel.ifBlank { repository.getSelectedModel(provider) }
-                val isConfigured = settings.customApiKey.isNotBlank() ||
-                    settings.openRouterApiKey.isNotBlank() ||
-                    repository.isApiKeyConfigured()
-                val (remaining, total) = repository.getDailyUsage(provider, effectiveModel)
-
-                _uiState.update { current ->
-                    current.copy(
-                        allNotebooks = updatedAll,
-                        activeNotebook = newActive,
-                        selectedTheme = theme,
-                        themeMode = settings.themeMode,
-                        appLanguage = effectiveLanguage,
-                        translationLanguage = effectiveTranslationLanguage,
-                        selectedProvider = provider,
-                        selectedModel = effectiveModel,
-                        availableModels = repository.getAvailableModelsForProvider(provider),
-                        hasApiKey = isConfigured,
-                        isStartupSettingsLoaded = true,
-                        remainingDailyRequests = remaining,
-                        totalDailyQuota = total,
-                        apiKeyInput = effectiveGeminiKey,
-                        geminiApiKeyInput = effectiveGeminiKey,
-                        openRouterApiKeyInput = effectiveOpenRouterKey,
-                        otherApiKeyInput = effectiveOpenRouterKey,
-                        currentResult = null,
-                        currentGrammarResult = null,
-                        searchQuery = "",
-                        selectedHistoryFolderName = if (settings.storageFolderUri.isNotBlank()) settings.storageFolderUri else "Standard (${newActive.name})"
-                    )
-                }
+                activateNotebookInternal(notebookId)
             } catch (e: Throwable) {
                 Log.e("MainViewModel", "Error selecting notebook $notebookId", e)
             }
@@ -1534,11 +1543,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun createNotebook(name: String, themeColorId: String = "Dunkelblau", themeMode: String = "auto") {
+        cancelSearch()
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val notebook = notebookRepository.createNotebook(name, themeColorId, themeMode)
-                _uiState.update { it.copy(isCreateNotebookDialogOpen = false) }
-                selectNotebook(notebook.id)
+                val currentSettings = _uiState.value.activeNotebook?.settings
+                val notebook = notebookRepository.createNotebook(
+                    name = name,
+                    initialThemeColorId = themeColorId,
+                    themeMode = themeMode,
+                    baseSettings = currentSettings
+                )
+                activateNotebookInternal(notebook.id, closeCreateDialog = true)
             } catch (e: Throwable) {
                 Log.e("MainViewModel", "Error creating notebook '$name'", e)
             }
@@ -1553,10 +1568,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 notebookRepository.renameNotebook(notebookId, trimmed)
                 val updatedAll = notebookRepository.listAllNotebooks()
                 val active = notebookRepository.getActiveNotebook()
+                val discoveredBackups = runCatching { notebookBackupManager.listAllBackupNotebooks() }
+                    .getOrElse { _uiState.value.backupNotebooks }
                 _uiState.update {
                     it.copy(
                         allNotebooks = updatedAll,
-                        activeNotebook = active
+                        activeNotebook = active,
+                        backupNotebooks = discoveredBackups
                     )
                 }
             } catch (e: Throwable) {
@@ -1572,7 +1590,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val success = notebookRepository.deleteNotebook(notebookId)
                 if (success) {
                     val active = notebookRepository.getActiveNotebook()
-                    selectNotebook(active.id)
+                    activateNotebookInternal(active.id)
                 }
             } catch (e: Throwable) {
                 Log.e("MainViewModel", "Error deleting notebook $notebookId", e)
@@ -1765,9 +1783,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(isLoadingBackupNotebooks = true) }
             try {
+                val updatedPrimary = notebookRepository.listAllNotebooks()
                 val discovered = notebookBackupManager.listAllBackupNotebooks()
                 _uiState.update {
                     it.copy(
+                        allNotebooks = updatedPrimary,
                         backupNotebooks = discovered,
                         isLoadingBackupNotebooks = false
                     )
@@ -1858,6 +1878,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     )
                 }
+            }
+        }
+    }
+
+    fun deleteBackupNotebook(entry: BackupNotebookEntry) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                notebookBackupManager.deleteBackupNotebookEntry(entry)
+                val discovered = notebookBackupManager.listAllBackupNotebooks()
+                _uiState.update {
+                    it.copy(
+                        backupNotebooks = discovered,
+                        isLoadingBackupNotebooks = false
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed deleting backup notebook ${entry.displayName}", e)
             }
         }
     }

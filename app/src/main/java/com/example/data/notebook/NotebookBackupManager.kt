@@ -354,6 +354,20 @@ class NotebookBackupManager(
     }
 
     /**
+     * Immediately writes/merges a single notebook to all registered Primary and Backup folders
+     * without waiting for the 400ms debounce delay.
+     */
+    fun backupSingleNotebookNow(notebookId: String) {
+        if (_backupFolders.value.isEmpty()) return
+        notebookDebounceJobs[notebookId]?.cancel()
+        try {
+            backupSingleNotebookInternal(notebookId)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error in immediate single-notebook backup for $notebookId: ${e.message}")
+        }
+    }
+
+    /**
      * Schedules a debounced backup for all notebooks.
      */
     fun scheduleAllBackup() {
@@ -431,37 +445,35 @@ class NotebookBackupManager(
      * Handles notebook deletion: removes the corresponding JSON file from all reachable backup folders.
      */
     fun onNotebookDeleted(deletedNotebookName: String) {
-        scope.launch {
-            val cleanDeleted = ExportSharingManager.stripNotebookPrefix(deletedNotebookName)
-            val safeName = ExportSharingManager.sanitizeFileName(cleanDeleted, defaultName = "Notizbuch")
-            val legacyFileName = "$safeName.json"
-            val prefixedFileName = ExportSharingManager.buildNotebookFileName(cleanDeleted, defaultName = "Notizbuch")
-            val folders = _backupFolders.value
+        val cleanDeleted = ExportSharingManager.stripNotebookPrefix(deletedNotebookName)
+        val safeName = ExportSharingManager.sanitizeFileName(cleanDeleted, defaultName = "Notizbuch")
+        val legacyFileName = "$safeName.json"
+        val prefixedFileName = ExportSharingManager.buildNotebookFileName(cleanDeleted, defaultName = "Notizbuch")
+        val folders = _backupFolders.value
 
-            for (folder in folders) {
-                try {
-                    if (folder.uri.scheme == "file") {
-                        val dir = java.io.File(folder.uri.path ?: continue)
-                        if (dir.exists() && dir.canWrite()) {
-                            val nbSub = java.io.File(dir, ExportSharingManager.SUBFOLDER_NOTEBOOKS)
-                            java.io.File(nbSub, prefixedFileName).delete()
-                            java.io.File(nbSub, legacyFileName).delete()
-                            java.io.File(dir, prefixedFileName).delete()
-                            java.io.File(dir, legacyFileName).delete()
-                        }
-                    } else {
-                        val docDir = DocumentFile.fromTreeUri(context, folder.uri)
-                        if (docDir != null && docDir.exists() && docDir.canWrite()) {
-                            val nbSub = docDir.findFile(ExportSharingManager.SUBFOLDER_NOTEBOOKS)
-                            nbSub?.findFile(prefixedFileName)?.delete()
-                            nbSub?.findFile(legacyFileName)?.delete()
-                            docDir.findFile(prefixedFileName)?.delete()
-                            docDir.findFile(legacyFileName)?.delete()
-                        }
+        for (folder in folders) {
+            try {
+                if (folder.uri.scheme == "file") {
+                    val dir = java.io.File(folder.uri.path ?: continue)
+                    if (dir.exists() && dir.canWrite()) {
+                        val nbSub = java.io.File(dir, ExportSharingManager.SUBFOLDER_NOTEBOOKS)
+                        java.io.File(nbSub, prefixedFileName).delete()
+                        java.io.File(nbSub, legacyFileName).delete()
+                        java.io.File(dir, prefixedFileName).delete()
+                        java.io.File(dir, legacyFileName).delete()
                     }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error deleting file in ${folder.displayName}", e)
+                } else {
+                    val docDir = DocumentFile.fromTreeUri(context, folder.uri)
+                    if (docDir != null && docDir.exists() && docDir.canWrite()) {
+                        val nbSub = docDir.findFile(ExportSharingManager.SUBFOLDER_NOTEBOOKS)
+                        nbSub?.findFile(prefixedFileName)?.delete()
+                        nbSub?.findFile(legacyFileName)?.delete()
+                        docDir.findFile(prefixedFileName)?.delete()
+                        docDir.findFile(legacyFileName)?.delete()
+                    }
                 }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error deleting file in ${folder.displayName}", e)
             }
         }
     }
@@ -1247,11 +1259,9 @@ class NotebookBackupManager(
         folderLabel: String
     ): BackupNotebookEntry? {
         if (text.isEmpty()) return null
-        val fallbackName = notebookRepository.stripDuplicateNotebookSuffix(
-            ExportSharingManager.stripNotebookPrefix(
-                fileName.removeSuffix(".json").removeSuffix(".JSON")
-            )
-        ).ifBlank { NotebookRepository.DEFAULT_NOTEBOOK_ID }
+        val fallbackName = ExportSharingManager.stripNotebookPrefix(
+            fileName.removeSuffix(".json").removeSuffix(".JSON")
+        ).trim().ifBlank { NotebookRepository.DEFAULT_NOTEBOOK_ID }
 
         var displayName = fallbackName
         var wordCount = 0
@@ -1265,9 +1275,7 @@ class NotebookBackupManager(
             wordCount = arr.length()
             val rawName = root.optString("notebook_name").ifBlank { root.optString("notebookName") }.trim()
             if (rawName.isNotBlank()) {
-                displayName = notebookRepository.stripDuplicateNotebookSuffix(
-                    ExportSharingManager.stripNotebookPrefix(rawName)
-                ).ifBlank { fallbackName }
+                displayName = ExportSharingManager.stripNotebookPrefix(rawName).trim().ifBlank { fallbackName }
             }
             val settingsObj = root.optJSONObject("settings")
             if (settingsObj != null) {
@@ -1332,6 +1340,65 @@ class NotebookBackupManager(
             } catch (e: Exception) {
                 Log.w(TAG, "Failed reading backup notebook raw JSON for ${entry.displayName}: ${e.message}")
                 null
+            }
+        }
+
+    /**
+     * Deletes a specific [BackupNotebookEntry] snapshot from either internal `System_Backups/`
+     * (Reserve tab) or a registered external Backup folder (Backup tab).
+     */
+    suspend fun deleteBackupNotebookEntry(entry: BackupNotebookEntry): Boolean =
+        withContext(Dispatchers.IO) {
+            if (entry.sourceType == BackupNotebookSourceType.SYSTEM_BACKUP) {
+                return@withContext notebookRepository.deleteSystemBackupNotebook(entry.fileName, entry.displayName)
+            }
+
+            val folderUri = entry.sourceFolderUri ?: return@withContext false
+            val folder = _backupFolders.value.find { it.uriString == folderUri }
+                ?: BackupFolder(uriString = folderUri, displayName = entry.sourceLabel)
+            val cleanName = ExportSharingManager.stripNotebookPrefix(entry.displayName).ifBlank { "Notizbuch" }
+            val prefixedName = ExportSharingManager.buildNotebookFileName(cleanName, defaultName = "Notizbuch")
+            val legacyName = "${ExportSharingManager.sanitizeFileName(cleanName, defaultName = "Notizbuch")}.json"
+
+            try {
+                if (folder.uri.scheme == "file") {
+                    val dir = java.io.File(folder.uri.path ?: return@withContext false)
+                    val nbSub = java.io.File(dir, ExportSharingManager.SUBFOLDER_NOTEBOOKS)
+                    var deleted = false
+                    listOf(
+                        java.io.File(nbSub, entry.fileName),
+                        java.io.File(nbSub, prefixedName),
+                        java.io.File(nbSub, legacyName),
+                        java.io.File(dir, entry.fileName),
+                        java.io.File(dir, prefixedName),
+                        java.io.File(dir, legacyName)
+                    ).forEach { target ->
+                        if (target.exists() && target.isFile) {
+                            if (target.delete()) deleted = true
+                        }
+                    }
+                    deleted
+                } else {
+                    val docDir = getDocumentDir(context, folder.uri) ?: return@withContext false
+                    val nbSub = docDir.findFile(ExportSharingManager.SUBFOLDER_NOTEBOOKS)
+                    var deleted = false
+                    listOfNotNull(
+                        nbSub?.findFile(entry.fileName),
+                        nbSub?.findFile(prefixedName),
+                        nbSub?.findFile(legacyName),
+                        docDir.findFile(entry.fileName),
+                        docDir.findFile(prefixedName),
+                        docDir.findFile(legacyName)
+                    ).forEach { doc ->
+                        if (doc.exists()) {
+                            if (doc.delete()) deleted = true
+                        }
+                    }
+                    deleted
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed deleting backup notebook entry ${entry.displayName}: ${e.message}")
+                false
             }
         }
 }
