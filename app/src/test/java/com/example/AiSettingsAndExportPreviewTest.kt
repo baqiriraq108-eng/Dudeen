@@ -92,26 +92,38 @@ class AiSettingsAndExportPreviewTest {
             kotlin.math.abs(savedTitleBounds.center.x - savedBounds.center.x) < 35f
         )
 
-        // Expand Harmonie-Vorschläge and verify uniform 28.dp swatches
+        // Expand Harmonie-Vorschläge, verify uniform 28.dp swatches, and verify clicking a swatch auto-closes the dropdown
         harmonyButton.performClick()
         composeTestRule.waitForIdle()
-        val presetSwatchSize = composeTestRule.onNodeWithTag("preset_swatch_#000000", useUnmergedTree = true)
+        val presetSwatchNode = composeTestRule.onNodeWithTag("preset_swatch_#000000", useUnmergedTree = true)
             .performScrollTo()
             .assertIsDisplayed()
-            .fetchSemanticsNode()
-            .size
+        val presetSwatchSize = presetSwatchNode.fetchSemanticsNode().size
         assertEquals("Preset swatch should be uniform square circle", presetSwatchSize.width, presetSwatchSize.height)
+        presetSwatchNode.performClick()
+        composeTestRule.waitForIdle()
+        assertEquals(
+            "Harmony dropdown should auto-close after selecting a swatch",
+            0,
+            composeTestRule.onAllNodesWithTag("preset_swatch_#000000", useUnmergedTree = true).fetchSemanticsNodes().size
+        )
 
-        // Expand Gespeicherte Farben and verify saved swatch is displayed with no count number badge
+        // Expand Gespeicherte Farben, verify saved swatch size & no count badge, and verify clicking auto-closes the dropdown
         savedButton.performScrollTo().performClick()
         composeTestRule.waitForIdle()
-        val savedSwatchSize = composeTestRule.onNodeWithTag("saved_swatch_#10B981", useUnmergedTree = true)
+        val savedSwatchNode = composeTestRule.onNodeWithTag("saved_swatch_#10B981", useUnmergedTree = true)
             .performScrollTo()
             .assertIsDisplayed()
-            .fetchSemanticsNode()
-            .size
+        val savedSwatchSize = savedSwatchNode.fetchSemanticsNode().size
         assertEquals("Saved swatch should match preset swatch size", presetSwatchSize.width, savedSwatchSize.width)
         assertEquals(0, composeTestRule.onAllNodesWithText("(0)").fetchSemanticsNodes().size)
+        savedSwatchNode.performClick()
+        composeTestRule.waitForIdle()
+        assertEquals(
+            "Saved colors dropdown should auto-close after selecting a swatch",
+            0,
+            composeTestRule.onAllNodesWithTag("saved_swatch_#10B981", useUnmergedTree = true).fetchSemanticsNodes().size
+        )
     }
 
     @Test

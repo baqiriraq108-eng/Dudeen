@@ -555,7 +555,11 @@ fun NatureGradientSphereColorPicker(
     appLanguage: String = LocalAppLanguage.current,
     isExportTableColorMode: Boolean = false,
     isVividTableColorMode: Boolean = false,
-    onResetDefaultNeutral: (() -> Unit)? = null
+    onResetDefaultNeutral: (() -> Unit)? = null,
+    previewBodyFontFamily: String = "Arial",
+    previewBodyFontColorHex: String? = null,
+    previewHeaderFontFamily: String = "Arial",
+    previewHeaderFontColorHex: String? = null
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -988,6 +992,7 @@ fun NatureGradientSphereColorPicker(
                                                         .clickable {
                                                             val hsl = NatureColorEngine.hexToHsl(swatchHex)
                                                             updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
+                                                            isHarmonyExpanded = false
                                                         }
                                                         .testTag(if (isHarmony) "harmony_swatch_$swatchHex" else "preset_swatch_$swatchHex"),
                                                     contentAlignment = Alignment.Center
@@ -1118,6 +1123,7 @@ fun NatureGradientSphereColorPicker(
                                                             .clickable {
                                                                 val hsl = NatureColorEngine.hexToHsl(hex)
                                                                 updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
+                                                                isSavedColorsExpanded = false
                                                             }
                                                             .testTag("saved_swatch_$hex"),
                                                         contentAlignment = Alignment.Center
@@ -1279,8 +1285,24 @@ fun NatureGradientSphereColorPicker(
                         val t2bColor = Color(DeclensionHistoryExportHelper.parseHexColor(livePalette.tier2SecondaryBlockFillHex))
                         val t3Color = Color(DeclensionHistoryExportHelper.parseHexColor(livePalette.tier3MajorBorderHex))
                         val t4Color = Color(DeclensionHistoryExportHelper.parseHexColor(livePalette.tier4InnerGridHex))
-                        val headerPreviewTextColor = if (t1Color.luminance() < 0.42f) Color.White else Color(0xFF0F172A)
-                        val untouchedTextColor = Color(0xFF0F172A)
+
+                        val effectiveHeaderHex = previewHeaderFontColorHex
+                            ?: CustomColorManager.getExportHeaderFontColor(context)
+                        val effectiveBodyHex = previewBodyFontColorHex
+                            ?: CustomColorManager.getExportBodyFontColor(context)
+
+                        val headerPreviewTextColor = remember(effectiveHeaderHex) {
+                            Color(DeclensionHistoryExportHelper.parseHexColor(effectiveHeaderHex))
+                        }
+                        val bodyPreviewTextColor = remember(effectiveBodyHex) {
+                            Color(DeclensionHistoryExportHelper.parseHexColor(effectiveBodyHex))
+                        }
+                        val headerPreviewFont = remember(previewHeaderFontFamily) {
+                            DeclensionHistoryExportHelper.getComposeFontFamily(previewHeaderFontFamily)
+                        }
+                        val bodyPreviewFont = remember(previewBodyFontFamily) {
+                            DeclensionHistoryExportHelper.getComposeFontFamily(previewBodyFontFamily)
+                        }
 
                         Surface(
                             shape = RoundedCornerShape(10.dp),
@@ -1318,7 +1340,7 @@ fun NatureGradientSphereColorPicker(
                                     )
                                 }
 
-                                // Mini 4-Tier Table Preview (Header + Odd Block + Even Block)
+                                // Mini 4-Tier Table Preview (Header + Odd Block + Even Block) using selected Header & Body Fonts and Colors
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1333,9 +1355,28 @@ fun NatureGradientSphereColorPicker(
                                             .padding(horizontal = 8.dp, vertical = 4.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("Verb (Infinitiv)", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = headerPreviewTextColor)
-                                        Text("Zeit", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = headerPreviewTextColor)
-                                        Text("ich / du", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = headerPreviewTextColor)
+                                        Text(
+                                            text = "Verb (Infinitiv)",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = headerPreviewFont,
+                                            color = headerPreviewTextColor,
+                                            modifier = Modifier.testTag("export_preview_header_text")
+                                        )
+                                        Text(
+                                            text = "Zeit",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = headerPreviewFont,
+                                            color = headerPreviewTextColor
+                                        )
+                                        Text(
+                                            text = "ich / du",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = headerPreviewFont,
+                                            color = headerPreviewTextColor
+                                        )
                                     }
                                     HorizontalDivider(color = t3Color, thickness = 1.5.dp)
                                     // Tier 2A: Primary Block (Odd Verb/Entry Group)
@@ -1346,9 +1387,26 @@ fun NatureGradientSphereColorPicker(
                                             .padding(horizontal = 8.dp, vertical = 3.5.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("gehen", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = untouchedTextColor)
-                                        Text("Präsens", fontSize = 10.sp, color = untouchedTextColor)
-                                        Text("gehe / gehst", fontSize = 10.sp, color = untouchedTextColor)
+                                        Text(
+                                            text = "gehen",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = bodyPreviewFont,
+                                            color = bodyPreviewTextColor,
+                                            modifier = Modifier.testTag("export_preview_body_text")
+                                        )
+                                        Text(
+                                            text = "Präsens",
+                                            fontSize = 10.sp,
+                                            fontFamily = bodyPreviewFont,
+                                            color = bodyPreviewTextColor
+                                        )
+                                        Text(
+                                            text = "gehe / gehst",
+                                            fontSize = 10.sp,
+                                            fontFamily = bodyPreviewFont,
+                                            color = bodyPreviewTextColor
+                                        )
                                     }
                                     HorizontalDivider(color = t3Color, thickness = 1.2.dp)
                                     // Tier 2B: Secondary Block (Even Verb/Entry Group)
@@ -1359,9 +1417,25 @@ fun NatureGradientSphereColorPicker(
                                             .padding(horizontal = 8.dp, vertical = 3.5.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("kommen", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = untouchedTextColor)
-                                        Text("Präsens", fontSize = 10.sp, color = untouchedTextColor)
-                                        Text("komme / kommst", fontSize = 10.sp, color = untouchedTextColor)
+                                        Text(
+                                            text = "kommen",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = bodyPreviewFont,
+                                            color = bodyPreviewTextColor
+                                        )
+                                        Text(
+                                            text = "Präsens",
+                                            fontSize = 10.sp,
+                                            fontFamily = bodyPreviewFont,
+                                            color = bodyPreviewTextColor
+                                        )
+                                        Text(
+                                            text = "komme / kommst",
+                                            fontSize = 10.sp,
+                                            fontFamily = bodyPreviewFont,
+                                            color = bodyPreviewTextColor
+                                        )
                                     }
                                     HorizontalDivider(color = t4Color, thickness = 0.8.dp)
                                 }

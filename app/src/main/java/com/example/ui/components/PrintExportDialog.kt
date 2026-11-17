@@ -911,7 +911,11 @@ fun PrintExportDialog(
                         CustomColorManager.setExportTableSeedColor(context, "")
                         activeColorTarget = null
                     }
-                } else null
+                } else null,
+                previewBodyFontFamily = bodyFontFamily,
+                previewBodyFontColorHex = bodyFontColorHex,
+                previewHeaderFontFamily = headerFontFamily,
+                previewHeaderFontColorHex = headerFontColorHex
             )
         }
 

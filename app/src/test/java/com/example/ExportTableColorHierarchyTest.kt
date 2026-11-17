@@ -309,6 +309,8 @@ class ExportTableColorHierarchyTest {
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithTag("export_color_wheel_tier_preview", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithTag("export_preview_header_text", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithTag("export_preview_body_text", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithTag("color_wheel_default_neutral_button").assertExists()
     }
 }
