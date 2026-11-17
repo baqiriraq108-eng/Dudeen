@@ -96,7 +96,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -128,7 +130,6 @@ import com.example.data.model.WordDeclensionResult
 import com.example.ui.i18n.AppStrings
 import com.example.ui.i18n.LocalAppLanguage
 import com.example.ui.theme.GeoBorder
-import com.example.ui.theme.LocalIsDarkTheme
 import com.example.util.CustomColorManager
 import com.example.util.DeclensionHistoryExportHelper
 import com.example.util.ExportSharingManager
@@ -1206,57 +1207,63 @@ private fun FontConfigSubsection(
             }
         )
 
-        // 4. Compact sample preview pill sized appropriately to its content
+        // 4. Compact sample preview pill sized appropriately to its content on a permanent white container
         UnifiedTypographyPreview(
             fontFamily = selectedComposeFont,
             colorInt = colorInt,
             isBold = isBoldPreview,
-            controlSurface = controlSurface,
+            dividerColor = dividerColor,
+            testTag = "${testTagPrefix}_typography_preview",
             modifier = Modifier.wrapContentWidth()
         )
     }
 }
 
 /**
- * Modest, single-baseline bidirectional sample preview ("Aa Bb Ää العربية")
- * reflecting the chosen font family and color with automatic paper-pill contrast safety.
+ * Clean bidirectional sample preview ("Aa Bb Ää العربية") rendered on a permanent
+ * crisp white paper container sized to its content for both Body Text and Headers.
  */
 @Composable
 private fun UnifiedTypographyPreview(
     fontFamily: FontFamily,
     colorInt: Int,
     isBold: Boolean,
-    controlSurface: Color,
+    dividerColor: Color,
+    testTag: String,
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalIsDarkTheme.current
     val inkColor = Color(colorInt)
     val luminance = (0.299f * inkColor.red + 0.587f * inkColor.green + 0.114f * inkColor.blue)
-    val previewBg = if (isDark && luminance < 0.28f) {
-        Color(0xFFE6E9EE)
-    } else if (!isDark && luminance > 0.78f) {
-        Color(0xFF1F242D)
+    val ultraLightInkShadow = if (luminance > 0.88f) {
+        Shadow(
+            color = Color(0x991E293B),
+            offset = Offset(0f, 1f),
+            blurRadius = 3f
+        )
     } else {
-        controlSurface
+        null
     }
 
     Box(
         modifier = modifier
             .wrapContentWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(previewBg)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .background(Color.White)
+            .border(1.dp, dividerColor, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .testTag(testTag),
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
             text = "Aa Bb Ää العربية",
             style = TextStyle(
                 fontFamily = fontFamily,
-                fontSize = 13.sp,
+                fontSize = 13.5.sp,
                 fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
                 color = inkColor,
+                shadow = ultraLightInkShadow,
                 textDirection = TextDirection.Ltr,
-                lineHeight = 16.sp,
+                lineHeight = 18.sp,
                 lineHeightStyle = LineHeightStyle(
                     alignment = LineHeightStyle.Alignment.Center,
                     trim = LineHeightStyle.Trim.None
@@ -1482,56 +1489,43 @@ private fun ExportTableColorConfigCard(
             primaryText = primaryText,
             mutedText = mutedText,
             leadingSwatch = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                    horizontalAlignment = Alignment.Start
+                Row(
+                    modifier = Modifier
+                        .width(64.dp)
+                        .height(22.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .border(
+                            width = 0.75.dp,
+                            color = Color(palette.tier3MajorBorderColorInt).copy(alpha = 0.75f),
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                        .testTag("export_table_color_strip"),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = headerSwatchCaption,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = mutedText,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Row(
+                    // First segment: Tier 1 Header, subtly ringed with accentColor
+                    Box(
                         modifier = Modifier
-                            .width(64.dp)
-                            .height(20.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                            .width(22.dp)
+                            .fillMaxHeight()
+                            .background(Color(palette.tier1HeaderFillColorInt))
                             .border(
-                                width = 0.75.dp,
-                                color = Color(palette.tier3MajorBorderColorInt).copy(alpha = 0.75f),
-                                shape = RoundedCornerShape(6.dp)
+                                width = 1.5.dp,
+                                color = accentColor,
+                                shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp)
                             )
-                            .testTag("export_table_color_strip"),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // First segment: Tier 1 Header ("Kopfzeile"), subtly ringed with accentColor
+                    )
+                    // Remaining 3 tones joined seamlessly as one continuous hierarchy strip
+                    listOf(
+                        palette.tier2SecondaryBlockFillColorInt,
+                        palette.tier2PrimaryBlockFillColorInt,
+                        palette.tier3MajorBorderColorInt
+                    ).forEach { cInt ->
                         Box(
                             modifier = Modifier
-                                .width(22.dp)
+                                .weight(1f)
                                 .fillMaxHeight()
-                                .background(Color(palette.tier1HeaderFillColorInt))
-                                .border(
-                                    width = 1.5.dp,
-                                    color = accentColor,
-                                    shape = RoundedCornerShape(topStart = 6.dp, bottomStart = 6.dp)
-                                )
+                                .background(Color(cInt))
                         )
-                        // Remaining 3 tones joined seamlessly as one continuous hierarchy strip
-                        listOf(
-                            palette.tier2SecondaryBlockFillColorInt,
-                            palette.tier2PrimaryBlockFillColorInt,
-                            palette.tier3MajorBorderColorInt
-                        ).forEach { cInt ->
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .background(Color(cInt))
-                            )
-                        }
                     }
                 }
             }

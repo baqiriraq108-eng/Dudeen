@@ -281,7 +281,7 @@ class ExportTableColorHierarchyTest {
         composeTestRule.onNodeWithTag("export_table_mode_vivid").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("export_table_color_selector").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("export_table_color_strip", useUnmergedTree = true).assertExists()
-        composeTestRule.onNodeWithText("Kopfzeile", useUnmergedTree = true).assertExists()
+        assertEquals(0, composeTestRule.onAllNodesWithText("Kopfzeile", useUnmergedTree = true).fetchSemanticsNodes().size)
         assertEquals(0, composeTestRule.onAllNodesWithTag("export_table_color_reset_neutral").fetchSemanticsNodes().size)
 
         // Filename field with attached .xlsx suffix

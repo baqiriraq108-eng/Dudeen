@@ -54,9 +54,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Hub
@@ -68,7 +66,6 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
@@ -124,7 +121,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -133,6 +133,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import kotlin.math.roundToInt
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -362,8 +363,7 @@ fun MainScreen(
                     },
                     navigationIcon = {
                         val showBack = uiState.currentGrammarResult != null ||
-                                       uiState.currentResult != null ||
-                                       uiState.selectedHistoryFilter != 0
+                                       uiState.currentResult != null
                         if (showBack) {
                             IconButton(
                                 onClick = { viewModel.handleBackPress() },
@@ -576,83 +576,11 @@ fun MainScreen(
 
                 // Nomen / Verb / Wörter / Adjektive Capsule Tape (matches notebook settings segmented capsules)
                 item(key = "grammar_type_toggle") {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                            .testTag("grammar_type_toggle_bar"),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        border = BorderStroke(1.dp, GeoBorder.copy(alpha = 0.8f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val searchTypes = listOf(
-                                Triple(GrammarType.NOMEN, strings.tabExpressions, 1.25f),
-                                Triple(GrammarType.VERB, strings.tabVerb, 0.75f),
-                                Triple(GrammarType.NOMEN_LIST, strings.tabWords, 0.95f),
-                                Triple(GrammarType.ADJEKTIV, strings.tabAdjectives, 1.15f)
-                            )
-                            searchTypes.forEach { (type, label, weightVal) ->
-                                val isSelected = uiState.selectedGrammarType == type ||
-                                    (type == GrammarType.NOMEN && uiState.selectedGrammarType == GrammarType.SENTENCE)
-                                val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                                val borderColor = if (isSelected) {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-                                } else {
-                                    Color.Transparent
-                                }
-                                val contentTint = if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                                val icon = when (type) {
-                                    GrammarType.NOMEN -> Icons.Default.Description
-                                    GrammarType.VERB -> Icons.Default.Bolt
-                                    GrammarType.ADJEKTIV -> Icons.Default.Sell
-                                    else -> Icons.Default.Translate
-                                }
-
-                                Surface(
-                                    onClick = { viewModel.onGrammarTypeSelected(type) },
-                                    shape = CircleShape,
-                                    color = bgColor,
-                                    border = BorderStroke(1.dp, borderColor),
-                                    modifier = Modifier
-                                        .weight(weightVal)
-                                        .heightIn(min = 44.dp)
-                                        .testTag("grammar_type_tab_${type.name.lowercase()}")
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 4.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            tint = contentTint,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(3.dp))
-                                        AutoShrinkTabLabel(
-                                            text = label,
-                                            isSelected = isSelected,
-                                            textColor = contentTint
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    SearchCategoryCapsuleBar(
+                        selectedGrammarType = uiState.selectedGrammarType,
+                        strings = strings,
+                        onSelectType = { type -> viewModel.onGrammarTypeSelected(type) }
+                    )
                 }
 
                 // Search Bar Container: match_parent with 16dp side margins
@@ -1382,6 +1310,199 @@ fun MainScreen(
     }
 }
 
+private val DekloCategoryBoltIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "DekloCategoryBolt",
+        defaultWidth = 8.dp,
+        defaultHeight = 14.dp,
+        viewportWidth = 10.2f,
+        viewportHeight = 18f
+    ).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(4.1f, 18f)
+            horizontalLineTo(3.1f)
+            lineTo(4.1f, 11f)
+            horizontalLineTo(0.6f)
+            curveTo(0.02f, 11f, 0.03f, 10.68f, 0.22f, 10.34f)
+            lineTo(6.1f, 0f)
+            horizontalLineTo(7.1f)
+            lineTo(6.1f, 7f)
+            horizontalLineTo(9.6f)
+            curveTo(10.09f, 7f, 10.16f, 7.33f, 10.07f, 7.51f)
+            lineTo(4.1f, 18f)
+            close()
+        }
+    }.build()
+}
+
+private val DekloCategoryDescriptionIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "DekloCategoryDescription",
+        defaultWidth = 11.2.dp,
+        defaultHeight = 14.dp,
+        viewportWidth = 16f,
+        viewportHeight = 20f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            pathFillType = PathFillType.EvenOdd
+        ) {
+            moveTo(10f, 0f)
+            horizontalLineTo(2f)
+            curveTo(0.9f, 0f, 0f, 0.9f, 0f, 2f)
+            verticalLineTo(18f)
+            curveTo(0f, 19.1f, 0.9f, 20f, 2f, 20f)
+            horizontalLineTo(14f)
+            curveTo(15.1f, 20f, 16f, 19.1f, 16f, 18f)
+            verticalLineTo(6f)
+            lineTo(10f, 0f)
+            close()
+            moveTo(12f, 14f)
+            horizontalLineTo(4f)
+            verticalLineTo(12f)
+            horizontalLineTo(12f)
+            verticalLineTo(14f)
+            close()
+            moveTo(12f, 10f)
+            horizontalLineTo(4f)
+            verticalLineTo(8f)
+            horizontalLineTo(12f)
+            verticalLineTo(10f)
+            close()
+            moveTo(9f, 7f)
+            verticalLineTo(1.5f)
+            lineTo(14.5f, 7f)
+            horizontalLineTo(9f)
+            close()
+        }
+    }.build()
+}
+
+private val DekloCategoryTagIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "DekloCategoryTag",
+        defaultWidth = 14.dp,
+        defaultHeight = 14.dp,
+        viewportWidth = 20.2f,
+        viewportHeight = 20.2f
+    ).apply {
+        path(
+            fill = SolidColor(Color.Black),
+            pathFillType = PathFillType.EvenOdd
+        ) {
+            moveTo(19.41f, 9.41f)
+            lineTo(10.58f, 0.58f)
+            curveTo(10.21f, 0.21f, 9.7f, 0f, 9.17f, 0f)
+            horizontalLineTo(2f)
+            curveTo(0.9f, 0f, 0f, 0.9f, 0f, 2f)
+            verticalLineTo(9.17f)
+            curveTo(0f, 9.7f, 0.21f, 10.21f, 0.59f, 10.58f)
+            lineTo(9.42f, 19.41f)
+            curveTo(10.2f, 20.19f, 11.47f, 20.19f, 12.25f, 19.41f)
+            lineTo(19.42f, 12.24f)
+            curveTo(20.2f, 11.46f, 20.2f, 10.19f, 19.41f, 9.41f)
+            close()
+            moveTo(4.5f, 6f)
+            curveTo(3.67f, 6f, 3f, 5.33f, 3f, 4.5f)
+            curveTo(3f, 3.67f, 3.67f, 3f, 4.5f, 3f)
+            curveTo(5.33f, 3f, 6f, 3.67f, 6f, 4.5f)
+            curveTo(6f, 5.33f, 5.33f, 6f, 4.5f, 6f)
+            close()
+        }
+    }.build()
+}
+
+@Composable
+internal fun SearchCategoryCapsuleBar(
+    selectedGrammarType: GrammarType,
+    strings: com.example.ui.i18n.SettingsStrings,
+    onSelectType: (GrammarType) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .testTag("grammar_type_toggle_bar"),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(1.dp, GeoBorder.copy(alpha = 0.8f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val searchTypes = listOf(
+                Triple(GrammarType.NOMEN, strings.tabExpressions, 1.16f),
+                Triple(GrammarType.VERB, strings.tabVerb, 0.92f),
+                Triple(GrammarType.NOMEN_LIST, strings.tabWords, 0.94f),
+                Triple(GrammarType.ADJEKTIV, strings.tabAdjectives, 1.08f)
+            )
+            searchTypes.forEach { (type, label, weightVal) ->
+                val isSelected = selectedGrammarType == type ||
+                    (type == GrammarType.NOMEN && selectedGrammarType == GrammarType.SENTENCE)
+                val bgColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                val borderColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                } else {
+                    Color.Transparent
+                }
+                val contentTint = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                val icon = when (type) {
+                    GrammarType.NOMEN -> DekloCategoryDescriptionIcon
+                    GrammarType.VERB -> DekloCategoryBoltIcon
+                    GrammarType.ADJEKTIV -> DekloCategoryTagIcon
+                    else -> Icons.Default.Translate
+                }
+                val iconSizeModifier = if (type == GrammarType.NOMEN_LIST) {
+                    Modifier.size(14.dp)
+                } else {
+                    Modifier.size(width = icon.defaultWidth, height = icon.defaultHeight)
+                }
+
+                Surface(
+                    onClick = { onSelectType(type) },
+                    shape = CircleShape,
+                    color = bgColor,
+                    border = BorderStroke(1.dp, borderColor),
+                    modifier = Modifier
+                        .weight(weightVal)
+                        .heightIn(min = 44.dp)
+                        .testTag("grammar_type_tab_${type.name.lowercase()}")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = contentTint,
+                            modifier = iconSizeModifier
+                                .testTag("grammar_type_icon_${type.name.lowercase()}")
+                        )
+                        AutoShrinkTabLabel(
+                            text = label,
+                            isSelected = isSelected,
+                            textColor = contentTint
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun AutoShrinkTabLabel(
     text: String,
@@ -1398,6 +1519,7 @@ private fun AutoShrinkTabLabel(
         modifier = modifier.drawWithContent {
             if (readyToDraw) drawContent()
         },
+        style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
         fontSize = fontSize,
         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
         color = textColor,
