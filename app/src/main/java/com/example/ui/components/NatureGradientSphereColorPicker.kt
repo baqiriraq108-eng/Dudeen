@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -38,6 +39,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
@@ -612,6 +615,8 @@ fun NatureGradientSphereColorPicker(
     var customColors by remember {
         mutableStateOf(CustomColorManager.getCustomColors(context))
     }
+    var isHarmonyExpanded by remember { mutableStateOf(false) }
+    var isSavedColorsExpanded by remember { mutableStateOf(false) }
     var showSavedColorsDialog by remember { mutableStateOf(false) }
     var colorToDelete by remember { mutableStateOf<String?>(null) }
 
@@ -888,7 +893,7 @@ fun NatureGradientSphereColorPicker(
                     }
 
                     // ==========================================
-                    // 4. QUICK PRESETS & HARMONY SUGGESTIONS
+                    // 4. QUICK PRESETS & HARMONY SUGGESTIONS (Collapsible Dropdown with Centered Title & Uniform Swatches)
                     // ==========================================
                     Surface(
                         shape = RoundedCornerShape(12.dp),
@@ -897,128 +902,108 @@ fun NatureGradientSphereColorPicker(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { isHarmonyExpanded = !isHarmonyExpanded }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                                    .testTag("harmony_section_button")
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Eco,
-                                    contentDescription = null,
-                                    tint = primaryAccent,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = strings.harmonySuggestionsTitle,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textDark
-                                )
-                            }
-
-                            // Standard document & theme preset swatches in a clean 2-row grid (6 per row)
-                            val presetChunks = remember {
-                                DeclensionHistoryExportHelper.PREDEFINED_COLORS.chunked(6)
-                            }
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                presetChunks.forEach { rowPresets ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        rowPresets.forEach { (_, presetHex) ->
-                                            val swatchColor = NatureColorEngine.hexToHsl(presetHex).composeColor
-                                            val isSelected = presetHex.equals(currentHex, ignoreCase = true)
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(28.dp)
-                                                    .clip(CircleShape)
-                                                    .background(swatchColor)
-                                                    .border(
-                                                        width = if (isSelected) 2.5.dp else 1.dp,
-                                                        color = if (isSelected) primaryAccent else borderColor,
-                                                        shape = CircleShape
-                                                    )
-                                                    .clickable {
-                                                        val hsl = NatureColorEngine.hexToHsl(presetHex)
-                                                        updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
-                                                    },
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                if (isSelected) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Check,
-                                                        contentDescription = null,
-                                                        tint = if (swatchColor.luminance() > 0.55f) Color.Black else Color.White,
-                                                        modifier = Modifier.size(14.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
+                                Row(
+                                    modifier = Modifier.align(Alignment.Center),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Eco,
+                                        contentDescription = null,
+                                        tint = primaryAccent,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = strings.harmonySuggestionsTitle,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textDark,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
+
+                                Icon(
+                                    imageVector = if (isHarmonyExpanded) {
+                                        Icons.Default.KeyboardArrowUp
+                                    } else {
+                                        Icons.Default.KeyboardArrowDown
+                                    },
+                                    contentDescription = strings.harmonySuggestionsTitle,
+                                    tint = textMuted,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .size(20.dp)
+                                        .testTag("harmony_section_arrow")
+                                )
                             }
 
-                            HorizontalDivider(color = borderColor.copy(alpha = 0.6f), thickness = 1.dp)
+                            AnimatedVisibility(visible = isHarmonyExpanded) {
+                                val uniformSwatches = remember(harmonyPalettes) {
+                                    val presets = DeclensionHistoryExportHelper.PREDEFINED_COLORS.map { (_, hex) ->
+                                        hex to false
+                                    }
+                                    val harmonies = harmonyPalettes.take(3).flatten().map { hex ->
+                                        hex to true
+                                    }
+                                    (presets + harmonies).chunked(6)
+                                }
 
-                            // Harmony Palettes organized in a clean 2-column grid of 4-tone strips
-                            val harmonyRows = remember(harmonyPalettes) {
-                                harmonyPalettes.take(4).chunked(2)
-                            }
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                harmonyRows.forEach { rowGroups ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        rowGroups.forEach { paletteGroup ->
-                                            Surface(
-                                                shape = RoundedCornerShape(10.dp),
-                                                color = containerBg,
-                                                border = BorderStroke(1.dp, borderColor),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Row(
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    HorizontalDivider(color = borderColor.copy(alpha = 0.6f), thickness = 1.dp)
+
+                                    uniformSwatches.forEach { rowSwatches ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            rowSwatches.forEach { (swatchHex, isHarmony) ->
+                                                val swatchColor = NatureColorEngine.hexToHsl(swatchHex).composeColor
+                                                val isSelected = swatchHex.equals(currentHex, ignoreCase = true)
+                                                Box(
                                                     modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                                    verticalAlignment = Alignment.CenterVertically
+                                                        .size(28.dp)
+                                                        .clip(CircleShape)
+                                                        .background(swatchColor)
+                                                        .border(
+                                                            width = if (isSelected) 2.5.dp else 1.dp,
+                                                            color = if (isSelected) primaryAccent else borderColor,
+                                                            shape = CircleShape
+                                                        )
+                                                        .clickable {
+                                                            val hsl = NatureColorEngine.hexToHsl(swatchHex)
+                                                            updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
+                                                        }
+                                                        .testTag(if (isHarmony) "harmony_swatch_$swatchHex" else "preset_swatch_$swatchHex"),
+                                                    contentAlignment = Alignment.Center
                                                 ) {
-                                                    paletteGroup.forEach { hex ->
-                                                        val swatchColor = NatureColorEngine.hexToHsl(hex).composeColor
-                                                        val isSelected = hex.equals(currentHex, ignoreCase = true)
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(22.dp)
-                                                                .clip(CircleShape)
-                                                                .background(swatchColor)
-                                                                .border(
-                                                                    width = if (isSelected) 2.5.dp else 1.dp,
-                                                                    color = if (isSelected) primaryAccent else borderColor,
-                                                                    shape = CircleShape
-                                                                )
-                                                                .clickable {
-                                                                    val hsl = NatureColorEngine.hexToHsl(hex)
-                                                                    updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
-                                                                }
-                                                                .testTag("harmony_swatch_$hex")
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = null,
+                                                            tint = if (swatchColor.luminance() > 0.55f) Color.Black else Color.White,
+                                                            modifier = Modifier.size(14.dp)
                                                         )
                                                     }
                                                 }
+                                            }
+                                            repeat(6 - rowSwatches.size) {
+                                                Box(modifier = Modifier.size(28.dp))
                                             }
                                         }
                                     }
@@ -1028,32 +1013,28 @@ fun NatureGradientSphereColorPicker(
                     }
 
                     // ==========================================
-                    // 5. SAVED COLORS (Organized Card without "(0)" next to fake colors)
+                    // 5. SAVED COLORS (Collapsible Dropdown with Centered Title & No Count Badge)
                     // ==========================================
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = surfaceVariantBg,
                         border = BorderStroke(1.dp, borderColor),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showSavedColorsDialog = true }
-                            .testTag("saved_colors_section_button")
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { isSavedColorsExpanded = !isSavedColorsExpanded }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                                    .testTag("saved_colors_section_button")
                             ) {
                                 Row(
+                                    modifier = Modifier.align(Alignment.Center),
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.weight(1f)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Star,
@@ -1069,67 +1050,91 @@ fun NatureGradientSphereColorPicker(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    if (customColors.isNotEmpty()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(primaryAccent.copy(alpha = 0.14f))
-                                                .padding(horizontal = 6.dp, vertical = 1.dp)
-                                        ) {
-                                            Text(
-                                                text = customColors.size.toString(),
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = primaryAccent
-                                            )
-                                        }
-                                    }
                                 }
 
-                                if (customColors.isEmpty()) {
-                                    Text(
-                                        text = strings.noSavedColorsText,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = textMuted,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
+                                Icon(
+                                    imageVector = if (isSavedColorsExpanded) {
+                                        Icons.Default.KeyboardArrowUp
+                                    } else {
+                                        Icons.Default.KeyboardArrowDown
+                                    },
+                                    contentDescription = strings.savedColorsTitle,
+                                    tint = textMuted,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterEnd)
+                                        .size(20.dp)
+                                        .testTag("saved_colors_section_arrow")
+                                )
                             }
 
-                            if (customColors.isNotEmpty()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                            AnimatedVisibility(visible = isSavedColorsExpanded) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    customColors.take(8).forEach { hex ->
-                                        val color = NatureColorEngine.hexToHsl(hex).composeColor
-                                        val isSelected = hex.equals(currentHex, ignoreCase = true)
+                                    HorizontalDivider(color = borderColor.copy(alpha = 0.6f), thickness = 1.dp)
+
+                                    if (customColors.isEmpty()) {
                                         Box(
                                             modifier = Modifier
-                                                .size(26.dp)
-                                                .clip(CircleShape)
-                                                .background(color)
-                                                .border(
-                                                    width = if (isSelected) 2.5.dp else 1.dp,
-                                                    color = if (isSelected) primaryAccent else borderColor,
-                                                    shape = CircleShape
-                                                )
-                                                .clickable {
-                                                    val hsl = NatureColorEngine.hexToHsl(hex)
-                                                    updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
-                                                },
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            if (isSelected) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    tint = if (color.luminance() > 0.55f) Color.Black else Color.White,
-                                                    modifier = Modifier.size(13.dp)
-                                                )
+                                            Text(
+                                                text = strings.noSavedColorsText,
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = textMuted,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    } else {
+                                        val savedChunks = remember(customColors) {
+                                            customColors.chunked(6)
+                                        }
+                                        savedChunks.forEach { rowColors ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                rowColors.forEach { hex ->
+                                                    val color = NatureColorEngine.hexToHsl(hex).composeColor
+                                                    val isSelected = hex.equals(currentHex, ignoreCase = true)
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(28.dp)
+                                                            .clip(CircleShape)
+                                                            .background(color)
+                                                            .border(
+                                                                width = if (isSelected) 2.5.dp else 1.dp,
+                                                                color = if (isSelected) primaryAccent else borderColor,
+                                                                shape = CircleShape
+                                                            )
+                                                            .clickable {
+                                                                val hsl = NatureColorEngine.hexToHsl(hex)
+                                                                updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
+                                                            }
+                                                            .testTag("saved_swatch_$hex"),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        if (isSelected) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Check,
+                                                                contentDescription = null,
+                                                                tint = if (color.luminance() > 0.55f) Color.Black else Color.White,
+                                                                modifier = Modifier.size(14.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                repeat(6 - rowColors.size) {
+                                                    Box(modifier = Modifier.size(28.dp))
+                                                }
                                             }
                                         }
                                     }
@@ -1231,6 +1236,7 @@ fun NatureGradientSphereColorPicker(
                                         val formatted = CustomColorManager.normalizeHex(hexInputText)
                                         CustomColorManager.addCustomColor(context, formatted)
                                         customColors = CustomColorManager.getCustomColors(context)
+                                        isSavedColorsExpanded = true
                                         val hsl = NatureColorEngine.hexToHsl(formatted)
                                         updateHslFromControl(hsl.hue, hsl.saturation, hsl.lightness)
                                         Toast.makeText(context, formatted, Toast.LENGTH_SHORT).show()

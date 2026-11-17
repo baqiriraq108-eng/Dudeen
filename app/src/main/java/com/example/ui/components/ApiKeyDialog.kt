@@ -52,7 +52,6 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Visibility
@@ -445,212 +444,128 @@ fun ApiKeyDialog(
                                             else -> strings.noModelsFound
                                         }
                                     }
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Box(modifier = Modifier.weight(1f)) {
-                                            SheetSectionLabel(
-                                                icon = providerIconFor(selectedProvider),
-                                                title = strings.activeModelTitle,
-                                                accentColor = accentColor,
-                                                primaryText = primaryText
+                                    SheetSectionLabel(
+                                        icon = providerIconFor(selectedProvider),
+                                        title = strings.activeModelTitle,
+                                        accentColor = accentColor,
+                                        primaryText = primaryText
+                                    )
+
+                                    Box(modifier = Modifier.fillMaxWidth()) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .defaultMinSize(minHeight = 44.dp)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(controlSurface)
+                                                .clickable { modelDropdownExpanded = true }
+                                                .padding(horizontal = 12.dp, vertical = 9.dp)
+                                                .testTag("model_dropdown_button"),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = providerIconFor(selectedProvider),
+                                                contentDescription = null,
+                                                tint = accentColor,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Text(
+                                                text = activeModelInfo?.name ?: effectiveId,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = primaryText,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Default.KeyboardArrowDown,
+                                                contentDescription = null,
+                                                tint = mutedText,
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         }
-                                        Text(
-                                            text = selectedProvider.displayName,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = mutedText,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(modifier = Modifier.weight(1f)) {
-                                            Row(
+                                        // Searchable & Filterable Model Popup matching Export's menu aesthetic
+                                        DropdownMenu(
+                                            expanded = modelDropdownExpanded,
+                                            onDismissRequest = {
+                                                modelDropdownExpanded = false
+                                                modelSearchQuery = ""
+                                            },
+                                            shape = RoundedCornerShape(12.dp),
+                                            containerColor = cardSurface,
+                                            border = BorderStroke(1.dp, dividerColor),
+                                            modifier = Modifier
+                                                .widthIn(min = 270.dp, max = 380.dp)
+                                                .fillMaxWidth(0.90f)
+                                                .heightIn(max = 360.dp)
+                                        ) {
+                                            Column(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .height(40.dp)
-                                                    .clip(RoundedCornerShape(10.dp))
-                                                    .background(controlSurface)
-                                                    .clickable { modelDropdownExpanded = true }
-                                                    .padding(horizontal = 12.dp)
-                                                    .testTag("model_dropdown_button"),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                                verticalArrangement = Arrangement.spacedBy(8.dp)
                                             ) {
-                                                Text(
-                                                    text = activeModelInfo?.name ?: effectiveId,
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Medium,
-                                                    color = primaryText,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f)
-                                                )
-                                                Icon(
-                                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                                    contentDescription = null,
-                                                    tint = mutedText,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
-
-                                            // Searchable & Filterable Model Popup matching Export's menu aesthetic
-                                            DropdownMenu(
-                                                expanded = modelDropdownExpanded,
-                                                onDismissRequest = {
-                                                    modelDropdownExpanded = false
-                                                    modelSearchQuery = ""
-                                                },
-                                                shape = RoundedCornerShape(12.dp),
-                                                containerColor = cardSurface,
-                                                border = BorderStroke(1.dp, dividerColor),
-                                                modifier = Modifier
-                                                    .widthIn(min = 270.dp, max = 380.dp)
-                                                    .fillMaxWidth(0.90f)
-                                                    .heightIn(max = 360.dp)
-                                            ) {
-                                                Column(
+                                                // Search Box matching Export input surface
+                                                BasicTextField(
+                                                    value = modelSearchQuery,
+                                                    onValueChange = { modelSearchQuery = it },
+                                                    singleLine = true,
+                                                    textStyle = TextStyle(
+                                                        fontSize = 13.sp,
+                                                        color = primaryText
+                                                    ),
+                                                    cursorBrush = SolidColor(accentColor),
                                                     modifier = Modifier
                                                         .fillMaxWidth()
-                                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                                ) {
-                                                    // Search Box matching Export input surface
-                                                    BasicTextField(
-                                                        value = modelSearchQuery,
-                                                        onValueChange = { modelSearchQuery = it },
-                                                        singleLine = true,
-                                                        textStyle = TextStyle(
-                                                            fontSize = 13.sp,
-                                                            color = primaryText
-                                                        ),
-                                                        cursorBrush = SolidColor(accentColor),
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .testTag("model_search_input"),
-                                                        decorationBox = { innerTextField ->
-                                                            Row(
-                                                                modifier = Modifier
-                                                                    .fillMaxWidth()
-                                                                    .height(38.dp)
-                                                                    .clip(RoundedCornerShape(10.dp))
-                                                                    .background(controlSurface)
-                                                                    .padding(horizontal = 10.dp),
-                                                                verticalAlignment = Alignment.CenterVertically,
-                                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                        .testTag("model_search_input"),
+                                                    decorationBox = { innerTextField ->
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(38.dp)
+                                                                .clip(RoundedCornerShape(10.dp))
+                                                                .background(controlSurface)
+                                                                .padding(horizontal = 10.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Search,
+                                                                contentDescription = null,
+                                                                tint = mutedText,
+                                                                modifier = Modifier.size(16.dp)
+                                                            )
+                                                            Box(
+                                                                modifier = Modifier.weight(1f),
+                                                                contentAlignment = Alignment.CenterStart
                                                             ) {
+                                                                if (modelSearchQuery.isEmpty()) {
+                                                                    Text(
+                                                                        text = strings.searchPlaceholder,
+                                                                        fontSize = 12.sp,
+                                                                        color = mutedText,
+                                                                        maxLines = 1,
+                                                                        overflow = TextOverflow.Ellipsis
+                                                                    )
+                                                                }
+                                                                innerTextField()
+                                                            }
+                                                            if (modelSearchQuery.isNotEmpty()) {
                                                                 Icon(
-                                                                    imageVector = Icons.Default.Search,
-                                                                    contentDescription = null,
+                                                                    imageVector = Icons.Default.Clear,
+                                                                    contentDescription = strings.clearKeyButton,
                                                                     tint = mutedText,
-                                                                    modifier = Modifier.size(16.dp)
-                                                                )
-                                                                Box(
-                                                                    modifier = Modifier.weight(1f),
-                                                                    contentAlignment = Alignment.CenterStart
-                                                                ) {
-                                                                    if (modelSearchQuery.isEmpty()) {
-                                                                        Text(
-                                                                            text = strings.searchPlaceholder,
-                                                                            fontSize = 12.sp,
-                                                                            color = mutedText,
-                                                                            maxLines = 1,
-                                                                            overflow = TextOverflow.Ellipsis
-                                                                        )
-                                                                    }
-                                                                    innerTextField()
-                                                                }
-                                                                if (modelSearchQuery.isNotEmpty()) {
-                                                                    Icon(
-                                                                        imageVector = Icons.Default.Clear,
-                                                                        contentDescription = strings.clearKeyButton,
-                                                                        tint = mutedText,
-                                                                        modifier = Modifier
-                                                                            .size(16.dp)
-                                                                            .clickable { modelSearchQuery = "" }
-                                                                    )
-                                                                }
-                                                            }
-                                                        }
-                                                    )
-
-                                                    val filteredModels = availableModels.filter { model ->
-                                                        val matchesSearch = modelSearchQuery.isBlank() ||
-                                                            model.name.contains(modelSearchQuery, ignoreCase = true) ||
-                                                            model.id.contains(modelSearchQuery, ignoreCase = true)
-                                                        val matchesFree = when {
-                                                            selectedProvider == ModelProvider.OPENROUTER && showFreeOnly -> model.isFreeTier
-                                                            selectedProvider == ModelProvider.GEMINI && showFreeOnly -> model.id.contains("flash", ignoreCase = true)
-                                                            else -> true
-                                                        }
-                                                        matchesSearch && matchesFree
-                                                    }
-
-                                                    // Clean Filter Toggle Pill + Count
-                                                    Row(
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        val filterLabel = when (selectedProvider) {
-                                                            ModelProvider.GEMINI -> strings.filterFlashOnly
-                                                            ModelProvider.OPENROUTER -> strings.filterFreeOnly
-                                                        }
-                                                        Box(modifier = Modifier.weight(1f)) {
-                                                            Row(
-                                                                modifier = Modifier
-                                                                    .clip(RoundedCornerShape(8.dp))
-                                                                    .background(
-                                                                        if (showFreeOnly) accentColor.copy(alpha = 0.14f) else controlSurface
-                                                                    )
-                                                                    .border(
-                                                                        width = 1.dp,
-                                                                        color = if (showFreeOnly) accentColor.copy(alpha = 0.45f) else Color.Transparent,
-                                                                        shape = RoundedCornerShape(8.dp)
-                                                                    )
-                                                                    .clickable { showFreeOnly = !showFreeOnly }
-                                                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                                                                    .testTag("model_filter_chip"),
-                                                                verticalAlignment = Alignment.CenterVertically,
-                                                                horizontalArrangement = Arrangement.spacedBy(5.dp)
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = Icons.Default.FilterList,
-                                                                    contentDescription = null,
-                                                                    tint = if (showFreeOnly) accentColor else mutedText,
-                                                                    modifier = Modifier.size(13.dp)
-                                                                )
-                                                                Text(
-                                                                    text = filterLabel,
-                                                                    fontSize = 11.sp,
-                                                                    fontWeight = if (showFreeOnly) FontWeight.SemiBold else FontWeight.Medium,
-                                                                    color = if (showFreeOnly) accentColor else mutedText,
-                                                                    maxLines = 1,
-                                                                    overflow = TextOverflow.Ellipsis
+                                                                    modifier = Modifier
+                                                                        .size(16.dp)
+                                                                        .clickable { modelSearchQuery = "" }
                                                                 )
                                                             }
                                                         }
-
-                                                        Text(
-                                                            text = "${filteredModels.size} / ${availableModels.size}",
-                                                            fontSize = 11.sp,
-                                                            fontWeight = FontWeight.Medium,
-                                                            color = mutedText,
-                                                            maxLines = 1
-                                                        )
                                                     }
-                                                }
-
-                                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                                                )
 
                                                 val filteredModels = availableModels.filter { model ->
                                                     val matchesSearch = modelSearchQuery.isBlank() ||
@@ -664,138 +579,176 @@ fun ApiKeyDialog(
                                                     matchesSearch && matchesFree
                                                 }
 
-                                                if (availableModels.isEmpty()) {
+                                                // Clean Filter Toggle Pill + Count
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    val filterLabel = when (selectedProvider) {
+                                                        ModelProvider.GEMINI -> strings.filterFlashOnly
+                                                        ModelProvider.OPENROUTER -> strings.filterFreeOnly
+                                                    }
+                                                    Box(modifier = Modifier.weight(1f)) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(8.dp))
+                                                                .background(
+                                                                    if (showFreeOnly) accentColor.copy(alpha = 0.14f) else controlSurface
+                                                                )
+                                                                .border(
+                                                                    width = 1.dp,
+                                                                    color = if (showFreeOnly) accentColor.copy(alpha = 0.45f) else Color.Transparent,
+                                                                    shape = RoundedCornerShape(8.dp)
+                                                                )
+                                                                .clickable { showFreeOnly = !showFreeOnly }
+                                                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                                .testTag("model_filter_chip"),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.FilterList,
+                                                                contentDescription = null,
+                                                                tint = if (showFreeOnly) accentColor else mutedText,
+                                                                modifier = Modifier.size(13.dp)
+                                                            )
+                                                            Text(
+                                                                text = filterLabel,
+                                                                fontSize = 11.sp,
+                                                                fontWeight = if (showFreeOnly) FontWeight.SemiBold else FontWeight.Medium,
+                                                                color = if (showFreeOnly) accentColor else mutedText,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+
+                                                    Text(
+                                                        text = "${filteredModels.size} / ${availableModels.size}",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = mutedText,
+                                                        maxLines = 1
+                                                    )
+                                                }
+                                            }
+
+                                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                                            val filteredModels = availableModels.filter { model ->
+                                                val matchesSearch = modelSearchQuery.isBlank() ||
+                                                    model.name.contains(modelSearchQuery, ignoreCase = true) ||
+                                                    model.id.contains(modelSearchQuery, ignoreCase = true)
+                                                val matchesFree = when {
+                                                    selectedProvider == ModelProvider.OPENROUTER && showFreeOnly -> model.isFreeTier
+                                                    selectedProvider == ModelProvider.GEMINI && showFreeOnly -> model.id.contains("flash", ignoreCase = true)
+                                                    else -> true
+                                                }
+                                                matchesSearch && matchesFree
+                                            }
+
+                                            if (availableModels.isEmpty()) {
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            text = if (selectedProvider == ModelProvider.GEMINI)
+                                                                strings.loadingModelsStatus
+                                                            else
+                                                                strings.noModelsFound,
+                                                            fontSize = 12.sp,
+                                                            color = mutedText
+                                                        )
+                                                    },
+                                                    onClick = {}
+                                                )
+                                            } else if (filteredModels.isEmpty()) {
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            text = strings.noModelsFound,
+                                                            fontSize = 12.sp,
+                                                            color = mutedText
+                                                        )
+                                                    },
+                                                    onClick = {}
+                                                )
+                                            } else {
+                                                filteredModels.forEach { model ->
+                                                    val isSelected = model.id == selectedModel
                                                     DropdownMenuItem(
                                                         text = {
-                                                            Text(
-                                                                text = if (selectedProvider == ModelProvider.GEMINI)
-                                                                    strings.loadingModelsStatus
-                                                                else
-                                                                    strings.noModelsFound,
-                                                                fontSize = 12.sp,
-                                                                color = mutedText
-                                                            )
-                                                        },
-                                                        onClick = {}
-                                                    )
-                                                } else if (filteredModels.isEmpty()) {
-                                                    DropdownMenuItem(
-                                                        text = {
-                                                            Text(
-                                                                text = strings.noModelsFound,
-                                                                fontSize = 12.sp,
-                                                                color = mutedText
-                                                            )
-                                                        },
-                                                        onClick = {}
-                                                    )
-                                                } else {
-                                                    filteredModels.forEach { model ->
-                                                        val isSelected = model.id == selectedModel
-                                                        DropdownMenuItem(
-                                                            text = {
-                                                                Row(
-                                                                    modifier = Modifier.fillMaxWidth(),
-                                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                                    verticalAlignment = Alignment.CenterVertically
-                                                                ) {
-                                                                    Column(modifier = Modifier.weight(1f)) {
-                                                                        Row(
-                                                                            verticalAlignment = Alignment.CenterVertically,
-                                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                                        ) {
-                                                                            Icon(
-                                                                                imageVector = providerIconFor(model.provider),
-                                                                                contentDescription = null,
-                                                                                tint = if (isSelected) accentColor else mutedText,
-                                                                                modifier = Modifier.size(14.dp)
-                                                                            )
-                                                                            Text(
-                                                                                text = model.name,
-                                                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                                                                fontSize = 12.5.sp,
-                                                                                color = if (isSelected) accentColor else primaryText,
-                                                                                maxLines = 1,
-                                                                                overflow = TextOverflow.Ellipsis,
-                                                                                modifier = Modifier.weight(1f, fill = false)
-                                                                            )
-                                                                            if (model.isFreeTier) {
-                                                                                FreeBadge(accentColor = accentColor)
-                                                                            }
-                                                                        }
-                                                                        Text(
-                                                                            text = model.id,
-                                                                            fontSize = 10.5.sp,
-                                                                            fontFamily = FontFamily.Monospace,
-                                                                            color = mutedText,
-                                                                            maxLines = 1,
-                                                                            overflow = TextOverflow.Ellipsis
+                                                            Row(
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                Column(modifier = Modifier.weight(1f)) {
+                                                                    Row(
+                                                                        verticalAlignment = Alignment.CenterVertically,
+                                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                                    ) {
+                                                                        Icon(
+                                                                            imageVector = providerIconFor(model.provider),
+                                                                            contentDescription = null,
+                                                                            tint = if (isSelected) accentColor else mutedText,
+                                                                            modifier = Modifier.size(14.dp)
                                                                         )
-                                                                        if (model.functionalDescription.isNotBlank()) {
-                                                                            Text(
-                                                                                text = model.functionalDescription,
-                                                                                fontSize = 11.sp,
-                                                                                color = mutedText,
-                                                                                maxLines = 1,
-                                                                                overflow = TextOverflow.Ellipsis,
-                                                                                modifier = Modifier.padding(top = 1.dp)
-                                                                            )
+                                                                        Text(
+                                                                            text = model.name,
+                                                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                                                            fontSize = 12.5.sp,
+                                                                            color = if (isSelected) accentColor else primaryText,
+                                                                            maxLines = 2,
+                                                                            overflow = TextOverflow.Ellipsis,
+                                                                            modifier = Modifier.weight(1f, fill = false)
+                                                                        )
+                                                                        if (model.isFreeTier) {
+                                                                            FreeBadge(accentColor = accentColor)
                                                                         }
                                                                     }
-                                                                    if (isSelected) {
-                                                                        Spacer(modifier = Modifier.width(6.dp))
-                                                                        Icon(
-                                                                            imageVector = Icons.Default.Check,
-                                                                            contentDescription = null,
-                                                                            tint = accentColor,
-                                                                            modifier = Modifier.size(16.dp)
+                                                                    Text(
+                                                                        text = model.id,
+                                                                        fontSize = 10.5.sp,
+                                                                        fontFamily = FontFamily.Monospace,
+                                                                        color = mutedText,
+                                                                        maxLines = 1,
+                                                                        overflow = TextOverflow.Ellipsis
+                                                                    )
+                                                                    if (model.functionalDescription.isNotBlank()) {
+                                                                        Text(
+                                                                            text = model.functionalDescription,
+                                                                            fontSize = 11.sp,
+                                                                            color = mutedText,
+                                                                            maxLines = 2,
+                                                                            overflow = TextOverflow.Ellipsis,
+                                                                            modifier = Modifier.padding(top = 1.dp)
                                                                         )
                                                                     }
                                                                 }
-                                                            },
-                                                            onClick = {
-                                                                onSelectModel(model.id)
-                                                                modelDropdownExpanded = false
-                                                                modelSearchQuery = ""
+                                                                if (isSelected) {
+                                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                                    Icon(
+                                                                        imageVector = Icons.Default.Check,
+                                                                        contentDescription = null,
+                                                                        tint = accentColor,
+                                                                        modifier = Modifier.size(16.dp)
+                                                                    )
+                                                                }
                                                             }
-                                                        )
-                                                    }
+                                                        },
+                                                        onClick = {
+                                                            onSelectModel(model.id)
+                                                            modelDropdownExpanded = false
+                                                            modelSearchQuery = ""
+                                                        }
+                                                    )
                                                 }
-                                            }
-                                        }
-
-                                        // Refresh models button styled flush with the dropdown trigger
-                                        val onRefresh = when (selectedProvider) {
-                                            ModelProvider.GEMINI -> onRefreshGeminiModels
-                                            ModelProvider.OPENROUTER -> onRefreshOpenRouterModels
-                                        }
-                                        Box(
-                                            modifier = Modifier
-                                                .defaultMinSize(minWidth = 48.dp, minHeight = 40.dp)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(controlSurface)
-                                                .clickable(enabled = !isRefreshingModels) { onRefresh() }
-                                                .testTag("refresh_models_button"),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (isRefreshingModels) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(16.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = accentColor
-                                                )
-                                            } else {
-                                                Icon(
-                                                    imageVector = Icons.Default.Refresh,
-                                                    contentDescription = strings.refreshModelsButton,
-                                                    tint = accentColor,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
                                             }
                                         }
                                     }
 
-                                    // Dedicated uncrowded container for full Model ID, Description, & Refresh Status
+                                    // Dedicated uncrowded container for full Model ID & Description
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -818,16 +771,6 @@ fun ApiKeyDialog(
                                                 text = activeModelInfo.functionalDescription,
                                                 fontSize = 11.sp,
                                                 color = mutedText,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                        refreshModelsStatus?.let { status ->
-                                            Text(
-                                                text = status,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = accentColor,
                                                 maxLines = 2,
                                                 overflow = TextOverflow.Ellipsis
                                             )

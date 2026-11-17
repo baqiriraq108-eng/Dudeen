@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -66,11 +67,50 @@ class AiSettingsAndExportPreviewTest {
         composeTestRule.onNodeWithTag("export_table_color_strip", useUnmergedTree = true).assertExists()
         assertEquals(0, composeTestRule.onAllNodesWithText("Kopfzeile", useUnmergedTree = true).fetchSemanticsNodes().size)
 
-        // Open Color Wheel and verify organized Harmonie-Vorschläge and Gespeicherte Farben (no "(0)")
+        // Open Color Wheel and verify collapsible Harmonie-Vorschläge and Gespeicherte Farben dropdowns
+        CustomColorManager.addCustomColor(context, "#10B981")
         composeTestRule.onNodeWithTag("body_color_selector").performScrollTo().performClick()
         composeTestRule.waitForIdle()
-        composeTestRule.onNodeWithText("Harmonie-Vorschläge").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithTag("saved_colors_section_button").performScrollTo().assertIsDisplayed()
+
+        val harmonyButton = composeTestRule.onNodeWithTag("harmony_section_button").performScrollTo().assertIsDisplayed()
+        val savedButton = composeTestRule.onNodeWithTag("saved_colors_section_button").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("harmony_section_arrow", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("saved_colors_section_arrow", useUnmergedTree = true).assertIsDisplayed()
+
+        // Verify titles are centered horizontally within their dropdown header bars
+        val harmonyBounds = harmonyButton.fetchSemanticsNode().boundsInRoot
+        val harmonyTitleBounds = composeTestRule.onNodeWithText("Harmonie-Vorschläge", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "Harmony dropdown title should be centered horizontally",
+            kotlin.math.abs(harmonyTitleBounds.center.x - harmonyBounds.center.x) < 35f
+        )
+
+        val savedBounds = savedButton.fetchSemanticsNode().boundsInRoot
+        val savedTitleBounds = composeTestRule.onNodeWithText("Gespeicherte Farben", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "Saved colors dropdown title should be centered horizontally",
+            kotlin.math.abs(savedTitleBounds.center.x - savedBounds.center.x) < 35f
+        )
+
+        // Expand Harmonie-Vorschläge and verify uniform 28.dp swatches
+        harmonyButton.performClick()
+        composeTestRule.waitForIdle()
+        val presetSwatchSize = composeTestRule.onNodeWithTag("preset_swatch_#000000", useUnmergedTree = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .fetchSemanticsNode()
+            .size
+        assertEquals("Preset swatch should be uniform square circle", presetSwatchSize.width, presetSwatchSize.height)
+
+        // Expand Gespeicherte Farben and verify saved swatch is displayed with no count number badge
+        savedButton.performScrollTo().performClick()
+        composeTestRule.waitForIdle()
+        val savedSwatchSize = composeTestRule.onNodeWithTag("saved_swatch_#10B981", useUnmergedTree = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .fetchSemanticsNode()
+            .size
+        assertEquals("Saved swatch should match preset swatch size", presetSwatchSize.width, savedSwatchSize.width)
         assertEquals(0, composeTestRule.onAllNodesWithText("(0)").fetchSemanticsNodes().size)
     }
 
@@ -159,6 +199,11 @@ class AiSettingsAndExportPreviewTest {
         composeTestRule.onNodeWithTag("daily_quota_badge").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("18 / 20").assertIsDisplayed()
         assertEquals(0, composeTestRule.onAllNodesWithText("Free").fetchSemanticsNodes().size)
+        assertEquals(0, composeTestRule.onAllNodesWithTag("refresh_models_button").fetchSemanticsNodes().size)
+
+        val providerDropdownWidth = composeTestRule.onNodeWithTag("provider_dropdown_button").fetchSemanticsNode().size.width
+        val modelDropdownWidth = composeTestRule.onNodeWithTag("model_dropdown_button").fetchSemanticsNode().size.width
+        assertEquals("Model dropdown should span full width like provider dropdown", providerDropdownWidth, modelDropdownWidth)
 
         // 2. Model dropdown with search & filter chip (Flash vs Pro)
         composeTestRule.onNodeWithTag("model_dropdown_button").performScrollTo().performClick()
