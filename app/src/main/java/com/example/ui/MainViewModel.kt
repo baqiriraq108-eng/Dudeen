@@ -228,6 +228,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             notebookBackupManager.backupFolders.collect { folders ->
                 _uiState.update { it.copy(backupFolders = folders) }
+                refreshBackupNotebooks()
             }
         }
 
@@ -244,6 +245,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val allNotebooks = notebookRepository.listAllNotebooks()
                 val activeNotebook = notebookRepository.getActiveNotebook()
+                val initialBackupNotebooks = runCatching {
+                    notebookBackupManager.listAllBackupNotebooks()
+                }.getOrDefault(emptyList())
                 val notebookSettings = activeNotebook.settings
 
                 // Apply notebook settings
@@ -290,6 +294,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     current.copy(
                         allNotebooks = allNotebooks,
                         activeNotebook = activeNotebook,
+                        backupNotebooks = initialBackupNotebooks,
                         themeMode = activeThemeMode,
                         appLanguage = activeLanguage,
                         translationLanguage = activeTranslationLanguage,

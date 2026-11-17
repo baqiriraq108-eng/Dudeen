@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
@@ -154,27 +156,108 @@ fun NotebookSwitcher(
                 }
             }
 
+            val duplicateSuffix = remember { Regex("""(?:\s*_\d+|\s*\(\d+\))+$""") }
+
+            val orderedPrimaryNotebooks = remember(allNotebooks, activeNotebook?.id) {
+                val activeId = activeNotebook?.id
+                val rawNamesLower = allNotebooks.map {
+                    com.example.util.ExportSharingManager.stripNotebookPrefix(it.name).trim().lowercase(java.util.Locale.ROOT)
+                }.toSet()
+                allNotebooks
+                    .map { nb ->
+                        val strippedPrefix = com.example.util.ExportSharingManager.stripNotebookPrefix(nb.name).trim()
+                        val withoutSuffix = strippedPrefix.replace(duplicateSuffix, "").trim()
+                        val cleanName = if (
+                            withoutSuffix != strippedPrefix &&
+                            withoutSuffix.isNotBlank() &&
+                            rawNamesLower.contains(withoutSuffix.lowercase(java.util.Locale.ROOT))
+                        ) {
+                            withoutSuffix
+                        } else {
+                            strippedPrefix.ifBlank { nb.name }
+                        }
+                        if (cleanName != nb.name) nb.copy(name = cleanName) else nb
+                    }
+                    .groupBy { it.name.trim().lowercase(java.util.Locale.ROOT) }
+                    .values
+                    .mapNotNull { candidates ->
+                        if (candidates.size == 1) candidates.first()
+                        else candidates.maxByOrNull { nb ->
+                            val activeScore = if (nb.id == activeId) 1_000_000_000L else 0L
+                            val unsuffixedScore = if (!duplicateSuffix.containsMatchIn(nb.id)) 50_000_000L else 0L
+                            activeScore + unsuffixedScore + nb.wordCount.toLong() * 1000L + (nb.lastModified / 1000L)
+                        }
+                    }
+                    .sortedWith(
+                        compareByDescending<Notebook> { it.id == activeId }
+                            .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name.trim() }
+                    )
+            }
+
+            // Strictly only notebooks from user-selected device backup folders (excluding SYSTEM_BACKUP)
+            val externalFolderBackups = remember(backupNotebooks, activeNotebook?.id) {
+                val activeId = activeNotebook?.id ?: ""
+                val rawItems = backupNotebooks
+                    .filter { it.sourceType == BackupNotebookSourceType.EXTERNAL_FOLDER }
+                val rawNamesLower = rawItems.map {
+                    com.example.util.ExportSharingManager.stripNotebookPrefix(it.displayName).trim().lowercase(java.util.Locale.ROOT)
+                }.toSet()
+                rawItems
+                    .map { entry ->
+                        val strippedPrefix = com.example.util.ExportSharingManager.stripNotebookPrefix(entry.displayName).trim()
+                        val withoutSuffix = strippedPrefix.replace(duplicateSuffix, "").trim()
+                        val cleanName = if (
+                            withoutSuffix != strippedPrefix &&
+                            withoutSuffix.isNotBlank() &&
+                            rawNamesLower.contains(withoutSuffix.lowercase(java.util.Locale.ROOT))
+                        ) {
+                            withoutSuffix
+                        } else {
+                            strippedPrefix.ifBlank { entry.displayName }
+                        }
+                        if (cleanName != entry.displayName) entry.copy(displayName = cleanName) else entry
+                    }
+                    .groupBy { it.displayName.trim().lowercase(java.util.Locale.ROOT) }
+                    .values
+                    .mapNotNull { candidates ->
+                        candidates.maxByOrNull { it.wordCount.toLong() * 1000L + (it.lastModified / 1000L) }
+                    }
+                    .sortedWith(
+                        compareByDescending<BackupNotebookEntry> {
+                            it.notebookId.equals(activeId, ignoreCase = true) ||
+                                it.displayName.equals(activeId, ignoreCase = true)
+                        }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.displayName.trim() }
+                    )
+            }
+
+            val unifiedVisibleSlots = remember(orderedPrimaryNotebooks.size, externalFolderBackups.size) {
+                maxOf(orderedPrimaryNotebooks.size, externalFolderBackups.size, 1).coerceAtMost(4)
+            }
+            val itemRowHeight = 40.dp
+            val listSectionHeight = itemRowHeight * unifiedVisibleSlots
+
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(12.dp),
                 containerColor = palette.dialogSurface,
                 border = BorderStroke(1.dp, palette.cardBorder),
                 modifier = Modifier
-                    .widthIn(min = 240.dp, max = 300.dp)
+                    .width(220.dp)
+                    .testTag("notebook_switcher_dropdown_menu")
             ) {
                 CompositionLocalProvider(LocalLayoutDirection provides strings.language.layoutDirection) {
                     Text(
                         text = strings.myNotebooksTitle,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = palette.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                     )
 
-                    // Two Icon-Only Segmented Tabs: Primary Notebooks vs. User-Selected Backup Folder Notebooks
-                    UnifiedSegmentedPillBar(
-                        items = listOf(
+                    // Compact Segmented Capsule Tabs exclusively for the Main Screen Dropdown
+                    val dropdownTabs = remember(strings) {
+                        listOf(
                             SegmentedPillItem(
                                 id = DropdownNotebookTab.PRIMARY.name,
                                 label = strings.primaryNotebooksTab,
@@ -191,205 +274,217 @@ fun NotebookSwitcher(
                                 unselectedIcon = Icons.Outlined.FolderZip,
                                 testTag = "dropdown_tab_backup"
                             )
-                        ),
-                        selectedId = selectedTab.name,
-                        onSelect = { id ->
-                            selectedTab = DropdownNotebookTab.valueOf(id)
-                        },
-                        palette = palette,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
+                        )
+                    }
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        shape = CircleShape,
+                        color = palette.pillTrackSurface,
+                        border = BorderStroke(1.dp, palette.pillTrackBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            dropdownTabs.forEach { item ->
+                                val isSelected = item.id == selectedTab.name
+                                val bgColor = if (isSelected) palette.primaryContainer else Color.Transparent
+                                val borderStroke = BorderStroke(
+                                    width = 1.dp,
+                                    color = if (isSelected) palette.primary.copy(alpha = 0.28f) else Color.Transparent
+                                )
+                                val iconTint = if (isSelected) palette.primary else palette.onSurfaceVariant
+
+                                Surface(
+                                    onClick = { selectedTab = DropdownNotebookTab.valueOf(item.id) },
+                                    shape = CircleShape,
+                                    color = bgColor,
+                                    border = borderStroke,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(32.dp)
+                                        .testTag(item.testTag)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                            contentDescription = item.label,
+                                            tint = iconTint,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     HorizontalDivider(thickness = 0.8.dp, color = palette.divider)
 
-                    val duplicateSuffix = remember { Regex("""(?:\s*_\d+|\s*\(\d+\))+$""") }
-
-                    when (selectedTab) {
-                        DropdownNotebookTab.PRIMARY -> {
-                            val orderedPrimaryNotebooks = remember(allNotebooks, activeNotebook?.id) {
-                                val activeId = activeNotebook?.id
-                                val rawNamesLower = allNotebooks.map {
-                                    com.example.util.ExportSharingManager.stripNotebookPrefix(it.name).trim().lowercase(java.util.Locale.ROOT)
-                                }.toSet()
-                                allNotebooks
-                                    .map { nb ->
-                                        val strippedPrefix = com.example.util.ExportSharingManager.stripNotebookPrefix(nb.name).trim()
-                                        val withoutSuffix = strippedPrefix.replace(duplicateSuffix, "").trim()
-                                        val cleanName = if (
-                                            withoutSuffix != strippedPrefix &&
-                                            withoutSuffix.isNotBlank() &&
-                                            rawNamesLower.contains(withoutSuffix.lowercase(java.util.Locale.ROOT))
-                                        ) {
-                                            withoutSuffix
-                                        } else {
-                                            strippedPrefix.ifBlank { nb.name }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(listSectionHeight)
+                            .testTag("notebook_dropdown_list_container")
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            when (selectedTab) {
+                                DropdownNotebookTab.PRIMARY -> {
+                                    orderedPrimaryNotebooks.forEach { notebook ->
+                                        val isActive = notebook.id == activeNotebook?.id
+                                        val themeColor = remember(notebook.settings.themeColorId) {
+                                            AppThemePackage.fromId(notebook.settings.themeColorId).primary
                                         }
-                                        if (cleanName != nb.name) nb.copy(name = cleanName) else nb
-                                    }
-                                    .groupBy { it.name.trim().lowercase(java.util.Locale.ROOT) }
-                                    .values
-                                    .mapNotNull { candidates ->
-                                        if (candidates.size == 1) candidates.first()
-                                        else candidates.maxByOrNull { nb ->
-                                            val activeScore = if (nb.id == activeId) 1_000_000_000L else 0L
-                                            val unsuffixedScore = if (!duplicateSuffix.containsMatchIn(nb.id)) 50_000_000L else 0L
-                                            activeScore + unsuffixedScore + nb.wordCount.toLong() * 1000L + (nb.lastModified / 1000L)
-                                        }
-                                    }
-                                    .sortedWith(
-                                        compareByDescending<Notebook> { it.id == activeId }
-                                            .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name.trim() }
-                                    )
-                            }
 
-                            orderedPrimaryNotebooks.forEach { notebook ->
-                                val isActive = notebook.id == activeNotebook?.id
-                                val themeColor = remember(notebook.settings.themeColorId) {
-                                    AppThemePackage.fromId(notebook.settings.themeColorId).primary
+                                        DropdownMenuItem(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(itemRowHeight)
+                                                .testTag("dropdown_notebook_item_${notebook.id}"),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                                            text = {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(8.dp)
+                                                            .clip(CircleShape)
+                                                            .background(themeColor)
+                                                    )
+
+                                                    Column(
+                                                        modifier = Modifier.weight(1f),
+                                                        verticalArrangement = Arrangement.Center
+                                                    ) {
+                                                        Text(
+                                                            text = notebook.name,
+                                                            fontSize = 12.5.sp,
+                                                            lineHeight = 14.sp,
+                                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                                                            color = if (isActive) palette.primary else palette.onSurface,
+                                                            maxLines = 1,
+                                                            softWrap = false,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                        Text(
+                                                            text = strings.wordsCount(notebook.wordCount),
+                                                            fontSize = 10.sp,
+                                                            lineHeight = 12.sp,
+                                                            color = palette.onSurfaceVariant,
+                                                            maxLines = 1,
+                                                            softWrap = false
+                                                        )
+                                                    }
+
+                                                    if (isActive) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = strings.activeNotebookBadge,
+                                                            tint = palette.primary,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                expanded = false
+                                                onSelectNotebook(notebook.id)
+                                            }
+                                        )
+                                    }
                                 }
 
-                                DropdownMenuItem(
-                                    modifier = Modifier.testTag("dropdown_notebook_item_${notebook.id}"),
-                                    text = {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                DropdownNotebookTab.BACKUP_FOLDER -> {
+                                    if (externalFolderBackups.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(listSectionHeight)
+                                                .padding(horizontal = 12.dp),
+                                            contentAlignment = Alignment.CenterStart
                                         ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(10.dp)
-                                                    .clip(CircleShape)
-                                                    .background(themeColor)
+                                            Text(
+                                                text = strings.backupNotebooksEmpty,
+                                                fontSize = 11.sp,
+                                                lineHeight = 14.sp,
+                                                color = palette.onSurfaceVariant,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
                                             )
-
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = notebook.name,
-                                                    fontSize = 14.sp,
-                                                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                                                    color = if (isActive) palette.primary else palette.onSurface,
-                                                    maxLines = 1,
-                                                    softWrap = false,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                                Text(
-                                                    text = strings.wordsCount(notebook.wordCount),
-                                                    fontSize = 11.sp,
-                                                    color = palette.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    softWrap = false
-                                                )
+                                        }
+                                    } else {
+                                        externalFolderBackups.forEach { entry ->
+                                            val themeColor = remember(entry.themeColorId) {
+                                                AppThemePackage.fromId(entry.themeColorId).primary
                                             }
 
-                                            if (isActive) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = strings.activeNotebookBadge,
-                                                    tint = palette.primary,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-                                    },
-                                    onClick = {
-                                        expanded = false
-                                        onSelectNotebook(notebook.id)
-                                    }
-                                )
-                            }
-                        }
+                                            DropdownMenuItem(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(itemRowHeight)
+                                                    .testTag("dropdown_backup_notebook_item_${entry.displayName}"),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                                                text = {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(8.dp)
+                                                                .clip(CircleShape)
+                                                                .background(themeColor)
+                                                        )
 
-                        DropdownNotebookTab.BACKUP_FOLDER -> {
-                            // Strictly only notebooks from user-selected device backup folders (excluding SYSTEM_BACKUP)
-                            val externalFolderBackups = remember(backupNotebooks, activeNotebook?.id) {
-                                val activeId = activeNotebook?.id ?: ""
-                                val rawItems = backupNotebooks
-                                    .filter { it.sourceType == BackupNotebookSourceType.EXTERNAL_FOLDER }
-                                val rawNamesLower = rawItems.map {
-                                    com.example.util.ExportSharingManager.stripNotebookPrefix(it.displayName).trim().lowercase(java.util.Locale.ROOT)
-                                }.toSet()
-                                rawItems
-                                    .map { entry ->
-                                        val strippedPrefix = com.example.util.ExportSharingManager.stripNotebookPrefix(entry.displayName).trim()
-                                        val withoutSuffix = strippedPrefix.replace(duplicateSuffix, "").trim()
-                                        val cleanName = if (
-                                            withoutSuffix != strippedPrefix &&
-                                            withoutSuffix.isNotBlank() &&
-                                            rawNamesLower.contains(withoutSuffix.lowercase(java.util.Locale.ROOT))
-                                        ) {
-                                            withoutSuffix
-                                        } else {
-                                            strippedPrefix.ifBlank { entry.displayName }
-                                        }
-                                        if (cleanName != entry.displayName) entry.copy(displayName = cleanName) else entry
-                                    }
-                                    .groupBy { it.displayName.trim().lowercase(java.util.Locale.ROOT) }
-                                    .values
-                                    .mapNotNull { candidates ->
-                                        candidates.maxByOrNull { it.wordCount.toLong() * 1000L + (it.lastModified / 1000L) }
-                                    }
-                                    .sortedWith(
-                                        compareByDescending<BackupNotebookEntry> {
-                                            it.notebookId.equals(activeId, ignoreCase = true) ||
-                                                it.displayName.equals(activeId, ignoreCase = true)
-                                        }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.displayName.trim() }
-                                    )
-                            }
-
-                            if (externalFolderBackups.isEmpty()) {
-                                Text(
-                                    text = strings.backupNotebooksEmpty,
-                                    fontSize = 12.sp,
-                                    color = palette.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                                )
-                            } else {
-                                externalFolderBackups.forEach { entry ->
-                                    val themeColor = remember(entry.themeColorId) {
-                                        AppThemePackage.fromId(entry.themeColorId).primary
-                                    }
-
-                                    DropdownMenuItem(
-                                        modifier = Modifier.testTag("dropdown_backup_notebook_item_${entry.displayName}"),
-                                        text = {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(10.dp)
-                                                        .clip(CircleShape)
-                                                        .background(themeColor)
-                                                )
-
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(
-                                                        text = entry.displayName,
-                                                        fontSize = 14.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = palette.onSurface,
-                                                        maxLines = 1,
-                                                        softWrap = false,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                    Text(
-                                                        text = strings.wordsCount(entry.wordCount),
-                                                        fontSize = 11.sp,
-                                                        color = palette.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        softWrap = false
-                                                    )
+                                                        Column(
+                                                            modifier = Modifier.weight(1f),
+                                                            verticalArrangement = Arrangement.Center
+                                                        ) {
+                                                            Text(
+                                                                text = entry.displayName,
+                                                                fontSize = 12.5.sp,
+                                                                lineHeight = 14.sp,
+                                                                fontWeight = FontWeight.SemiBold,
+                                                                color = palette.onSurface,
+                                                                maxLines = 1,
+                                                                softWrap = false,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                            Text(
+                                                                text = strings.wordsCount(entry.wordCount),
+                                                                fontSize = 10.sp,
+                                                                lineHeight = 12.sp,
+                                                                color = palette.onSurfaceVariant,
+                                                                maxLines = 1,
+                                                                softWrap = false
+                                                            )
+                                                        }
+                                                    }
+                                                },
+                                                onClick = {
+                                                    expanded = false
+                                                    onPromoteBackupNotebook(entry)
                                                 }
-                                            }
-                                        },
-                                        onClick = {
-                                            expanded = false
-                                            onPromoteBackupNotebook(entry)
+                                            )
                                         }
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -398,24 +493,29 @@ fun NotebookSwitcher(
                     HorizontalDivider(thickness = 0.8.dp, color = palette.divider)
 
                     DropdownMenuItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                         text = {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Add,
                                     contentDescription = null,
                                     tint = palette.primary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
                                 Text(
                                     text = strings.newNotebookButton,
-                                    fontSize = 14.sp,
+                                    fontSize = 12.5.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = palette.primary,
                                     maxLines = 1,
-                                    softWrap = false
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         },
@@ -426,23 +526,28 @@ fun NotebookSwitcher(
                     )
 
                     DropdownMenuItem(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                         text = {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Settings,
                                     contentDescription = null,
                                     tint = palette.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
                                 Text(
                                     text = strings.manageNotebooksButton,
-                                    fontSize = 14.sp,
+                                    fontSize = 12.5.sp,
                                     color = palette.onSurface,
                                     maxLines = 1,
-                                    softWrap = false
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         },

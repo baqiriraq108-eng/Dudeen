@@ -273,9 +273,20 @@ class NotebookManagerUiTest {
         composeTestRule.onNodeWithTag("dropdown_notebook_item_A1.1_1").assertDoesNotExist()
         composeTestRule.onNodeWithTag("dropdown_notebook_item_A1.2_1").assertDoesNotExist()
 
+        // Record initial dropdown & list container dimensions on Primary tab (2 primary items vs 1 backup item)
+        val initialMenuSize = composeTestRule.onNodeWithTag("notebook_switcher_dropdown_menu", useUnmergedTree = true).fetchSemanticsNode().size
+        val initialListSize = composeTestRule.onNodeWithTag("notebook_dropdown_list_container", useUnmergedTree = true).fetchSemanticsNode().size
+
         // Switch to User-Selected Backup Folder tab inside dropdown
         composeTestRule.onNodeWithTag("dropdown_tab_backup").performClick()
         composeTestRule.waitForIdle()
+
+        // Verify dropdown menu & list container dimensions remain 100% identical when switching tabs
+        val backupMenuSize = composeTestRule.onNodeWithTag("notebook_switcher_dropdown_menu", useUnmergedTree = true).fetchSemanticsNode().size
+        val backupListSize = composeTestRule.onNodeWithTag("notebook_dropdown_list_container", useUnmergedTree = true).fetchSemanticsNode().size
+        assertEquals("Dropdown menu width must not change between Primary and Backup tabs", initialMenuSize.width, backupMenuSize.width)
+        assertEquals("Dropdown menu height must not change between Primary and Backup tabs", initialMenuSize.height, backupMenuSize.height)
+        assertEquals("Dropdown list container height must not change between Primary and Backup tabs", initialListSize.height, backupListSize.height)
 
         // Only EXTERNAL_FOLDER notebooks appear; SYSTEM_BACKUP is strictly excluded
         composeTestRule.onNodeWithTag("dropdown_backup_notebook_item_B1.1").assertIsDisplayed()
